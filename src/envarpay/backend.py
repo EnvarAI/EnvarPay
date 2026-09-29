@@ -19,16 +19,19 @@ class AgentBackend:
         self.config, self.timeout = config, timeout
 
     async def list_tools(self) -> list[Tool]:
-        if self.config.kind == "hermes":
+        if self.config.kind in ("hermes", "http"):
             self.check_configuration()
-            self.check_hermes()
+            if self.config.kind == "hermes":
+                self.check_hermes()
             return [
                 Tool(
                     name="ask_agent",
-                    description="Ask this Hermes agent to perform a task",
+                    description="Ask this configured agent to perform a task",
                     inputSchema={
                         "type": "object",
-                        "properties": {"question": {"type": "string", "minLength": 1}},
+                        "properties": {
+                            "question": {"type": "string", "minLength": 1, "maxLength": 32000}
+                        },
                         "required": ["question"],
                         "additionalProperties": False,
                     },
@@ -49,11 +52,15 @@ class AgentBackend:
             from run_agent import AIAgent  # noqa: F401
         except ImportError as error:
             raise PaymentError(
-                "Install envar-pay into your official Hermes Python environment"
+                "Install envarpay into your official Hermes Python environment"
             ) from error
 
     def check_configuration(self) -> None:
         cfg = self.config
+        if cfg.kind == "http":
+            from .runtime_http import RuntimeHTTP
+
+            RuntimeHTTP(cfg, self.timeout).credential()
         if cfg.model == "YOUR_MODEL" or "YOUR_MODEL_ENDPOINT" in (cfg.base_url or ""):
             raise PaymentError("Replace the example model and endpoint before serving paid tools")
         if cfg.api_key_env and not os.environ.get(cfg.api_key_env):
@@ -65,6 +72,10 @@ class AgentBackend:
         if self.config.kind == "mcp":
             async with connect(self.config.upstream, self.timeout) as session:
                 return await session.call_tool(name, arguments)
+        if self.config.kind == "http":
+            from .runtime_http import RuntimeHTTP
+
+            return await RuntimeHTTP(self.config, self.timeout).call(arguments["question"])
         return await asyncio.to_thread(self.hermes_call, arguments["question"])
 
     def hermes_call(self, question: str) -> CallToolResult:
@@ -89,7 +100,7 @@ class AgentBackend:
             skip_context_files=True,
             skip_memory=True,
             load_soul_identity=False,
-            session_id=f"envar-pay-{uuid.uuid4()}",
+            session_id=f"envarpay-{uuid.uuid4()}",
         )
         result = agent.run_conversation(question, system_message=cfg.system_prompt)
         answer = result.get("final_response")

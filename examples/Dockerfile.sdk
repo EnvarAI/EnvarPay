@@ -1,0 +1,13 @@
+# Build the wheel first: python -m build --wheel
+# A tools-only base; each agent runtime lives in a separate environment/image.
+FROM nousresearch/hermes-agent@sha256:16788311e2fa3035456bdc1bafb8ec2b1777db64ebf020af9bb7eb73c3712c9e
+USER root
+WORKDIR /opt/envarpay
+ARG PYPI_INDEX=https://pypi.org/simple
+COPY dist/envarpay-0.1.0a2-py3-none-any.whl /tmp/envarpay-0.1.0a2-py3-none-any.whl
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv venv /opt/envarpay/.venv --python /opt/hermes/.venv/bin/python && \
+    uv pip install --index-url ${PYPI_INDEX} \
+      --python /opt/envarpay/.venv/bin/python /tmp/envarpay-0.1.0a2-py3-none-any.whl
+ENTRYPOINT ["/opt/envarpay/.venv/bin/envarpay"]
+CMD ["--help"]

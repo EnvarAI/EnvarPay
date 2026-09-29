@@ -1,10 +1,10 @@
-# envar-pay
+# envarpay
 
 An installable Python package and CLI for **MCP + x402 v2** agent payments.
 It can put an upfront USDC payment gate in front of an existing MCP service or an
 official Hermes runtime, and expose a bounded buyer wallet as an MCP server.
 
-Version `0.1.0a1` is an alpha. This package is an Envar adapter using official SDKs;
+Version `0.1.0a2` is an unreleased source preview. This package is an Envar adapter using official SDKs;
 it is not an official Hermes/x402 distribution or a new payment protocol.
 The package has not been published to PyPI.
 
@@ -14,10 +14,10 @@ Python 3.11 or newer:
 
 ```sh
 python -m pip install .
-envar-pay --help
+envarpay --help
 ```
 
-For a Hermes seller, install into **the Python environment used by your existing
+For the embedded Hermes seller only, install into **the Python environment used by your existing
 official Hermes**. Hermes itself is not bundled or installed by this package.
 If Hermes uses uv, `uv pip install --python /path/to/hermes/.venv/bin/python .`
 installs the adapter without changing Hermes source. A buyer wallet or MCP proxy
@@ -31,7 +31,7 @@ It keeps the exact x402 pin and does not disable the age setting for other packa
 ## Enable receiving payments
 
 ```sh
-envar-pay init --directory ./agent-pay --pay-to YOUR_WALLET_ADDRESS --backend hermes
+envarpay init --directory ./agent-pay --pay-to YOUR_WALLET_ADDRESS --backend hermes
 ```
 
 Edit `agent-pay/seller.toml`: set your model endpoint/model, price and system prompt.
@@ -39,8 +39,8 @@ Provide the model credential through the configured environment variable or a
 0600 `api_key_file`. Then start:
 
 ```sh
-envar-pay doctor --config ./agent-pay/seller.toml --online
-envar-pay serve --config ./agent-pay/seller.toml
+envarpay doctor --config ./agent-pay/seller.toml --online
+envarpay serve --config ./agent-pay/seller.toml
 ```
 
 The `ask_agent` MCP tool accepts `{ "question": "..." }`. It returns x402
@@ -77,7 +77,7 @@ sampling, elicitation, long-running tasks or bidirectional server requests.
 `init` also writes `buyer.toml` with **payments disabled**. Generate a separate key:
 
 ```sh
-envar-pay keygen --output ./agent-pay/buyer.key
+envarpay keygen --output ./agent-pay/buyer.key
 ```
 
 Only the public address is displayed. The command refuses to overwrite a key.
@@ -97,7 +97,7 @@ and keys for separate networks; never fund demonstration wallets with mainnet mo
 Wire the wallet into official Hermes through its normal `mcp_servers` config:
 
 ```sh
-envar-pay hermes-config --config ./agent-pay/buyer.toml
+envarpay hermes-config --config ./agent-pay/buyer.toml
 ```
 
 This prints a JSON object (also valid YAML). Merge its `mcp_servers.payments` entry
@@ -113,13 +113,13 @@ MCP client still needs this x402-capable component to pay.
 Equivalent direct CLI calls:
 
 ```sh
-envar-pay tools --config ./agent-pay/buyer.toml --peer seller
-envar-pay probe --config ./agent-pay/buyer.toml --peer seller \
+envarpay tools --config ./agent-pay/buyer.toml --peer seller
+envarpay probe --config ./agent-pay/buyer.toml --peer seller \
   --tool ask_agent --arguments '{"question":"What is your price?"}'
-envar-pay call --config ./agent-pay/buyer.toml --peer seller \
+envarpay call --config ./agent-pay/buyer.toml --peer seller \
   --tool ask_agent --arguments '{"question":"Summarize these notes..."}' \
   --request-id weekly-review-001
-envar-pay status --config ./agent-pay/buyer.toml --operation-id buy:weekly-review-001
+envarpay status --config ./agent-pay/buyer.toml --operation-id buy:weekly-review-001
 ```
 
 `probe` makes an unpaid tool call and never signs. A truly free upstream tool may
@@ -145,7 +145,7 @@ exactly-once execution guarantee**. If a process dies after charging, keep the
 state and investigate; do not delete it or create a new request ID to retry blindly.
 
 ```sh
-envar-pay reconcile --config ./agent-pay/buyer.toml --operation-id buy:weekly-review-001
+envarpay reconcile --config ./agent-pay/buyer.toml --operation-id buy:weekly-review-001
 ```
 
 `reconcile` only checks an already recorded transaction on chain. It never signs,

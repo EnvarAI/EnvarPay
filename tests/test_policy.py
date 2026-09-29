@@ -8,10 +8,10 @@ from pydantic import ValidationError
 from x402.schemas import PaymentRequired
 from x402.schemas.hooks import PaymentCreationContext
 
-from envar_pay.chain import Chain
-from envar_pay.config import Endpoint
-from envar_pay.storage import PaymentError, Store, secret_file
-from envar_pay.wallet import validate_quote
+from envarpay.chain import Chain
+from envarpay.config import Endpoint
+from envarpay.storage import PaymentError, Store, secret_file
+from envarpay.wallet import validate_quote
 
 
 @pytest.mark.parametrize(

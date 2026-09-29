@@ -1,0 +1,32 @@
+FROM envarpay:matrix-sdk AS langgraph
+USER root
+WORKDIR /opt/runtimes
+ARG PYPI_INDEX=https://pypi.org/simple
+COPY langchain/source/libs/core /src/langchain-core
+COPY langchain/source/libs/langchain_v1 /src/langchain
+COPY langchain/source/libs/partners/openai /src/langchain-openai
+COPY langgraph/source/libs/langgraph /src/langgraph
+COPY langgraph/source/libs/checkpoint /src/langgraph-checkpoint
+COPY langgraph/source/libs/prebuilt /src/langgraph-prebuilt
+COPY langgraph/source/libs/sdk-py /src/langgraph-sdk
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv venv /opt/langgraph --python /opt/hermes/.venv/bin/python && \
+    uv pip install --no-sources --index-url ${PYPI_INDEX} --python /opt/langgraph/bin/python \
+      /src/langchain-core '/src/langchain[mcp]' /src/langchain-openai \
+      /src/langgraph /src/langgraph-checkpoint /src/langgraph-prebuilt /src/langgraph-sdk \
+      'uvicorn>=0.31'
+FROM langgraph AS python
+ARG PYPI_INDEX=https://pypi.org/simple
+COPY pydantic-ai/source/pydantic_ai_slim /src/pydantic_ai_slim
+COPY pydantic-ai/source/pydantic_graph /src/pydantic_graph
+# Tar archives have no .git metadata; explicit local version identifies a source build.
+ENV UV_DYNAMIC_VERSIONING_BYPASS=2.51.0+source.3b68c695
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv venv /opt/pydantic-ai --python /opt/hermes/.venv/bin/python && \
+    uv pip install --no-sources --index-url ${PYPI_INDEX} --python /opt/pydantic-ai/bin/python \
+      /src/pydantic_graph '/src/pydantic_ai_slim[mcp,openai]' 'fastmcp>=4,<5' \
+      'uvicorn>=0.31'
+COPY langgraph/source.json /opt/runtimes/langgraph-source.json
+COPY langchain/source.json /opt/runtimes/langchain-source.json
+COPY pydantic-ai/source.json /opt/runtimes/pydantic-ai-source.json
+ENTRYPOINT ["/bin/sh"]

@@ -8,8 +8,8 @@ from x402 import x402Client
 from x402.mechanisms.evm.exact import ExactEvmClientScheme
 from x402.schemas import PaymentRequired
 
-from envar_pay.storage import PaymentError
-from envar_pay.wallet import WalletService
+from envarpay.storage import PaymentError
+from envarpay.wallet import WalletService
 
 
 async def sign(config, quote):
@@ -69,6 +69,57 @@ async def test_no_work_when_chain_proof_fails(config, paid_server, quote):
     server.backend.call.assert_not_called()
     record = server.store.get(server.payment_key(payload))
     assert record["data"]["transaction"]
+
+
+async def test_existing_http_runtime_waits_for_proof_and_is_not_replayed(
+    config, paid_server, quote, respx_mock, monkeypatch
+):
+    from envarpay.backend import AgentBackend
+    from envarpay.config import Backend
+
+    server, _, _ = paid_server
+    monkeypatch.setenv("ENVARPAY_TEST_GATEWAY_TOKEN", "test-token")
+    server.backend = AgentBackend(
+        Backend(
+            kind="http",
+            model="openclaw/seller",
+            base_url="http://127.0.0.1:18789/v1",
+            api_key_env="ENVARPAY_TEST_GATEWAY_TOKEN",
+        ),
+        30,
+    )
+    upstream = respx_mock.post("http://127.0.0.1:18789/v1/responses").respond(
+        json={
+            "status": "completed",
+            "output": [
+                {
+                    "type": "message",
+                    "role": "assistant",
+                    "content": [{"type": "output_text", "text": "test-double runtime answer"}],
+                }
+            ],
+        }
+    )
+    proving, release = asyncio.Event(), asyncio.Event()
+
+    async def proof(*args):
+        proving.set()
+        await release.wait()
+        return {"test_double": True}
+
+    server.chain.prove.side_effect = proof
+    unpaid = await server.call("ask_agent", {"question": "test"}, {})
+    assert unpaid.isError and not upstream.called
+    payload = await sign(config, quote)
+    meta = {"x402/payment": payload.model_dump(by_alias=True)}
+    first = asyncio.create_task(server.call("ask_agent", {"question": "test"}, meta))
+    await asyncio.wait_for(proving.wait(), 3)
+    assert not upstream.called
+    release.set()
+    result = await first
+    assert not result.isError and upstream.call_count == 1
+    assert await server.call("ask_agent", {"question": "test"}, meta) == result
+    assert upstream.call_count == 1
 
 
 async def test_invalid_signature_cannot_reserve_nonce(config, paid_server, quote):
@@ -158,7 +209,7 @@ def wire(monkeypatch, paid_server):
     async def connection(*args):
         yield Peer()
 
-    monkeypatch.setattr("envar_pay.wallet.connect", connection)
+    monkeypatch.setattr("envarpay.wallet.connect", connection)
 
 
 async def test_wallet_real_sdk_signature_cached_result_and_budget(config, paid_server, wire):

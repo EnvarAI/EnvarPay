@@ -53,7 +53,7 @@ class PaidServer:
         self.resource = x402ResourceServer(self.facilitator)
         self.resource.register(config.network, ExactEvmServerScheme())
         self.resource.on_before_settle(self.before_settle).on_after_settle(self.after_settle)
-        self.server = Server("envar-pay seller")
+        self.server = Server("envarpay seller")
         self.tools: dict[str, Tool] = {}
         self.wrappers: dict[str, Any] = {}
         self.owned: ContextVar[bool] = ContextVar("owns_settlement", default=False)

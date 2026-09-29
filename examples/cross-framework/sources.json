@@ -1,0 +1,55 @@
+{
+  "resolved_at": "2026-09-29",
+  "runtime_acceptance": "pending",
+  "sources": [
+    {
+      "name": "langgraph",
+      "repository": "langchain-ai/langgraph",
+      "branch": "main",
+      "sha": "07b33185eab893be2ed031eedae52f09314bf77c",
+      "committed_at": "2026-09-27T21:34:53Z"
+    },
+    {
+      "name": "openclaw",
+      "repository": "openclaw/openclaw",
+      "branch": "main",
+      "sha": "be271241b0c06159b888046f6afbec3d2dd26071",
+      "committed_at": "2026-09-29T10:27:32Z"
+    },
+    {
+      "name": "langchain",
+      "repository": "langchain-ai/langchain",
+      "branch": "master",
+      "sha": "78a3cbcc6b5e7e39fafda5d7b8df384a4a2c821d",
+      "committed_at": "2026-09-28T20:41:02Z"
+    },
+    {
+      "name": "pydantic-ai",
+      "repository": "pydantic/pydantic-ai",
+      "branch": "main",
+      "sha": "3b68c695b1068736133b7018f9c69d14ce390d38",
+      "committed_at": "2026-09-29T10:23:19Z"
+    },
+    {
+      "name": "hermes",
+      "repository": "NousResearch/hermes-agent",
+      "branch": "main",
+      "sha": "bca2e3c5a486a7cb85a7721af937b7f9b614f131",
+      "committed_at": "2026-09-29T10:15:52Z"
+    },
+    {
+      "name": "opencode",
+      "repository": "anomalyco/opencode",
+      "branch": "dev",
+      "sha": "7945de208964a49300d7f770d1a71d078db9a4c4",
+      "committed_at": "2026-09-28T22:59:34Z"
+    },
+    {
+      "name": "goose",
+      "repository": "aaif-goose/goose",
+      "branch": "main",
+      "sha": "b92a80daf4a77d7e854709965bdfdc489c0472d2",
+      "committed_at": "2026-09-29T08:15:15Z"
+    }
+  ]
+}

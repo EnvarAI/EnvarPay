@@ -9,7 +9,7 @@ state are shared with the CLI; using the Python API does not bypass them.
 import asyncio
 from pathlib import Path
 
-from envar_pay import WalletService, load_config
+from envarpay import WalletService, load_config
 
 async def main():
     wallet = WalletService(load_config(Path("buyer.toml")))
@@ -28,7 +28,7 @@ asyncio.run(main())
 
 Only enable payments after reviewing the configured wallet, network, recipients,
 tools and limits. Preserve the same request ID for a retry of the same purchase.
-`PaymentError` from `envar_pay.storage` reports policy or uncertain-result refusals.
+`PaymentError` from `envarpay.storage` reports policy or uncertain-result refusals.
 Successful results include the tool's content and independently checked payment
 proof. A simulated test response is never a real settlement receipt.
 
@@ -38,7 +38,7 @@ proof. A simulated test response is never a real settlement receipt.
 from pathlib import Path
 
 import uvicorn
-from envar_pay import PaidServer, load_config
+from envarpay import PaidServer, load_config
 
 service = PaidServer(load_config(Path("seller.toml")))
 uvicorn.run(service.app(), host=service.policy.host, port=service.policy.port)
@@ -47,7 +47,7 @@ uvicorn.run(service.app(), host=service.policy.host, port=service.policy.port)
 The returned ASGI app handles `/mcp`, `/sse` and `/messages/`. Its lifespan checks
 the RPC network, facilitator support and configured backend tools before serving.
 Keep the ASGI lifespan enabled. The backend can be a configured MCP endpoint or
-an installed official Hermes runtime.
+an installed official Hermes runtime, or the experimental existing-runtime HTTP connector. See the framework guides and validation ledger for actual support levels.
 
 ## Inspect state
 

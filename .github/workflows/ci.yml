@@ -33,7 +33,7 @@ jobs:
         run: |
           python -m venv /tmp/envarpay-wheel
           /tmp/envarpay-wheel/bin/pip install dist/*.whl
-          /tmp/envarpay-wheel/bin/envar-pay --version
+          /tmp/envarpay-wheel/bin/envarpay --version
           /tmp/envarpay-wheel/bin/pip check
 
   # No wallets, API keys or blockchain payments are used by CI.

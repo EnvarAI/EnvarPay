@@ -3,8 +3,8 @@ requires = ["hatchling>=1.27"]
 build-backend = "hatchling.build"
 
 [project]
-name = "envar-pay"
-version = "0.1.0a1"
+name = "envarpay"
+version = "0.1.0a2"
 description = "Get your agents paid. MCP and x402 payment SDK and CLI for agents."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -40,10 +40,10 @@ Documentation = "https://github.com/EnvarAI/EnvarPay/tree/main/docs"
 test = ["pytest>=8", "pytest-asyncio>=0.25", "respx>=0.22", "build>=1.2", "ruff>=0.12"]
 
 [project.scripts]
-envar-pay = "envar_pay.cli:main"
+envarpay = "envarpay.cli:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/envar_pay"]
+packages = ["src/envarpay"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

@@ -8,9 +8,9 @@ import sys
 from importlib.metadata import version
 from pathlib import Path
 
-from envar_pay.backend import AgentBackend
-from envar_pay.cli import initialize
-from envar_pay.config import load_config
+from envarpay.backend import AgentBackend
+from envarpay.cli import initialize
+from envarpay.config import load_config
 
 root = Path(os.environ["HERMES_HOME"])
 root.mkdir(mode=0o700, parents=True, exist_ok=True)
@@ -22,7 +22,7 @@ snippet = json.loads(
         [
             sys.executable,
             "-m",
-            "envar_pay",
+            "envarpay",
             "hermes-config",
             "--config",
             str(config),
@@ -47,7 +47,7 @@ print(
     json.dumps(
         {
             "hermes": version("hermes-agent"),
-            "envar_pay": version("envar-pay"),
+            "envarpay": version("envarpay"),
             "wallet_tools_registered": tools,
             "seller_tools": [tool.name for tool in listed],
             "payment_attempted": False,

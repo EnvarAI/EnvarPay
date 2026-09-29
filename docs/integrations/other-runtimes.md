@@ -14,7 +14,7 @@ OpenCode v1.18.33 supports local MCP servers under its `mcp` configuration:
     "envarpay": {
       "type": "local",
       "command": [
-        "/absolute/path/to/venv/bin/envar-pay",
+        "/absolute/path/to/venv/bin/envarpay",
         "wallet", "--config", "/absolute/path/to/buyer.toml"
       ],
       "enabled": true,
@@ -24,7 +24,7 @@ OpenCode v1.18.33 supports local MCP servers under its `mcp` configuration:
 }
 ```
 
-This is a buyer-tool integration candidate. For selling an existing OpenCode
+The local OpenCode 1.15.13 native MCP client connected successfully to the old-name wallet. That was a connection check, not a model/tool loop or payment. The 1.18.33 research version and renamed source still need runtime checks. Generate the source-preview config with `envarpay host-config --host opencode --config /absolute/buyer.toml`. For selling an existing OpenCode
 agent, its server and official **`@opencode-ai/sdk`** provide a concrete route:
 `createOpencodeClient` connects to an existing instance, with session creation
 and `session.prompt` calls. EnvarPay does not yet implement that seller adapter.

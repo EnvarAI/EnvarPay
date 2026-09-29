@@ -20,8 +20,8 @@
 [Build with a framework](docs/integrations/other-runtimes.md#langgraph-and-langchain)
 
 Read the [support matrix](docs/integrations/index.md) before choosing an adapter:
-the Hermes wallet/embedded mode is tested; the other runtime paths are documented
-candidates. Receiving payment and making payment have different requirements.
+validation is version-specific; OpenCode has a native connection check, while
+new cross-framework paid acceptance is still pending. Receiving payment and making payment have different requirements.
 
 **EnvarPay** is an open-source Python SDK and CLI that connects agents to
 **MCP + x402 v2** payments. Put a USDC payment gate in front of an existing MCP
@@ -31,8 +31,8 @@ tool or Hermes agent, and give buyers a wallet tool with an explicit spending bu
 
 | | Command | What it does |
 |---|---|---|
-| **Get paid** | `envar-pay serve` | Quote a price, confirm payment, then execute your agent's capability. |
-| **Pay others** | `envar-pay wallet` | Give an MCP-capable agent a payment tool constrained by your allowlist and budget. |
+| **Get paid** | `envarpay serve` | Quote a price, confirm payment, then execute your agent's capability. |
+| **Pay others** | `envarpay wallet` | Give an MCP-capable agent a payment tool constrained by your allowlist and budget. |
 
 ```mermaid
 sequenceDiagram
@@ -55,7 +55,7 @@ sequenceDiagram
 
 ### Why EnvarPay?
 
-- **Connect your capabilities.** Wrap existing MCP tools or run the tested embedded Hermes seller. Existing-Gateway HTTP connectors are not implemented yet.
+- **Connect your capabilities.** Wrap existing MCP tools or run the tested embedded Hermes seller. An experimental HTTP connector targets dedicated existing OpenClaw/Hermes services; live acceptance is pending.
 - **Use open protocols.** Official MCP and x402 SDKs handle the wire format. No Envar account or proprietary settlement API is required.
 - **Pay first, work second.** The seller checks the exact USDC transfer and nonce before running the paid capability.
 - **Put spending limits in code.** Configure allowed services, full recipients, tools, per-call limits and a persistent cumulative budget.
@@ -69,45 +69,50 @@ Python 3.11+, tested on macOS and Linux. Native Windows permissions are not yet 
 git clone https://github.com/EnvarAI/EnvarPay.git
 cd EnvarPay
 python -m pip install .
-envar-pay --help
+envarpay --help
 ```
 
-This alpha is not on PyPI yet. You can also install the wheel from
-[GitHub Releases](https://github.com/EnvarAI/EnvarPay/releases).
-For a Hermes seller, install into Hermes's Python environment; see the
+This alpha is not on PyPI yet. The existing [GitHub release](https://github.com/EnvarAI/EnvarPay/releases)
+is 0.1.0a1 with the old package name. See [upgrade instructions](docs/migration-envarpay.md).
+Only the embedded Hermes seller needs installation into Hermes's Python environment; see the
 [Hermes setup notes](docs/getting-started.md#install).
 
 ### Start receiving payments
 
 ```bash
-envar-pay init --directory ./agent-pay --pay-to YOUR_WALLET_ADDRESS --backend hermes
-# Configure your model and capability in agent-pay/seller.toml.
-envar-pay serve --config ./agent-pay/seller.toml
+envarpay init --directory ./agent-pay --pay-to YOUR_WALLET_ADDRESS --backend openclaw
+# For an existing Hermes API server, choose --backend hermes-http instead.
+# Review the existing runtime URL, fixed agent target, credential reference and price.
+envarpay serve --config ./agent-pay/seller.toml
 ```
 
 Your paid `ask_agent` tool is available at `http://127.0.0.1:4020/mcp` (or `/sse`).
 The seller needs its receiving address, not its private key.
+The existing-runtime HTTP connector is experimental; follow the
+[OpenClaw](docs/integrations/openclaw.md) or [Hermes](docs/integrations/hermes.md)
+guide to enable a dedicated private service. Its model and tools stay configured there.
+Live cross-framework paid acceptance is still pending.
 Already run an MCP service? Choose `--backend mcp` and configure which tools to sell.
-The Hermes backend creates a fresh configured agent and skips memory/workspace
-context; it does not attach to your existing Hermes Gateway or CLI session.
+The optional `--backend hermes` mode creates a fresh embedded agent and skips
+memory/workspace context; it does not attach to an existing session.
 
 ### Give an agent a payment wallet
 
 ```bash
-envar-pay keygen --output ./agent-pay/buyer.key
+envarpay keygen --output ./agent-pay/buyer.key
 # Fund the dedicated test wallet; review the recipient and budget in buyer.toml.
 # Payments default to OFF. Enable them only after reviewing the configuration.
-envar-pay hermes-config --config ./agent-pay/buyer.toml
+envarpay host-config --host hermes --config ./agent-pay/buyer.toml
 ```
 
-Merge the generated `mcp_servers.payments` entry into Hermes's MCP configuration.
-Other MCP clients can launch the same `envar-pay wallet --config ...` process.
+Merge the generated `mcp_servers.envarpay` entry into Hermes's MCP configuration.
+Other MCP clients can launch the same `envarpay wallet --config ...` process.
 The agent gets `list_paid_tools`, `call_paid_tool` and `payment_status`.
 
 For a direct call:
 
 ```bash
-envar-pay call --config ./agent-pay/buyer.toml --peer seller --tool ask_agent \
+envarpay call --config ./agent-pay/buyer.toml --peer seller --tool ask_agent \
   --arguments '{"question":"Help our team plan a weekly knowledge review"}' \
   --request-id weekly-review-001
 ```
@@ -116,7 +121,7 @@ For an embedded integration:
 
 ```python
 from pathlib import Path
-from envar_pay import WalletService, load_config
+from envarpay import WalletService, load_config
 
 wallet = WalletService(load_config(Path("agent-pay/buyer.toml")))
 result = await wallet.call(
@@ -138,7 +143,7 @@ existing POC receipt; a new package-version live payment is still pending.
 
 ### Current scope
 
-`0.1.0a1` is an **alpha**, not a production financial system. Defaults use Base
+`0.1.0a2` is an **unreleased source preview**, not a production financial system. Defaults use Base
 Sepolia, payments off, and a 0.01 test-USDC per-call and cumulative budget.
 
 | Included | Not yet included |
@@ -165,3 +170,5 @@ Built with [MCP](https://github.com/modelcontextprotocol/python-sdk),
 [Hermes](https://github.com/NousResearch/hermes-agent) integration. EnvarPay is an
 independent project by [EnvarAI](https://github.com/EnvarAI), not an official
 distribution or endorsement by those projects. [MIT licensed](LICENSE).
+
+See the [current validation ledger](docs/integrations/validation.md) for actual host versions, failed prerequisites and remaining acceptance checks.

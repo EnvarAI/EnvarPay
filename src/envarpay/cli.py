@@ -49,6 +49,14 @@ transport = "streamable-http"
 url = "http://127.0.0.1:8000/mcp"
 """
     )
+    if backend in ("openclaw", "hermes-http"):
+        target = "openclaw/seller" if backend == "openclaw" else "hermes-agent"
+        port = 18789 if backend == "openclaw" else 8642
+        backend_config = (
+            'kind = "http"\nhttp_api = "responses"\n'
+            f'base_url = "http://127.0.0.1:{port}/v1"\nmodel = "{target}"\n'
+            'api_key_env = "ENVARPAY_RUNTIME_TOKEN"\n'
+        )
     write_new(
         directory / "seller.toml",
         f'''schema_version = 1
@@ -95,7 +103,7 @@ tools = ["ask_agent"]
 
 
 def parser() -> argparse.ArgumentParser:
-    root = argparse.ArgumentParser(prog="envar-pay", description="MCP + x402 agent payments")
+    root = argparse.ArgumentParser(prog="envarpay", description="MCP + x402 agent payments")
     root.add_argument("--version", action="version", version=__version__)
     sub = root.add_subparsers(dest="command", required=True)
     init = sub.add_parser(
@@ -103,7 +111,9 @@ def parser() -> argparse.ArgumentParser:
     )
     init.add_argument("--directory", type=Path, required=True)
     init.add_argument("--pay-to", required=True)
-    init.add_argument("--backend", choices=["hermes", "mcp"], default="hermes")
+    init.add_argument(
+        "--backend", choices=["hermes", "mcp", "openclaw", "hermes-http"], default="hermes"
+    )
     keygen = sub.add_parser(
         "keygen", help="Create a new dedicated EVM key, displaying only its address"
     )
@@ -117,6 +127,7 @@ def parser() -> argparse.ArgumentParser:
         "status",
         "reconcile",
         "hermes-config",
+        "host-config",
         "doctor",
     ]:
         item = sub.add_parser(command)
@@ -132,6 +143,8 @@ def parser() -> argparse.ArgumentParser:
             )
         if command in ("status", "reconcile"):
             item.add_argument("--operation-id", required=command == "reconcile")
+        if command == "host-config":
+            item.add_argument("--host", choices=["hermes", "openclaw", "opencode"], required=True)
         if command == "doctor":
             item.add_argument("--online", action="store_true", help="Also read RPC chain ID")
     return root
@@ -146,18 +159,19 @@ async def read_or_call(args: argparse.Namespace) -> dict | list:
 
     config = load_config(args.config)
     if args.command == "doctor":
-        if config.seller and config.seller.backend.kind == "hermes":
+        if config.seller and config.seller.backend.kind in ("hermes", "http"):
             from .backend import AgentBackend
 
             AgentBackend(config.seller.backend, config.timeout_seconds).check_configuration()
-            AgentBackend.check_hermes()
+            if config.seller.backend.kind == "hermes":
+                AgentBackend.check_hermes()
         if args.online:
             await Chain(config).check_network()
         return {
             "valid": True,
             "network": config.network,
             "rpc_checked": args.online,
-            "versions": {name: version(name) for name in ("envar-pay", "x402", "mcp")},
+            "versions": {name: version(name) for name in ("envarpay", "x402", "mcp")},
         }
     if args.command in ("status", "reconcile"):
         store = Store(config.state_dir)
@@ -205,6 +219,10 @@ def main() -> None:
                 "key_file": str(args.output),
                 "private_key_printed": False,
             }
+        elif args.command == "host-config":
+            from .host_config import host_config
+
+            result = host_config(args.host, args.config)
         elif args.command == "hermes-config":
             load_config(args.config)
             result = {
@@ -213,7 +231,7 @@ def main() -> None:
                         "command": sys.executable,
                         "args": [
                             "-m",
-                            "envar_pay",
+                            "envarpay",
                             "wallet",
                             "--config",
                             str(args.config.expanduser().resolve()),
@@ -245,11 +263,11 @@ def main() -> None:
             result = asyncio.run(read_or_call(args))
         print(json.dumps(result, ensure_ascii=False, indent=2))
     except (PaymentError, FileExistsError, FileNotFoundError) as error:
-        print(f"envar-pay: {error}", file=sys.stderr)
+        print(f"envarpay: {error}", file=sys.stderr)
         raise SystemExit(1) from None
     except ValidationError as error:
         print(
-            "envar-pay: invalid configuration: "
+            "envarpay: invalid configuration: "
             + "; ".join(
                 f"{'.'.join(map(str, e['loc']))}: {e['msg']}"
                 for e in error.errors(include_input=False)
@@ -258,5 +276,5 @@ def main() -> None:
         )
         raise SystemExit(1) from None
     except Exception as error:
-        print(f"envar-pay: {type(error).__name__}; operation did not complete", file=sys.stderr)
+        print(f"envarpay: {type(error).__name__}; operation did not complete", file=sys.stderr)
         raise SystemExit(1) from None

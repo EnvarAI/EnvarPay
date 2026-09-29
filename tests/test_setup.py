@@ -5,10 +5,10 @@ from pathlib import Path
 
 import pytest
 
-from envar_pay.backend import AgentBackend
-from envar_pay.cli import initialize
-from envar_pay.config import Backend, load_config
-from envar_pay.storage import PaymentError
+from envarpay.backend import AgentBackend
+from envarpay.cli import initialize
+from envarpay.config import Backend, load_config
+from envarpay.storage import PaymentError
 
 
 def test_init_does_not_overwrite_and_resolves_paths_from_config(tmp_path: Path):
@@ -27,7 +27,7 @@ def test_init_does_not_overwrite_and_resolves_paths_from_config(tmp_path: Path):
 def test_cli_key_generation_and_hermes_snippet(tmp_path: Path):
     key = tmp_path / "buyer.key"
     result = subprocess.run(
-        [sys.executable, "-m", "envar_pay", "keygen", "--output", str(key)],
+        [sys.executable, "-m", "envarpay", "keygen", "--output", str(key)],
         capture_output=True,
         text=True,
     )
@@ -35,7 +35,7 @@ def test_cli_key_generation_and_hermes_snippet(tmp_path: Path):
     assert key.stat().st_mode & 0o777 == 0o600
     assert key.read_text().strip() not in result.stdout + result.stderr
     duplicate = subprocess.run(
-        [sys.executable, "-m", "envar_pay", "keygen", "--output", str(key)],
+        [sys.executable, "-m", "envarpay", "keygen", "--output", str(key)],
         capture_output=True,
         text=True,
     )
@@ -46,7 +46,7 @@ def test_cli_key_generation_and_hermes_snippet(tmp_path: Path):
         [
             sys.executable,
             "-m",
-            "envar_pay",
+            "envarpay",
             "hermes-config",
             "--config",
             str(folder / "buyer.toml"),
@@ -55,7 +55,7 @@ def test_cli_key_generation_and_hermes_snippet(tmp_path: Path):
     )
     item = json.loads(output)["mcp_servers"]["payments"]
     assert Path(item["command"]).is_absolute() and Path(item["args"][-1]).is_absolute()
-    assert item["args"][:3] == ["-m", "envar_pay", "wallet"]
+    assert item["args"][:3] == ["-m", "envarpay", "wallet"]
 
 
 @pytest.mark.parametrize(
