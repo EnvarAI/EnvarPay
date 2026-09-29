@@ -1,0 +1,8 @@
+FROM envarpay:matrix-sdk
+USER root
+ADD openclaw/openclaw-runtime.tar.gz /opt/openclaw-runtime/
+COPY openclaw/sources.json /opt/framework-sources.json
+RUN mkdir -p /opt/openclaw-runtime/bin && ln -s ../node /opt/openclaw-runtime/bin/node
+ENV PATH=/opt/openclaw-runtime/bin:$PATH OPENCLAW_STATE_DIR=/runtime-home OPENCLAW_CONFIG_PATH=/runtime-home/openclaw.json
+WORKDIR /opt/openclaw-runtime/app
+ENTRYPOINT ["/opt/openclaw-runtime/node", "/opt/openclaw-runtime/app/openclaw.mjs"]

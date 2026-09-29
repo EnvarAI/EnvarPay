@@ -13,11 +13,29 @@ Merge that entry into the host configuration. Wallet tools are `list_paid_tools`
 `call_paid_tool`, and `payment_status`. The wallet defaults to payments OFF.
 It only spends on configured peers, recipients and tools, within its persistent budget.
 
-Research targets OpenClaw 2026.9.6; it requires Node >=24.16.0 <25 or >=26.1.0. The local 2026.4.2 CLI has a different command surface and cannot validate this guide. On the target release, `openclaw mcp doctor envarpay --probe` checks discovery. A minimal tool profile can hide MCP tools; preserve and inspect host tool permissions. `openclaw mcp serve` is a conversation/channel bridge, not paid task execution.
+The [official main-source Docker run](validation.md) uses the source SHA in
+[sources.json](../../examples/cross-framework/sources.json), not the local installation.
+The [native profile](../../examples/cross-framework/profiles/openclaw/buyer/) and
+[CLI wrapper](../../examples/cross-framework/native_cli.py) show the tested configuration.
+
+## Tested seller path: private MCP + native CLI
+
+Run the native wrapper in seller mode, then put an EnvarPay MCP-backend payment gate
+in front of its private `ask_agent` tool. (The backend is selected
+with `envarpay init --backend mcp`; `serve` reads that seller config.)
+The actual native CLI performs the task after the outer payment gate confirms it.
+See [Docker instructions](../../examples/cross-framework/README.md). This creates a
+new dedicated native task, not a continuation of your personal conversation.
+
+Current main uses `agents.entries` and `memory.search`; older `agents.list` and
+`agents.defaults.memorySearch` examples no longer match its schema. Persist the
+workspace together with the profile (`/runtime-home/workspace` in the example).
+Use a dedicated model-key variable; the test profile uses `ENVARPAY_MODEL_API_KEY`.
+Do not delete workspace guards or reseed a lost profile to repair payment state.
 
 ## Receive payment using your existing agent service
 
-**Experimental source-preview connector; actual OpenClaw paid acceptance is pending.**
+**Experimental source-preview connector; Gateway HTTP paid acceptance is pending; the native MCP/CLI matrix does not cover it.**
 
 Enable `gateway.http.endpoints.responses.enabled` on a dedicated Gateway. Create/select the fixed seller agent ID (the generated target is `openclaw/seller`).
 

@@ -1,0 +1,6 @@
+{
+  "GOOSE_PROVIDER": "openai",
+  "GOOSE_MODEL": "gpt-4.1-mini",
+  "GOOSE_MODE": "auto",
+  "extensions": {}
+}

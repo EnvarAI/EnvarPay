@@ -1,0 +1,7 @@
+FROM envarpay:matrix-sdk
+USER root
+COPY python/pydantic-ai /wheels/pydantic-ai
+RUN uv venv /opt/pydantic-ai --python /opt/hermes/.venv/bin/python && \
+    uv pip install --offline --no-index --python /opt/pydantic-ai/bin/python /wheels/pydantic-ai/*.whl
+COPY python/sources.json /opt/framework-sources.json
+ENTRYPOINT ["/opt/pydantic-ai/bin/python"]

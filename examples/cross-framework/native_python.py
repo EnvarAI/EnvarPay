@@ -27,9 +27,22 @@ def model_url():
     return os.environ.get("MODEL_BASE_URL", "https://api.openai.com/v1")
 
 
+def wallet_client(config_path):
+    from fastmcp import Client
+    from fastmcp.client.transports import StdioTransport
+
+    return Client(
+        StdioTransport(
+            command="/opt/envarpay/.venv/bin/envarpay", args=["wallet", "--config", config_path]
+        ),
+        mode="legacy",
+        timeout=750,
+        init_timeout=30,
+    )
+
+
 async def invoke(framework, question, wallet_config=None):
     if framework == "langgraph":
-        from fastmcp.client.transports import StdioTransport
         from langchain.agents import create_agent
         from langchain.mcp import MCPAdapter
         from langchain_openai import ChatOpenAI
@@ -42,11 +55,7 @@ async def invoke(framework, question, wallet_config=None):
             timeout=120,
         )
         if wallet_config:
-            transport = StdioTransport(
-                command="/opt/envarpay/.venv/bin/envarpay",
-                args=["wallet", "--config", wallet_config],
-            )
-            async with MCPAdapter(transport) as adapter:
+            async with MCPAdapter(wallet_client(wallet_config)) as adapter:
                 tools = await adapter.list_tools()
                 agent = create_agent(model, tools)
                 result = await agent.ainvoke({"messages": [{"role": "user", "content": question}]})
@@ -56,7 +65,6 @@ async def invoke(framework, question, wallet_config=None):
         calls = [c for m in result["messages"] for c in getattr(m, "tool_calls", [])]
         record("native_run_finished", framework=framework, tool_calls=calls)
         return result["messages"][-1].content
-    from fastmcp.client.transports import StdioTransport
     from pydantic_ai import Agent
     from pydantic_ai.mcp import MCPToolset
     from pydantic_ai.models.openai import OpenAIChatModel
@@ -68,14 +76,7 @@ async def invoke(framework, question, wallet_config=None):
     )
     toolsets = []
     if wallet_config:
-        toolsets = [
-            MCPToolset(
-                StdioTransport(
-                    command="/opt/envarpay/.venv/bin/envarpay",
-                    args=["wallet", "--config", wallet_config],
-                )
-            )
-        ]
+        toolsets = [MCPToolset(wallet_client(wallet_config))]
     agent = Agent(model, toolsets=toolsets, retries=0)
     async with agent:
         result = await agent.run(question)
@@ -91,7 +92,7 @@ async def invoke(framework, question, wallet_config=None):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("framework", choices=["langgraph", "pydantic-ai"])
-    parser.add_argument("role", choices=["seller", "buyer", "probe"])
+    parser.add_argument("role", choices=["seller", "buyer", "probe", "smoke"])
     parser.add_argument("--prompt-file")
     parser.add_argument("--config")
     args = parser.parse_args()
@@ -112,19 +113,22 @@ def main():
             return result
 
         mcp.run(transport="http", host="0.0.0.0", port=8000)
-    elif args.role == "buyer":
+    elif args.role in ("buyer", "smoke"):
+        if args.role == "buyer" and not args.config:
+            parser.error("Buyer runs require --config")
         question = Path(args.prompt_file).read_text()
         answer = asyncio.run(invoke(args.framework, question, args.config))
-        record("buyer_delivered", framework=args.framework, result=answer)
+        record(
+            "buyer_delivered" if args.role == "buyer" else "smoke_finished",
+            framework=args.framework,
+            result=answer,
+        )
         print(json.dumps({"answer": answer}))
     else:
 
         async def probe():
-            from fastmcp.client.transports import StdioTransport
 
-            transport = StdioTransport(
-                command="/opt/envarpay/.venv/bin/envarpay", args=["wallet", "--config", args.config]
-            )
+            transport = wallet_client(args.config)
             if args.framework == "langgraph":
                 from langchain.mcp import MCPAdapter
 

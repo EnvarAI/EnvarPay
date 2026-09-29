@@ -1,5 +1,9 @@
 # A real testnet payment, with explicit evidence boundaries
 
+This page preserves the earlier two-Hermes POC. The later source-preview
+[six-framework Docker matrix](integrations/validation.md) records 28 additional
+paid deliveries and two failed settlements, with separate transaction evidence.
+
 On 2026-09-29, an earlier local POC ran two real Hermes agents in separate Docker
 containers. Agent B received x402 v2 PaymentRequired over MCP, paid Agent A **0.01
 test USDC on Base Sepolia**, and received a model-generated Chinese answer about
@@ -41,5 +45,5 @@ The SDK was extracted afterward. Its validation includes clean wheel installatio
 native wallet-tool registration in official Hermes 0.20.0, actual model connectivity,
 real local HTTP/SSE/stdio tests and a fresh read-only check of the existing receipt.
 The tests' simulated facilitator responses, offline signatures and CI results
-are **not additional payments**. A new live payment through the packaged release
-remains to be validated separately with explicit test-wallet authorization.
+are **not additional payments**. Later payments through the 0.1.0a2 source-preview
+wheel are recorded in the matrix linked above; the 0.1.0a1 release remains unchanged.

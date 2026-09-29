@@ -1,6 +1,6 @@
 {
   "resolved_at": "2026-09-29T13:14:45.542674+00:00",
-  "runtime_acceptance": "pending",
+  "runtime_acceptance": "28/30 paid deliveries; 2 failed settlements; see docs/integrations/validation.md",
   "source_policy": "Official default-development branch HEAD; pinned for the complete matrix run",
   "sources": [
     {

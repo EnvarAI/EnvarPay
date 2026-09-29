@@ -1,8 +1,10 @@
 # envarpay
 
 An installable Python package and CLI for **MCP + x402 v2** agent payments.
-It can put an upfront USDC payment gate in front of an existing MCP service or an
-official Hermes runtime, and expose a bounded buyer wallet as an MCP server.
+It puts an upfront USDC payment gate in front of a private MCP capability and
+exposes a bounded buyer wallet as an MCP server. Start with the
+[guide for your framework](integrations/index.md); six native runtimes have
+real paid-delivery evidence in the [Docker matrix](integrations/validation.md).
 
 Version `0.1.0a2` is an unreleased source preview. This package is an Envar adapter using official SDKs;
 it is not an official Hermes/x402 distribution or a new payment protocol.
@@ -31,12 +33,13 @@ It keeps the exact x402 pin and does not disable the age setting for other packa
 ## Enable receiving payments
 
 ```sh
-envarpay init --directory ./agent-pay --pay-to YOUR_WALLET_ADDRESS --backend hermes
+envarpay init --directory ./agent-pay --pay-to YOUR_WALLET_ADDRESS --backend mcp
 ```
 
-Edit `agent-pay/seller.toml`: set your model endpoint/model, price and system prompt.
-Provide the model credential through the configured environment variable or a
-0600 `api_key_file`. Then start:
+Edit `agent-pay/seller.toml`: set the private MCP upstream, tool name and price.
+Keep model credentials and runtime configuration in that private service.
+If your agent has no MCP endpoint, use the
+[native wrapper examples](../examples/cross-framework/README.md). Then start:
 
 ```sh
 envarpay doctor --config ./agent-pay/seller.toml --online
@@ -45,7 +48,7 @@ envarpay serve --config ./agent-pay/seller.toml
 
 The `ask_agent` MCP tool accepts `{ "question": "..." }`. It returns x402
 PaymentRequired until payment settles and the exact USDC Transfer plus original
-authorization nonce are independently verified. Only then does Hermes run.
+authorization nonce are independently verified. Only then does the upstream agent run.
 The seller needs a **receiving address, not its private key**.
 
 Both transports are available: Streamable HTTP at `/mcp`, SSE at `/sse`.
@@ -94,10 +97,10 @@ validated with a new mainnet payment. Its facilitator must support that network;
 the sample public facilitator is for the tested Sepolia flow. Use separate state
 and keys for separate networks; never fund demonstration wallets with mainnet money.
 
-Wire the wallet into official Hermes through its normal `mcp_servers` config:
+Generate the wallet entry for your native host (Hermes shown):
 
 ```sh
-envarpay hermes-config --config ./agent-pay/buyer.toml
+envarpay host-config --host hermes --config ./agent-pay/buyer.toml
 ```
 
 This prints a JSON object (also valid YAML). Merge its `mcp_servers.payments` entry

@@ -20,12 +20,14 @@
 [Build with a framework](docs/integrations/other-runtimes.md#langgraph-and-langchain)
 
 Read the [support matrix](docs/integrations/index.md) before choosing an adapter:
-validation is version-specific; OpenCode has a native connection check, while
-new cross-framework paid acceptance is still pending. Receiving payment and making payment have different requirements.
+validation is version-specific. Six native runtimes have now made and received
+real Base Sepolia payments in local Docker. The [transaction matrix](docs/integrations/validation.md)
+records successful deliveries and failed settlements separately.
 
 **EnvarPay** is an open-source Python SDK and CLI that connects agents to
 **MCP + x402 v2** payments. Put a USDC payment gate in front of an existing MCP
-tool or Hermes agent, and give buyers a wallet tool with an explicit spending budget.
+tool, and give buyers a wallet tool with an explicit spending budget.
+It works with an agent framework through that framework's own MCP client and runtime.
 
 ### Two sides. One package.
 
@@ -55,7 +57,7 @@ sequenceDiagram
 
 ### Why EnvarPay?
 
-- **Connect your capabilities.** Wrap existing MCP tools or run the tested embedded Hermes seller. An experimental HTTP connector targets dedicated existing OpenClaw/Hermes services; live acceptance is pending.
+- **Keep your framework.** OpenClaw, Hermes, OpenCode and Goose use native MCP clients; LangGraph/LangChain and Pydantic AI use their official adapters. Seller examples wrap the actual native runtime as MCP.
 - **Use open protocols.** Official MCP and x402 SDKs handle the wire format. No Envar account or proprietary settlement API is required.
 - **Pay first, work second.** The seller checks the exact USDC transfer and nonce before running the paid capability.
 - **Put spending limits in code.** Configure allowed services, full recipients, tools, per-call limits and a persistent cumulative budget.
@@ -80,19 +82,21 @@ Only the embedded Hermes seller needs installation into Hermes's Python environm
 ### Start receiving payments
 
 ```bash
-envarpay init --directory ./agent-pay --pay-to YOUR_WALLET_ADDRESS --backend openclaw
-# For an existing Hermes API server, choose --backend hermes-http instead.
-# Review the existing runtime URL, fixed agent target, credential reference and price.
+envarpay init --directory ./agent-pay --pay-to YOUR_WALLET_ADDRESS --backend mcp
+# Set seller.backend.upstream to your private MCP service.
+# Set the tool name and price under seller.tools; review network and recipient.
 envarpay serve --config ./agent-pay/seller.toml
 ```
 
 Your paid `ask_agent` tool is available at `http://127.0.0.1:4020/mcp` (or `/sse`).
 The seller needs its receiving address, not its private key.
-The existing-runtime HTTP connector is experimental; follow the
-[OpenClaw](docs/integrations/openclaw.md) or [Hermes](docs/integrations/hermes.md)
-guide to enable a dedicated private service. Its model and tools stay configured there.
-Live cross-framework paid acceptance is still pending.
-Already run an MCP service? Choose `--backend mcp` and configure which tools to sell.
+For an agent that does not expose MCP, start with the
+[native Docker adapters](examples/cross-framework/README.md): a bounded `ask_agent`
+tool invokes the native CLI or framework only after the outer payment gate confirms payment.
+Keep that raw MCP service private. These are examples to adapt, not a one-command
+installer for an existing personal session.
+The `openclaw` and `hermes-http` Gateway HTTP connectors are experimental;
+their live paid acceptance is separate and remains pending.
 The optional `--backend hermes` mode creates a fresh embedded agent and skips
 memory/workspace context; it does not attach to an existing session.
 
@@ -106,6 +110,7 @@ envarpay host-config --host hermes --config ./agent-pay/buyer.toml
 ```
 
 Merge the generated `mcp_servers.envarpay` entry into Hermes's MCP configuration.
+Use `--host openclaw`, `--host opencode`, or `--host goose` for those native clients.
 Other MCP clients can launch the same `envarpay wallet --config ...` process.
 The agent gets `list_paid_tools`, `call_paid_tool` and `payment_status`.
 
@@ -131,15 +136,16 @@ result = await wallet.call(
 
 ### What has been proven?
 
-A prior two-container Hermes POC paid **0.01 test USDC on Base Sepolia**, then
-delivered a real model-generated answer. Buyer balance: 20 → 19.99. Seller: 0 → 0.01.
+The [six-framework matrix](docs/integrations/validation.md) uses official development
+branches resolved to full commits on 2026-09-29, then frozen for one local Docker run.
+Every successful direction has its own **0.0001 test-USDC** payment, native buyer
+tool call, exact USDC Transfer and authorization nonce, seller execution after
+receipt verification, delivered result, and duplicate-request replay check.
+The matrix includes failed settlements; it does not claim 30/30 acceptance.
 
-**[View the on-chain transaction](https://sepolia.basescan.org/tx/0xade8b0b108ae664162e2c01530ed03a01ac4f25a52e0036140f28bcccd7ea213)** · [Evidence and its limits](docs/proof-of-concept.md)
-
-The extracted package has been tested with an official Hermes 0.20.0 image,
-clean wheel installation, real model connectivity and local MCP transport tests.
-Those tests are not additional blockchain payments. The package rechecked the
-existing POC receipt; a new package-version live payment is still pending.
+Build artifacts from CI supply dependencies and native binaries. Actual agents,
+payments and deliveries run locally. The earlier [two-Hermes POC](docs/proof-of-concept.md)
+is separate historical evidence. None of these tests establish mainnet readiness.
 
 ### Current scope
 

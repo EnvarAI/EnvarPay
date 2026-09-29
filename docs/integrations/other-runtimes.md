@@ -1,8 +1,9 @@
 # Other runtimes and developer frameworks
 
-These are **documented candidate paths**, not claims of completed EnvarPay
-payment acceptance tests. Research date: 2026-09-29. Keep the wallet in a separate
-environment when the host uses different MCP/FastMCP versions.
+These runtimes have completed real buyer and seller payments in local Docker.
+See the [per-direction matrix](validation.md), including the failed settlements.
+The examples use official development-branch commits frozen on 2026-09-29.
+Keep the wallet in a separate environment when the host uses different MCP/FastMCP versions.
 
 ## OpenCode
 
@@ -18,13 +19,16 @@ OpenCode v1.18.33 supports local MCP servers under its `mcp` configuration:
         "wallet", "--config", "/absolute/path/to/buyer.toml"
       ],
       "enabled": true,
-      "timeout": 30000
+      "timeout": 750000
     }
   }
 }
 ```
 
-The local OpenCode 1.15.13 native MCP client connected successfully to the old-name wallet. That was a connection check, not a model/tool loop or payment. The 1.18.33 research version and renamed source still need runtime checks. Generate the source-preview config with `envarpay host-config --host opencode --config /absolute/buyer.toml`. For selling an existing OpenCode
+Generate this configuration with `envarpay host-config --host opencode --config /absolute/buyer.toml`.
+The tested seller wraps native `opencode --pure run --format json` behind the MCP
+payment gate. See [native_cli.py](../../examples/cross-framework/native_cli.py).
+For selling an existing OpenCode
 agent, its server and official **`@opencode-ai/sdk`** provide a concrete route:
 `createOpencodeClient` connects to an existing instance, with session creation
 and `session.prompt` calls. EnvarPay does not yet implement that seller adapter.
@@ -42,9 +46,18 @@ Goose supports custom STDIO MCP extensions. Its documented desktop flow is:
 command with an absolute path and buyer config, retaining the host's permissions
 and the wallet's independent spending policy.
 
+Generate a native extension with:
+
+```sh
+envarpay host-config --host goose --config /absolute/path/buyer.toml
+```
+
+Merge `extensions.envarpay` into Goose's config. Its `timeout` is in seconds.
+The tested headless command is `goose run --no-session --output-format json`.
+
 For selling, a dedicated `goose run`/recipe runner can be wrapped in a service,
-but EnvarPay has not implemented or tested that path. Headless mode executes a
-task and exits; this is not attachment to an existing desktop conversation.
+and the [native CLI example](../../examples/cross-framework/native_cli.py) has
+completed real paid deliveries using that path. Headless mode executes a task and exits; this is not attachment to an existing desktop conversation.
 
 The current **`goose-sdk`** has Python/Rust/Kotlin bindings for the **provider
 layer**: model completion, streaming and compaction. Its existence does not prove
@@ -57,7 +70,7 @@ Sources: [extension guide at v1.52.0](https://github.com/aaif-goose/goose/blob/v
 
 ## LangGraph and LangChain
 
-Buyer: current LangChain documentation exposes `langchain.mcp.MCPAdapter` through
+Buyer: the tested current LangChain source exposes `langchain.mcp.MCPAdapter` through
 the MCP extra; earlier versions use `langchain-mcp-adapters`. Use a version-specific
 guide, or register a Python tool that delegates to `WalletService.call()` in a
 compatible environment.
@@ -73,7 +86,7 @@ Sources: [LangChain MCP](https://docs.langchain.com/oss/python/langchain/mcp),
 
 ## Pydantic AI
 
-Buyer: current documentation provides the MCP capability and `MCPToolset`, with
+Buyer: the tested current source provides the MCP capability and `MCPToolset`, with
 stdio, SSE and Streamable HTTP through FastMCP. Connect to the separately running
 wallet rather than assuming its dependency stack can share the EnvarPay environment.
 
@@ -82,6 +95,33 @@ use the existing priced-MCP backend. EnvarPay currently lacks a direct
 `@paid` callable decorator; no such API is implied by calling the package an SDK.
 
 Source: [Pydantic AI MCP client](https://pydantic.dev/docs/ai/mcp/client/).
+
+## Executable Python integration
+
+The [native Python harness](../../examples/cross-framework/native_python.py) includes
+buyer, seller and read-only probe modes for both frameworks. It uses the official
+FastMCP compatibility mode against EnvarPay's separate MCP 1 process:
+
+```python
+from fastmcp import Client
+from fastmcp.client.transports import StdioTransport
+
+wallet = Client(
+    StdioTransport(
+        command="/path/to/envarpay/venv/bin/envarpay",
+        args=["wallet", "--config", "/absolute/buyer.toml"],
+    ),
+    mode="legacy",
+    timeout=750,
+    init_timeout=30,
+)
+# LangChain: async with MCPAdapter(wallet) as adapter: ...
+# Pydantic AI: Agent(model, toolsets=[MCPToolset(wallet)])
+```
+
+Seller examples expose one `ask_agent` MCP tool calling the framework's real agent.
+Configure that private URL under `seller.backend.upstream`, then place `envarpay serve`
+in front of it. Framework/model credentials belong to the runtime, not the payment quote.
 
 ## What SDK means here
 

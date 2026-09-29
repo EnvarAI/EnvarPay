@@ -13,11 +13,27 @@ Merge that entry into the host configuration. Wallet tools are `list_paid_tools`
 `call_paid_tool`, and `payment_status`. The wallet defaults to payments OFF.
 It only spends on configured peers, recipients and tools, within its persistent budget.
 
-The native host needs its optional MCP dependencies installed. The inspected local 0.15.2 installation silently returned no tools without `mcp`. Install the MCP extra according to your pinned Hermes release, in its own environment. The earlier official-image validation used Hermes 0.20.0, not this local installation.
+The [official main-source Docker run](validation.md) uses the source SHA in
+[sources.json](../../examples/cross-framework/sources.json), not the local installation.
+The [native profile](../../examples/cross-framework/profiles/hermes/buyer/) and
+[CLI wrapper](../../examples/cross-framework/native_cli.py) show the tested configuration.
+
+## Tested seller path: private MCP + native CLI
+
+Run the native wrapper in seller mode, then put an EnvarPay MCP-backend payment gate
+in front of its private `ask_agent` tool. (The backend is selected
+with `envarpay init --backend mcp`; `serve` reads that seller config.)
+The actual native CLI performs the task after the outer payment gate confirms it.
+See [Docker instructions](../../examples/cross-framework/README.md). This creates a
+new dedicated native task, not a continuation of your personal conversation.
+
+Install Hermes's optional MCP dependencies in its own environment. The current
+main-source test uses `/opt/hermes-latest/bin/hermes chat --oneshot --format stream-json`.
+The base image's old Hermes executable is not used for the matrix.
 
 ## Receive payment using your existing agent service
 
-**Experimental source-preview connector; actual Hermes paid acceptance is pending.**
+**Experimental source-preview connector; Gateway HTTP paid acceptance is pending; the native MCP/CLI matrix does not cover it.**
 
 Enable `API_SERVER_ENABLED=true`, set `API_SERVER_KEY`, and run `hermes gateway` in a dedicated seller profile. The generated target is `hermes-agent`.
 

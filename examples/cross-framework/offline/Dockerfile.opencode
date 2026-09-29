@@ -1,0 +1,8 @@
+FROM envarpay:matrix-sdk
+USER root
+COPY --chmod=755 opencode/opencode /usr/local/bin/opencode
+COPY opencode/sources.json /opt/framework-sources.json
+ENV XDG_CONFIG_HOME=/runtime-home/config XDG_DATA_HOME=/runtime-home/data \
+    XDG_CACHE_HOME=/runtime-home/cache XDG_STATE_HOME=/runtime-home/state \
+    OPENCODE_DISABLE_AUTOUPDATE=true OPENCODE_DISABLE_MODELS_FETCH=true
+ENTRYPOINT ["opencode"]

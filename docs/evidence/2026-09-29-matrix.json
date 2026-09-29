@@ -1,0 +1,965 @@
+{
+  "audited_at": 1790693395.9740942,
+  "network": "eip155:84532",
+  "asset": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+  "expected_directions": 30,
+  "passed_directions": 28,
+  "payment_amount_atomic": 100,
+  "passed": [
+    {
+      "case": "openclaw-to-hermes",
+      "request_id": "matrix-20260929-openclaw-to-hermes-v1",
+      "status": "passed",
+      "proof": {
+        "transaction": "0x7e091cd32470332ed61bbaf1fd953c282a6538bd4cf5711fb5f70b6834f8fb3f",
+        "block_number": 47462487,
+        "block_hash": "0x06f680a5348f8167bd3eaaa75efc1c9accd80904d56cd6cd2b78d5a8ca6489b2",
+        "confirmations_at_audit": 54,
+        "transfer_log_index": 5,
+        "authorization_log_index": 4,
+        "payer": "0xbd0c522C61E14413E43F5BaAf6a016b77a0f4dfD",
+        "recipient": "0x1799BC22317F840F1c394fD5E1622858e35e590c",
+        "amount_atomic": 100,
+        "nonce": "0x21ad5d22e711e770e645e4cc7441d1cd5ff87582fb658d2d482c710aee3ad834"
+      },
+      "native_wallet_tool": "mcp:envarpay:envarpay__call_paid_tool",
+      "expected_marker": "ENVARPAY_openclaw-to-hermes_RESULT=323",
+      "seller_result": "ENVARPAY_openclaw-to-hermes_RESULT=323",
+      "buyer_result": "ENVARPAY_openclaw-to-hermes_RESULT=323",
+      "seller_proof_verified_at": 1790693265.8654065,
+      "seller_started_at": 1790693265.9241416,
+      "seller_delivered_at": 1790693283.7282891,
+      "buyer_delivered_at": 1790693293.315959,
+      "replay_no_new_payment_or_execution": true
+    },
+    {
+      "case": "openclaw-to-opencode",
+      "request_id": "matrix-20260929-openclaw-to-opencode-v1",
+      "status": "passed",
+      "proof": {
+        "transaction": "0x63c976e96ec1a91353e76c22bc862597264234d3f9394f7b386be70f2095eeed",
+        "block_number": 47462353,
+        "block_hash": "0x6340828491f31ee22c5882dbe903805b553246f2fc30b3554ca1247980f6983b",
+        "confirmations_at_audit": 188,
+        "transfer_log_index": 1,
+        "authorization_log_index": 0,
+        "payer": "0xbd0c522C61E14413E43F5BaAf6a016b77a0f4dfD",
+        "recipient": "0x5Afcc5bfBCC139683f2AFFDdc8fd45456C2E4128",
+        "amount_atomic": 100,
+        "nonce": "0xd7fecab611f9b5eaa366f6fdbbb9e852d5f05d0d441f6fe066096c68bdc442fa"
+      },
+      "native_wallet_tool": "mcp:envarpay:envarpay__call_paid_tool",
+      "expected_marker": "ENVARPAY_openclaw-to-opencode_RESULT=323",
+      "seller_result": "ENVARPAY_openclaw-to-opencode_RESULT=323",
+      "buyer_result": "ENVARPAY_openclaw-to-opencode_RESULT=323",
+      "seller_proof_verified_at": 1790692998.581467,
+      "seller_started_at": 1790692998.653304,
+      "seller_delivered_at": 1790693003.5035741,
+      "buyer_delivered_at": 1790693011.4624863,
+      "replay_no_new_payment_or_execution": true
+    },
+    {
+      "case": "openclaw-to-goose",
+      "request_id": "matrix-20260929-openclaw-to-goose-v1",
+      "status": "passed",
+      "proof": {
+        "transaction": "0xd79dd18efb0dcaa54c6df722a5e8998b0d5fe34f17ededc63b89f6f8684a5122",
+        "block_number": 47462437,
+        "block_hash": "0xabb6c65b774f7a4f7b1d57a730852f000ddf1590aa4fc729472e6b44d93bd383",
+        "confirmations_at_audit": 104,
+        "transfer_log_index": 6,
+        "authorization_log_index": 5,
+        "payer": "0xbd0c522C61E14413E43F5BaAf6a016b77a0f4dfD",
+        "recipient": "0x368E45fb6cA09F2B4294c075d6aDDe020550E104",
+        "amount_atomic": 100,
+        "nonce": "0x4123f0c2ef1c5b55d14a039a16e4cb305474a5c3e2c352598ff1c8f466fcd680"
+      },
+      "native_wallet_tool": "mcp:envarpay:envarpay__call_paid_tool",
+      "expected_marker": "ENVARPAY_openclaw-to-goose_RESULT=323",
+      "seller_result": "ENVARPAY_openclaw-to-goose_RESULT=323",
+      "buyer_result": "ENVARPAY_openclaw-to-goose_RESULT=323",
+      "seller_proof_verified_at": 1790693166.582507,
+      "seller_started_at": 1790693166.6719935,
+      "seller_delivered_at": 1790693174.4489443,
+      "buyer_delivered_at": 1790693184.0943925,
+      "replay_no_new_payment_or_execution": true
+    },
+    {
+      "case": "openclaw-to-langgraph",
+      "request_id": "matrix-20260929-openclaw-to-langgraph-v1",
+      "status": "passed",
+      "proof": {
+        "transaction": "0x6768f79b9ebe465acf20600bc61c63e0768680432aebb5307b64675e6e8c2f87",
+        "block_number": 47462462,
+        "block_hash": "0x29c90d95ac114459e8f6caf61cc07d35f6f0ee8223c34736f80496f51b5e22be",
+        "confirmations_at_audit": 80,
+        "transfer_log_index": 14,
+        "authorization_log_index": 13,
+        "payer": "0xbd0c522C61E14413E43F5BaAf6a016b77a0f4dfD",
+        "recipient": "0xA6fb6Ef40d523F6EfA88d0328324Af86cd9E0bE0",
+        "amount_atomic": 100,
+        "nonce": "0xb084670ae0b215300466ea150bf60fe1ff3adf70d2a1a0c6f38e6306319e6037"
+      },
+      "native_wallet_tool": "mcp:envarpay:envarpay__call_paid_tool",
+      "expected_marker": "ENVARPAY_openclaw-to-langgraph_RESULT=323",
+      "seller_result": "ENVARPAY_openclaw-to-langgraph_RESULT=323",
+      "buyer_result": "ENVARPAY_openclaw-to-langgraph_RESULT=323",
+      "seller_proof_verified_at": 1790693216.157847,
+      "seller_started_at": 1790693216.2283769,
+      "seller_delivered_at": 1790693220.8855114,
+      "buyer_delivered_at": 1790693230.356946,
+      "replay_no_new_payment_or_execution": true
+    },
+    {
+      "case": "hermes-to-openclaw",
+      "request_id": "matrix-20260929-hermes-to-openclaw-v1",
+      "status": "passed",
+      "proof": {
+        "transaction": "0x3dc94b9f71a4c2367d903f628c2e37f7605b9966bed466aadabc2eefb8af2241",
+        "block_number": 47462324,
+        "block_hash": "0x2ede10c2b4f97764e167ebb5af8338cbf4ef83a28ea5622dae35d77ac2e3e04c",
+        "confirmations_at_audit": 219,
+        "transfer_log_index": 29,
+        "authorization_log_index": 28,
+        "payer": "0x1799BC22317F840F1c394fD5E1622858e35e590c",
+        "recipient": "0xbd0c522C61E14413E43F5BaAf6a016b77a0f4dfD",
+        "amount_atomic": 100,
+        "nonce": "0x6151fbc59a9a98d5c1161664f8320c6b36a3432421a7017701618e7d24fc98cf"
+      },
+      "native_wallet_tool": "mcp__envarpay__call_paid_tool",
+      "expected_marker": "ENVARPAY_hermes-to-openclaw_RESULT=323",
+      "seller_result": "ENVARPAY_hermes-to-openclaw_RESULT=323",
+      "buyer_result": "ENVARPAY_hermes-to-openclaw_RESULT=323",
+      "seller_proof_verified_at": 1790692941.6798086,
+      "seller_started_at": 1790692941.7452853,
+      "seller_delivered_at": 1790692950.891657,
+      "buyer_delivered_at": 1790692959.7492905,
+      "replay_no_new_payment_or_execution": true
+    },
+    {
+      "case": "hermes-to-opencode",
+      "request_id": "matrix-20260929-hermes-to-opencode-v1",
+      "status": "passed",
+      "proof": {
+        "transaction": "0x4228e908361ae558ba0f526699cf9b4c9cf8007f72afb21c3caa67c93bd9903e",
+        "block_number": 47461942,
+        "block_hash": "0xa9166a937acb8cb2cb75969b2a26d49c5147614bca99bf22dacf83e3e6d5a203",
+        "confirmations_at_audit": 601,
+        "transfer_log_index": 79,
+        "authorization_log_index": 78,
+        "payer": "0x1799BC22317F840F1c394fD5E1622858e35e590c",
+        "recipient": "0x5Afcc5bfBCC139683f2AFFDdc8fd45456C2E4128",
+        "amount_atomic": 100,
+        "nonce": "0x9ee1ece144d3d165ce5dc5d1ae30cbbc398a04dc9fecfc725ad45141ae6ca064"
+      },
+      "native_wallet_tool": "mcp__envarpay__call_paid_tool",
+      "expected_marker": "ENVARPAY_hermes-to-opencode_RESULT=323",
+      "seller_result": "ENVARPAY_hermes-to-opencode_RESULT=323",
+      "buyer_result": "ENVARPAY_hermes-to-opencode_RESULT=323",
+      "seller_proof_verified_at": 1790692174.8328128,
+      "seller_started_at": 1790692174.91471,
+      "seller_delivered_at": 1790692182.777758,
+      "buyer_delivered_at": 1790692194.093716,
+      "replay_no_new_payment_or_execution": true
+    },
+    {
+      "case": "hermes-to-goose",
+      "request_id": "matrix-20260929-hermes-to-goose-v1",
+      "status": "passed",
+      "proof": {
+        "transaction": "0x070898d037fc04a070633d5ad71bfee366d5c82ba278cd6f4c0416781b6cb940",
+        "block_number": 47462005,
+        "block_hash": "0xc06791aac0e58d0af277e91f52c88e5921fa1f9e99fe46686ed8ee8daa18e5ed",
+        "confirmations_at_audit": 539,
+        "transfer_log_index": 33,
+        "authorization_log_index": 32,
+        "payer": "0x1799BC22317F840F1c394fD5E1622858e35e590c",
+        "recipient": "0x368E45fb6cA09F2B4294c075d6aDDe020550E104",
+        "amount_atomic": 100,
+        "nonce": "0xebdab82903e259d21954c4e0f4ff0b3ac077a17edba40f32a3bf94ac0c6748b9"
+      },
+      "native_wallet_tool": "mcp__envarpay__call_paid_tool",
+      "expected_marker": "ENVARPAY_hermes-to-goose_RESULT=323",
+      "seller_result": "ENVARPAY_hermes-to-goose_RESULT=323",
+      "buyer_result": "ENVARPAY_hermes-to-goose_RESULT=323",
+      "seller_proof_verified_at": 1790692301.284258,
+      "seller_started_at": 1790692301.3277197,
+      "seller_delivered_at": 1790692307.06998,
+      "buyer_delivered_at": 1790692316.7176845,
+      "replay_no_new_payment_or_execution": true
+    },
+    {
+      "case": "hermes-to-pydantic-ai",
+      "request_id": "matrix-20260929-hermes-to-pydantic-ai-v1",
+      "status": "passed",
+      "proof": {
+        "transaction": "0x06ae061df58e647560b8cf312a696dba5ecb59a6d48ef3625a27dd9962e1a01f",
+        "block_number": 47461970,
+        "block_hash": "0xcce7807d95d6672453e1346175bef2c699ee88b5aeb588066101f925fe88c1d5",
+        "confirmations_at_audit": 575,
+        "transfer_log_index": 40,
+        "authorization_log_index": 39,
+        "payer": "0x1799BC22317F840F1c394fD5E1622858e35e590c",
+        "recipient": "0x52C1e952fC4Da93Fe93e3004c9C405b3Be2d61F5",
+        "amount_atomic": 100,
+        "nonce": "0xaefee77822dbcfa912ae723aea0b282f1a7413a6d7b2ed00349e0d9a36380884"
+      },
+      "native_wallet_tool": "mcp__envarpay__call_paid_tool",
+      "expected_marker": "ENVARPAY_hermes-to-pydantic-ai_RESULT=323",
+      "seller_result": "ENVARPAY_hermes-to-pydantic-ai_RESULT=323",
+      "buyer_result": "ENVARPAY_hermes-to-pydantic-ai_RESULT=323",
+      "seller_proof_verified_at": 1790692231.8093636,
+      "seller_started_at": 1790692231.9066577,
+      "seller_delivered_at": 1790692239.1629946,
+      "buyer_delivered_at": 1790692251.6828918,
+      "replay_no_new_payment_or_execution": true
+    },
+    {
+      "case": "opencode-to-openclaw",
+      "request_id": "matrix-20260929-opencode-to-openclaw-v1",
+      "status": "passed",
+      "proof": {
+        "transaction": "0x0f86e4423f1311a82c7f386c6cf176b8d6908d914e915f98fdc0a2310ab9740e",
+        "block_number": 47461784,
+        "block_hash": "0x21c5f46456cf6458b94ec5cab8ca03ca34fdcdd2661960b1f47d2dc3e0342c55",
+        "confirmations_at_audit": 761,
+        "transfer_log_index": 22,
+        "authorization_log_index": 21,
+        "payer": "0x5Afcc5bfBCC139683f2AFFDdc8fd45456C2E4128",
+        "recipient": "0xbd0c522C61E14413E43F5BaAf6a016b77a0f4dfD",
+        "amount_atomic": 100,
+        "nonce": "0xa972d032f0bd694b060fc068440114de38ccf83c22fd174838c8f25c273750d0"
+      },
+      "native_wallet_tool": "envarpay_call_paid_tool",
+      "expected_marker": "ENVARPAY_opencode-to-openclaw_RESULT=323",
+      "seller_result": "ENVARPAY_opencode-to-openclaw_RESULT=323",
+      "buyer_result": "ENVARPAY_opencode-to-openclaw_RESULT=323",
+      "seller_proof_verified_at": 1790691859.3496084,
+      "seller_started_at": 1790691859.3946843,
+      "seller_delivered_at": 1790691870.919622,
+      "buyer_delivered_at": 1790691876.9604897,
+      "replay_no_new_payment_or_execution": true
+    },
+    {
+      "case": "opencode-to-hermes",
+      "request_id": "matrix-20260929-opencode-to-hermes-v1",
+      "status": "passed",
+      "proof": {
+        "transaction": "0xbf95f5c391f29c7936c2433f841570952d754062a53bf455852e12d8946956f9",
+        "block_number": 47461752,
+        "block_hash": "0x1595941a4beb471a1827fe1d13bd33c85d501ec53f6ed9776636aef9e8747ade",
+        "confirmations_at_audit": 794,
+        "transfer_log_index": 108,
+        "authorization_log_index": 107,
+        "payer": "0x5Afcc5bfBCC139683f2AFFDdc8fd45456C2E4128",
+        "recipient": "0x1799BC22317F840F1c394fD5E1622858e35e590c",
+        "amount_atomic": 100,
+        "nonce": "0x3eb947e968a4474aa3301dc2c2356245681b95c192e417366f137cd1da26e53b"
+      },
+      "native_wallet_tool": "envarpay_call_paid_tool",
+      "expected_marker": "ENVARPAY_opencode-to-hermes_RESULT=323",
+      "seller_result": "ENVARPAY_opencode-to-hermes_RESULT=323",
+      "buyer_result": "ENVARPAY_opencode-to-hermes_RESULT=323",
+      "seller_proof_verified_at": 1790691798.5039196,
+      "seller_started_at": 1790691798.57166,
+      "seller_delivered_at": 1790691830.6330974,
+      "buyer_delivered_at": 1790691838.2683012,
+      "replay_no_new_payment_or_execution": true
+    },
+    {
+      "case": "opencode-to-goose",
+      "request_id": "matrix-20260929-opencode-to-goose-v1",
+      "status": "passed",
+      "proof": {
+        "transaction": "0x2ca31cda1990177b1be783501172ba465280e839c72a40018b12ea27dcc0e5ae",
+        "block_number": 47460838,
+        "block_hash": "0x23611696c0368f7fc6b818752978a64231fb6e72bd6c4d751ebde0d0dccc8d1f",
+        "confirmations_at_audit": 1708,
+        "transfer_log_index": 45,
+        "authorization_log_index": 44,
+        "payer": "0x5Afcc5bfBCC139683f2AFFDdc8fd45456C2E4128",
+        "recipient": "0x368E45fb6cA09F2B4294c075d6aDDe020550E104",
+        "amount_atomic": 100,
+        "nonce": "0xae6ac9c74159117c585fcc46a05c7809bd3d419a65af6b3a7e8c62ccf10f5894"
+      },
+      "native_wallet_tool": "envarpay_call_paid_tool",
+      "expected_marker": "ENVARPAY_opencode-to-goose_RESULT=323",
+      "seller_result": "ENVARPAY_opencode-to-goose_RESULT=323",
+      "buyer_result": "ENVARPAY_opencode-to-goose_RESULT=323",
+      "seller_proof_verified_at": 1790689969.4488566,
+      "seller_started_at": 1790689969.4775212,
+      "seller_delivered_at": 1790689975.5377505,
+      "buyer_delivered_at": 1790689981.3977191,
+      "replay_no_new_payment_or_execution": true
+    },
+    {
+      "case": "opencode-to-langgraph",
+      "request_id": "matrix-20260929-opencode-to-langgraph-v1",
+      "status": "passed",
+      "proof": {
+        "transaction": "0x873847a9ddcd2c0d03a68d060e6e0ca48c16625b43186038690b6938da06f8ef",
+        "block_number": 47460855,
+        "block_hash": "0xe22d99c9ac30e1b7f6835c6530c666d77aeb52e3357b402e1547a8c66362689e",
+        "confirmations_at_audit": 1692,
+        "transfer_log_index": 20,
+        "authorization_log_index": 19,
+        "payer": "0x5Afcc5bfBCC139683f2AFFDdc8fd45456C2E4128",
+        "recipient": "0xA6fb6Ef40d523F6EfA88d0328324Af86cd9E0bE0",
+        "amount_atomic": 100,
+        "nonce": "0x8913fb8625294f6c33f13c56f318017f72ee4f14ba21b9a50827ccafb170d507"
+      },
+      "native_wallet_tool": "envarpay_call_paid_tool",
+      "expected_marker": "ENVARPAY_opencode-to-langgraph_RESULT=323",
+      "seller_result": "ENVARPAY_opencode-to-langgraph_RESULT=323",
+      "buyer_result": "ENVARPAY_opencode-to-langgraph_RESULT=323",
+      "seller_proof_verified_at": 1790690003.843355,
+      "seller_started_at": 1790690003.8747795,
+      "seller_delivered_at": 1790690008.9272394,
+      "buyer_delivered_at": 1790690030.3356287,
+      "replay_no_new_payment_or_execution": true
+    },
+    {
+      "case": "opencode-to-pydantic-ai",
+      "request_id": "matrix-20260929-opencode-to-pydantic-ai-v1",
+      "status": "passed",
+      "proof": {
+        "transaction": "0x0f6007923f7df5d8587d314b427b8d832df0af93ec9023c3fadc0911334ca9d4",
+        "block_number": 47460245,
+        "block_hash": "0x0c89995972c8358b41ed9004e9ff55e29ba08effe7f28a8900c41157ff5b4f00",
+        "confirmations_at_audit": 2302,
+        "transfer_log_index": 4,
+        "authorization_log_index": 3,
+        "payer": "0x5Afcc5bfBCC139683f2AFFDdc8fd45456C2E4128",
+        "recipient": "0x52C1e952fC4Da93Fe93e3004c9C405b3Be2d61F5",
+        "amount_atomic": 100,
+        "nonce": "0xe42aac2910e8c5e8617dc8b4c4b6f745c1de0cbd0236036feeca2a7031fc026e"
+      },
+      "native_wallet_tool": "envarpay_call_paid_tool",
+      "expected_marker": "ENVARPAY_opencode-to-pydantic-ai_RESULT=323",
+      "seller_result": "ENVARPAY_opencode-to-pydantic-ai_RESULT=323",
+      "buyer_result": "ENVARPAY_opencode-to-pydantic-ai_RESULT=323",
+      "seller_proof_verified_at": 1790688782.3152127,
+      "seller_started_at": 1790688782.3594978,
+      "seller_delivered_at": 1790688786.887678,
+      "buyer_delivered_at": 1790688793.018682,
+      "replay_no_new_payment_or_execution": true
+    },
+    {
+      "case": "goose-to-openclaw",
+      "request_id": "matrix-20260929-goose-to-openclaw-v1",
+      "status": "passed",
+      "proof": {
+        "transaction": "0x56d7249ba7ca7ed56faf4a6b5bb988d271188ce0306f9b50f511bec789e24407",
+        "block_number": 47461870,
+        "block_hash": "0x6a8828247e9df4e30d82f731598273a7022d0acc69e85b2a6d9fb5db29c5f602",
+        "confirmations_at_audit": 678,
+        "transfer_log_index": 37,
+        "authorization_log_index": 36,
+        "payer": "0x368E45fb6cA09F2B4294c075d6aDDe020550E104",
+        "recipient": "0xbd0c522C61E14413E43F5BaAf6a016b77a0f4dfD",
+        "amount_atomic": 100,
+        "nonce": "0x56040270a52534d7719e8f4a7861be73ea311d686c6167ae1a12c522ff5e6807"
+      },
+      "native_wallet_tool": "envarpay__call_paid_tool",
+      "expected_marker": "ENVARPAY_goose-to-openclaw_RESULT=323",
+      "seller_result": "ENVARPAY_goose-to-openclaw_RESULT=323",
+      "buyer_result": "ENVARPAY_goose-to-openclaw_RESULT=323",
+      "seller_proof_verified_at": 1790692032.3974876,
+      "seller_started_at": 1790692032.454885,
+      "seller_delivered_at": 1790692041.8567991,
+      "buyer_delivered_at": 1790692047.26232,
+      "replay_no_new_payment_or_execution": true
+    },
+    {
+      "case": "goose-to-hermes",
+      "request_id": "matrix-20260929-goose-to-hermes-v1",
+      "status": "passed",
+      "proof": {
+        "transaction": "0x523883c4f5fc6c76c72d2c38f116ecbd49724812a0ed2d7efaee43caa238ffa6",
+        "block_number": 47461851,
+        "block_hash": "0x97aac50a2e87ac8b30a418a616ba9bb5492477e214c7ceb3271875d579714dbb",
+        "confirmations_at_audit": 697,
+        "transfer_log_index": 12,
+        "authorization_log_index": 11,
+        "payer": "0x368E45fb6cA09F2B4294c075d6aDDe020550E104",
+        "recipient": "0x1799BC22317F840F1c394fD5E1622858e35e590c",
+        "amount_atomic": 100,
+        "nonce": "0xb4b472cf454bf0deb6ed020582168d51cd710f3c9a780a8ea413b2d519a8e482"
+      },
+      "native_wallet_tool": "envarpay__call_paid_tool",
+      "expected_marker": "ENVARPAY_goose-to-hermes_RESULT=323",
+      "seller_result": "ENVARPAY_goose-to-hermes_RESULT=323",
+      "buyer_result": "ENVARPAY_goose-to-hermes_RESULT=323",
+      "seller_proof_verified_at": 1790691994.2927325,
+      "seller_started_at": 1790691994.358033,
+      "seller_delivered_at": 1790692006.7399879,
+      "buyer_delivered_at": 1790692012.711818,
+      "replay_no_new_payment_or_execution": true
+    },
+    {
+      "case": "goose-to-opencode",
+      "request_id": "matrix-20260929-goose-to-opencode-v1",
+      "status": "passed",
+      "proof": {
+        "transaction": "0x0d32a1a25b8b6db585ec27216579c05c256e89dae6e66cc00e30f75e99005913",
+        "block_number": 47460915,
+        "block_hash": "0x7791b385cabc07956d8111fa745a8a83aa25f25307065fac768a5cc6a5e824e2",
+        "confirmations_at_audit": 1634,
+        "transfer_log_index": 18,
+        "authorization_log_index": 17,
+        "payer": "0x368E45fb6cA09F2B4294c075d6aDDe020550E104",
+        "recipient": "0x5Afcc5bfBCC139683f2AFFDdc8fd45456C2E4128",
+        "amount_atomic": 100,
+        "nonce": "0x53e9ae9a470afc0a9f9173648d95883dd544feea6b70b7f650ee32ad34c6a912"
+      },
+      "native_wallet_tool": "envarpay__call_paid_tool",
+      "expected_marker": "ENVARPAY_goose-to-opencode_RESULT=323",
+      "seller_result": "ENVARPAY_goose-to-opencode_RESULT=323",
+      "buyer_result": "ENVARPAY_goose-to-opencode_RESULT=323",
+      "seller_proof_verified_at": 1790690122.9760966,
+      "seller_started_at": 1790690123.0110857,
+      "seller_delivered_at": 1790690128.552117,
+      "buyer_delivered_at": 1790690135.3186839,
+      "replay_no_new_payment_or_execution": true
+    },
+    {
+      "case": "goose-to-langgraph",
+      "request_id": "matrix-20260929-goose-to-langgraph-v1",
+      "status": "passed",
+      "proof": {
+        "transaction": "0xcb1d916395da8e1d68e6af9399f4548296641ea8eced68c28d3a2e5335928684",
+        "block_number": 47460948,
+        "block_hash": "0x9930c08c317d3633f5a783392210ce6dac713eea340551eeb7c497333bb59b17",
+        "confirmations_at_audit": 1601,
+        "transfer_log_index": 54,
+        "authorization_log_index": 53,
+        "payer": "0x368E45fb6cA09F2B4294c075d6aDDe020550E104",
+        "recipient": "0xA6fb6Ef40d523F6EfA88d0328324Af86cd9E0bE0",
+        "amount_atomic": 100,
+        "nonce": "0x716acf48a59e5b40e31485ed63b2439e6fc9f9e2a9160724ced58c617de8beab"
+      },
+      "native_wallet_tool": "envarpay__call_paid_tool",
+      "expected_marker": "ENVARPAY_goose-to-langgraph_RESULT=323",
+      "seller_result": "ENVARPAY_goose-to-langgraph_RESULT=323",
+      "buyer_result": "ENVARPAY_goose-to-langgraph_RESULT=323",
+      "seller_proof_verified_at": 1790690187.9015107,
+      "seller_started_at": 1790690187.9318082,
+      "seller_delivered_at": 1790690191.3409545,
+      "buyer_delivered_at": 1790690197.6445773,
+      "replay_no_new_payment_or_execution": true
+    },
+    {
+      "case": "goose-to-pydantic-ai",
+      "request_id": "matrix-20260929-goose-to-pydantic-ai-v1",
+      "status": "passed",
+      "proof": {
+        "transaction": "0xc9f4b0b94d649bbcd3b489c3cc2ba196105d94835238c530ab1ce9c582341aab",
+        "block_number": 47460933,
+        "block_hash": "0xccd88c55a6c080d4e197ccf4f0897e6fc0899ec326300ed7c0f449af5801e2a6",
+        "confirmations_at_audit": 1617,
+        "transfer_log_index": 95,
+        "authorization_log_index": 94,
+        "payer": "0x368E45fb6cA09F2B4294c075d6aDDe020550E104",
+        "recipient": "0x52C1e952fC4Da93Fe93e3004c9C405b3Be2d61F5",
+        "amount_atomic": 100,
+        "nonce": "0x5ccb7d826d29161e8ac0b8536f5eccd2962d9240a8a7cf1469434631cc70eef5"
+      },
+      "native_wallet_tool": "envarpay__call_paid_tool",
+      "expected_marker": "ENVARPAY_goose-to-pydantic-ai_RESULT=323",
+      "seller_result": "ENVARPAY_goose-to-pydantic-ai_RESULT=323",
+      "buyer_result": "ENVARPAY_goose-to-pydantic-ai_RESULT=323",
+      "seller_proof_verified_at": 1790690156.7434127,
+      "seller_started_at": 1790690156.824595,
+      "seller_delivered_at": 1790690160.7559855,
+      "buyer_delivered_at": 1790690166.4251316,
+      "replay_no_new_payment_or_execution": true
+    },
+    {
+      "case": "langgraph-to-openclaw",
+      "request_id": "matrix-20260929-langgraph-to-openclaw-v1",
+      "status": "passed",
+      "proof": {
+        "transaction": "0x27c0c95efd164fd6afa4fb9983b5e17c51a057d1d82ce53fc0c79f52b76ff3b4",
+        "block_number": 47461912,
+        "block_hash": "0x3e3efe11fc1cdabedc497f8f018db74865ff9e94e67e38eff0c58bff3164039a",
+        "confirmations_at_audit": 638,
+        "transfer_log_index": 8,
+        "authorization_log_index": 7,
+        "payer": "0xA6fb6Ef40d523F6EfA88d0328324Af86cd9E0bE0",
+        "recipient": "0xbd0c522C61E14413E43F5BaAf6a016b77a0f4dfD",
+        "amount_atomic": 100,
+        "nonce": "0x993536745aeff63a691790187c7bd6325f80bb84c0936ed03306b33c49db9cde"
+      },
+      "native_wallet_tool": "call_paid_tool",
+      "expected_marker": "ENVARPAY_langgraph-to-openclaw_RESULT=323",
+      "seller_result": "ENVARPAY_langgraph-to-openclaw_RESULT=323",
+      "buyer_result": "ENVARPAY_langgraph-to-openclaw_RESULT=323",
+      "seller_proof_verified_at": 1790692118.171424,
+      "seller_started_at": 1790692118.243849,
+      "seller_delivered_at": 1790692128.299006,
+      "buyer_delivered_at": 1790692135.161933,
+      "replay_no_new_payment_or_execution": true
+    },
+    {
+      "case": "langgraph-to-hermes",
+      "request_id": "matrix-20260929-langgraph-to-hermes-v1",
+      "status": "passed",
+      "proof": {
+        "transaction": "0x2408ca30953f7be3b2e5934d280e0996ba0d5ae129c54a37253baa8b16e97ed2",
+        "block_number": 47461889,
+        "block_hash": "0xb39d6039b5d327cd78df592aecb3d24491257f7002d817013fe95fb553723e95",
+        "confirmations_at_audit": 661,
+        "transfer_log_index": 1,
+        "authorization_log_index": 0,
+        "payer": "0xA6fb6Ef40d523F6EfA88d0328324Af86cd9E0bE0",
+        "recipient": "0x1799BC22317F840F1c394fD5E1622858e35e590c",
+        "amount_atomic": 100,
+        "nonce": "0xea7f8ca800686ea8b72f42ac3364795631ec04a0c329c46862891375a6483213"
+      },
+      "native_wallet_tool": "call_paid_tool",
+      "expected_marker": "ENVARPAY_langgraph-to-hermes_RESULT=323",
+      "seller_result": "ENVARPAY_langgraph-to-hermes_RESULT=323",
+      "buyer_result": "ENVARPAY_langgraph-to-hermes_RESULT=323",
+      "seller_proof_verified_at": 1790692072.4451625,
+      "seller_started_at": 1790692072.5006943,
+      "seller_delivered_at": 1790692085.7968278,
+      "buyer_delivered_at": 1790692093.6855404,
+      "replay_no_new_payment_or_execution": true
+    },
+    {
+      "case": "langgraph-to-opencode",
+      "request_id": "matrix-20260929-langgraph-to-opencode-v1",
+      "status": "passed",
+      "proof": {
+        "transaction": "0x0f44d808f89aefdcba78b4d11fdff95faceb95eed38dc2fe45095fe9c11fd25a",
+        "block_number": 47460964,
+        "block_hash": "0x35934bf0787706a669f9457cbef7e0042cac1481e7e52d654494b9ec9cfaf8f5",
+        "confirmations_at_audit": 1587,
+        "transfer_log_index": 33,
+        "authorization_log_index": 32,
+        "payer": "0xA6fb6Ef40d523F6EfA88d0328324Af86cd9E0bE0",
+        "recipient": "0x5Afcc5bfBCC139683f2AFFDdc8fd45456C2E4128",
+        "amount_atomic": 100,
+        "nonce": "0x326be051b88077bbf3ef10a20f191d9dae3682ff883d850e1d6e1fac2cfed167"
+      },
+      "native_wallet_tool": "call_paid_tool",
+      "expected_marker": "ENVARPAY_langgraph-to-opencode_RESULT=323",
+      "seller_result": "ENVARPAY_langgraph-to-opencode_RESULT=323",
+      "buyer_result": "ENVARPAY_langgraph-to-opencode_RESULT=323",
+      "seller_proof_verified_at": 1790690221.2650115,
+      "seller_started_at": 1790690221.3179586,
+      "seller_delivered_at": 1790690226.5315702,
+      "buyer_delivered_at": 1790690233.45582,
+      "replay_no_new_payment_or_execution": true
+    },
+    {
+      "case": "langgraph-to-goose",
+      "request_id": "matrix-20260929-langgraph-to-goose-v1",
+      "status": "passed",
+      "proof": {
+        "transaction": "0xf8e20606b37fb183473360ee6cd1261eaa07578f66d5a2f0cd808dc7163b31e0",
+        "block_number": 47460999,
+        "block_hash": "0x24bc751d16fb12ee0ce1fcc5d18a0d0ef8d9b7c62714fe056d9e6401c58f52f9",
+        "confirmations_at_audit": 1552,
+        "transfer_log_index": 76,
+        "authorization_log_index": 75,
+        "payer": "0xA6fb6Ef40d523F6EfA88d0328324Af86cd9E0bE0",
+        "recipient": "0x368E45fb6cA09F2B4294c075d6aDDe020550E104",
+        "amount_atomic": 100,
+        "nonce": "0xe2acefe8c5bd65ca241d8dcb0854a7cd65ef1869708eeead45ec54b70d72e422"
+      },
+      "native_wallet_tool": "call_paid_tool",
+      "expected_marker": "ENVARPAY_langgraph-to-goose_RESULT=323",
+      "seller_result": "ENVARPAY_langgraph-to-goose_RESULT=323",
+      "buyer_result": "ENVARPAY_langgraph-to-goose_RESULT=323",
+      "seller_proof_verified_at": 1790690291.2785134,
+      "seller_started_at": 1790690291.3138778,
+      "seller_delivered_at": 1790690298.6302345,
+      "buyer_delivered_at": 1790690307.1538744,
+      "replay_no_new_payment_or_execution": true
+    },
+    {
+      "case": "langgraph-to-pydantic-ai",
+      "request_id": "matrix-20260929-langgraph-to-pydantic-ai-v1",
+      "status": "passed",
+      "proof": {
+        "transaction": "0xe28539aec28eef0ad80ea6147ad9ca8880ee8e858f96dc3f47aba139e467a0d8",
+        "block_number": 47460982,
+        "block_hash": "0x8ad1bf29d20167cf5c7f2de9e097da805edd1dd9ce893f43b379ef7db5007bd0",
+        "confirmations_at_audit": 1570,
+        "transfer_log_index": 11,
+        "authorization_log_index": 10,
+        "payer": "0xA6fb6Ef40d523F6EfA88d0328324Af86cd9E0bE0",
+        "recipient": "0x52C1e952fC4Da93Fe93e3004c9C405b3Be2d61F5",
+        "amount_atomic": 100,
+        "nonce": "0x020e96217ca5b8c649f6e06b7bde22c00fd74bb00c96315fa22b6ad8b862b38d"
+      },
+      "native_wallet_tool": "call_paid_tool",
+      "expected_marker": "ENVARPAY_langgraph-to-pydantic-ai_RESULT=323",
+      "seller_result": "ENVARPAY_langgraph-to-pydantic-ai_RESULT=323",
+      "buyer_result": "ENVARPAY_langgraph-to-pydantic-ai_RESULT=323",
+      "seller_proof_verified_at": 1790690256.6726418,
+      "seller_started_at": 1790690256.7024643,
+      "seller_delivered_at": 1790690261.0684347,
+      "buyer_delivered_at": 1790690268.6391442,
+      "replay_no_new_payment_or_execution": true
+    },
+    {
+      "case": "pydantic-ai-to-openclaw",
+      "request_id": "matrix-20260929-pydantic-ai-to-openclaw-v1",
+      "status": "passed",
+      "proof": {
+        "transaction": "0x2e2bc3de904f7da8c2eb11304d1f2a25636dd2c1cb5cee218408ed5c26ea8f29",
+        "block_number": 47461832,
+        "block_hash": "0xf3bfa63cf2b902074cb472427e0a232fcc1dbd57118e24dbe305aa7b1dfdd163",
+        "confirmations_at_audit": 720,
+        "transfer_log_index": 108,
+        "authorization_log_index": 107,
+        "payer": "0x52C1e952fC4Da93Fe93e3004c9C405b3Be2d61F5",
+        "recipient": "0xbd0c522C61E14413E43F5BaAf6a016b77a0f4dfD",
+        "amount_atomic": 100,
+        "nonce": "0x9e9392a92d32b3f65126948a3c9c4b4e1bbcb80d9ad9c0d7ad2dc9e94833d8f3"
+      },
+      "native_wallet_tool": "call_paid_tool",
+      "expected_marker": "ENVARPAY_pydantic-ai-to-openclaw_RESULT=323",
+      "seller_result": "ENVARPAY_pydantic-ai-to-openclaw_RESULT=323",
+      "buyer_result": "ENVARPAY_pydantic-ai-to-openclaw_RESULT=323",
+      "seller_proof_verified_at": 1790691957.643906,
+      "seller_started_at": 1790691957.687296,
+      "seller_delivered_at": 1790691966.341303,
+      "buyer_delivered_at": 1790691973.1603532,
+      "replay_no_new_payment_or_execution": true
+    },
+    {
+      "case": "pydantic-ai-to-hermes",
+      "request_id": "matrix-20260929-pydantic-ai-to-hermes-v1",
+      "status": "passed",
+      "proof": {
+        "transaction": "0x9df373dd67175a82feab2edd3859d6fd1fedb67eabe5e6ceadee9e874eb2c92a",
+        "block_number": 47461806,
+        "block_hash": "0x17e7bca6d91c67667c3c164f94bceecdd4e4e2f164cf538a2ea715f3e43bdbe3",
+        "confirmations_at_audit": 747,
+        "transfer_log_index": 32,
+        "authorization_log_index": 31,
+        "payer": "0x52C1e952fC4Da93Fe93e3004c9C405b3Be2d61F5",
+        "recipient": "0x1799BC22317F840F1c394fD5E1622858e35e590c",
+        "amount_atomic": 100,
+        "nonce": "0x542f0e70bf76dedae0a25e5aef521e7894f90cdd289a1ca96e0c3a69716da3e2"
+      },
+      "native_wallet_tool": "call_paid_tool",
+      "expected_marker": "ENVARPAY_pydantic-ai-to-hermes_RESULT=323",
+      "seller_result": "ENVARPAY_pydantic-ai-to-hermes_RESULT=323",
+      "buyer_result": "ENVARPAY_pydantic-ai-to-hermes_RESULT=323",
+      "seller_proof_verified_at": 1790691906.8377447,
+      "seller_started_at": 1790691906.8797302,
+      "seller_delivered_at": 1790691920.0355642,
+      "buyer_delivered_at": 1790691928.1924841,
+      "replay_no_new_payment_or_execution": true
+    },
+    {
+      "case": "pydantic-ai-to-opencode",
+      "request_id": "matrix-20260929-pydantic-ai-to-opencode-v1",
+      "status": "passed",
+      "proof": {
+        "transaction": "0x7128c7d6cc2c319810e8d2bb248d28244cc34edad8e8b606e55bb310fe99852c",
+        "block_number": 47460194,
+        "block_hash": "0x26dfe8549a611883e5c4cff38b5103086dbf1c7eb3e5e7a8f4dc14c7456ab8b9",
+        "confirmations_at_audit": 2359,
+        "transfer_log_index": 14,
+        "authorization_log_index": 13,
+        "payer": "0x52C1e952fC4Da93Fe93e3004c9C405b3Be2d61F5",
+        "recipient": "0x5Afcc5bfBCC139683f2AFFDdc8fd45456C2E4128",
+        "amount_atomic": 100,
+        "nonce": "0x66f570f4a921c45f94fc0f5e1e080a018abcbdb7925b25764b7793f74842ccf0"
+      },
+      "native_wallet_tool": "call_paid_tool",
+      "expected_marker": "ENVARPAY_pydantic-ai-to-opencode_RESULT=323",
+      "seller_result": "ENVARPAY_pydantic-ai-to-opencode_RESULT=323",
+      "buyer_result": "ENVARPAY_pydantic-ai-to-opencode_RESULT=323",
+      "seller_proof_verified_at": 1790688680.7128072,
+      "seller_started_at": 1790688680.7512825,
+      "seller_delivered_at": 1790688686.2655654,
+      "buyer_delivered_at": 1790688695.8056371,
+      "replay_no_new_payment_or_execution": true
+    },
+    {
+      "case": "pydantic-ai-to-goose",
+      "request_id": "matrix-20260929-pydantic-ai-to-goose-v1",
+      "status": "passed",
+      "proof": {
+        "transaction": "0x49aa56de9ad4b81a25ffe3f567a749ab721344bb2760f7c0a3ac72f6421d4dae",
+        "block_number": 47460879,
+        "block_hash": "0x0776fc48094db0265071121431699f4cdd87e52b31ff2b00fc71ff9eaa081aab",
+        "confirmations_at_audit": 1674,
+        "transfer_log_index": 48,
+        "authorization_log_index": 47,
+        "payer": "0x52C1e952fC4Da93Fe93e3004c9C405b3Be2d61F5",
+        "recipient": "0x368E45fb6cA09F2B4294c075d6aDDe020550E104",
+        "amount_atomic": 100,
+        "nonce": "0x0524125b689c9e44bc406708c905120a270f49b2323dc0119e4f76955cdf314e"
+      },
+      "native_wallet_tool": "call_paid_tool",
+      "expected_marker": "ENVARPAY_pydantic-ai-to-goose_RESULT=323",
+      "seller_result": "ENVARPAY_pydantic-ai-to-goose_RESULT=323",
+      "buyer_result": "ENVARPAY_pydantic-ai-to-goose_RESULT=323",
+      "seller_proof_verified_at": 1790690050.875548,
+      "seller_started_at": 1790690050.9149888,
+      "seller_delivered_at": 1790690056.773625,
+      "buyer_delivered_at": 1790690063.4186294,
+      "replay_no_new_payment_or_execution": true
+    },
+    {
+      "case": "pydantic-ai-to-langgraph",
+      "request_id": "matrix-20260929-pydantic-ai-to-langgraph-v1",
+      "status": "passed",
+      "proof": {
+        "transaction": "0x88b06eb0bc5f39726e530365ed36b8b62404a4aa2c431bc24c742ae95e47c3dc",
+        "block_number": 47460896,
+        "block_hash": "0x05bd49c28be257282ab962fdfd47062e979144596d61320f8d802e21907214d6",
+        "confirmations_at_audit": 1658,
+        "transfer_log_index": 57,
+        "authorization_log_index": 56,
+        "payer": "0x52C1e952fC4Da93Fe93e3004c9C405b3Be2d61F5",
+        "recipient": "0xA6fb6Ef40d523F6EfA88d0328324Af86cd9E0bE0",
+        "amount_atomic": 100,
+        "nonce": "0xba73acc07f7a39a05a644aeed52a66b7059bcc017ead66f05435ce0f0b944788"
+      },
+      "native_wallet_tool": "call_paid_tool",
+      "expected_marker": "ENVARPAY_pydantic-ai-to-langgraph_RESULT=323",
+      "seller_result": "ENVARPAY_pydantic-ai-to-langgraph_RESULT=323",
+      "buyer_result": "ENVARPAY_pydantic-ai-to-langgraph_RESULT=323",
+      "seller_proof_verified_at": 1790690083.8965805,
+      "seller_started_at": 1790690083.9273713,
+      "seller_delivered_at": 1790690087.367414,
+      "buyer_delivered_at": 1790690095.8775914,
+      "replay_no_new_payment_or_execution": true
+    }
+  ],
+  "incomplete": [
+    {
+      "case": "openclaw-to-pydantic-ai",
+      "request_id": "matrix-20260929-openclaw-to-pydantic-ai-v1",
+      "buyer_status": "unknown",
+      "reserved_atomic": 100,
+      "payer": "0xbd0c522C61E14413E43F5BaAf6a016b77a0f4dfD",
+      "recipient": "0x52C1e952fC4Da93Fe93e3004c9C405b3Be2d61F5",
+      "nonce": "0x45510880e9cdccc0ca72f5c8736bb07e33f80f5f5c71cd4e2e8ecf32ce5b9edf",
+      "valid_before": 1790693225,
+      "seller_execution_count": 0,
+      "facilitator_response": {
+        "success": false,
+        "errorReason": "invalid_exact_evm_transaction_failed",
+        "transaction": "",
+        "network": "eip155:84532"
+      },
+      "latest_authorization_state": {
+        "block_tag": "latest",
+        "block_number": 47462541,
+        "block_hash": "0x353f14952760c3770f5dfce408e4a9b19189a232e66ff1b8ab79002445759ee4",
+        "block_timestamp": 1790693370,
+        "used_or_cancelled": false,
+        "past_authorization_expiry": true
+      },
+      "finalized_authorization_state": {
+        "block_tag": "finalized",
+        "block_number": 47461869,
+        "block_hash": "0x8f637841602fb77c4fec9ce332f6e2a3e47b948cf89da7d785ab1bcc7a1ad9ed",
+        "block_timestamp": 1790692026,
+        "used_or_cancelled": false,
+        "past_authorization_expiry": false
+      },
+      "original_authorization_and_budget_preserved": true
+    },
+    {
+      "case": "hermes-to-langgraph",
+      "request_id": "matrix-20260929-hermes-to-langgraph-v1",
+      "buyer_status": "unknown",
+      "reserved_atomic": 100,
+      "payer": "0x1799BC22317F840F1c394fD5E1622858e35e590c",
+      "recipient": "0xA6fb6Ef40d523F6EfA88d0328324Af86cd9E0bE0",
+      "nonce": "0xc909f0c32a2350df9c02982c3f6e42f262342f385c370b4fb091d1b0186c2c12",
+      "valid_before": 1790692556,
+      "seller_execution_count": 0,
+      "facilitator_response": {
+        "success": false,
+        "errorReason": "invalid_exact_evm_transaction_failed",
+        "transaction": "",
+        "network": "eip155:84532"
+      },
+      "latest_authorization_state": {
+        "block_tag": "latest",
+        "block_number": 47462543,
+        "block_hash": "0xd908753c86f9cd34467689147d8fe38a81639efdaad53aa5676d6fe23de247bc",
+        "block_timestamp": 1790693374,
+        "used_or_cancelled": false,
+        "past_authorization_expiry": true
+      },
+      "finalized_authorization_state": {
+        "block_tag": "finalized",
+        "block_number": 47461869,
+        "block_hash": "0x8f637841602fb77c4fec9ce332f6e2a3e47b948cf89da7d785ab1bcc7a1ad9ed",
+        "block_timestamp": 1790692026,
+        "used_or_cancelled": false,
+        "past_authorization_expiry": false
+      },
+      "original_authorization_and_budget_preserved": true
+    }
+  ],
+  "wallets": [
+    {
+      "framework": "openclaw",
+      "address": "0xbd0c522C61E14413E43F5BaAf6a016b77a0f4dfD",
+      "balance_atomic": 600,
+      "completed_purchases": 4,
+      "completed_sales": 5,
+      "cumulative_reserved_atomic": 500
+    },
+    {
+      "framework": "hermes",
+      "address": "0x1799BC22317F840F1c394fD5E1622858e35e590c",
+      "balance_atomic": 600,
+      "completed_purchases": 4,
+      "completed_sales": 5,
+      "cumulative_reserved_atomic": 500
+    },
+    {
+      "framework": "opencode",
+      "address": "0x5Afcc5bfBCC139683f2AFFDdc8fd45456C2E4128",
+      "balance_atomic": 500,
+      "completed_purchases": 5,
+      "completed_sales": 5,
+      "cumulative_reserved_atomic": 500
+    },
+    {
+      "framework": "goose",
+      "address": "0x368E45fb6cA09F2B4294c075d6aDDe020550E104",
+      "balance_atomic": 500,
+      "completed_purchases": 5,
+      "completed_sales": 5,
+      "cumulative_reserved_atomic": 500
+    },
+    {
+      "framework": "langgraph",
+      "address": "0xA6fb6Ef40d523F6EfA88d0328324Af86cd9E0bE0",
+      "balance_atomic": 400,
+      "completed_purchases": 5,
+      "completed_sales": 4,
+      "cumulative_reserved_atomic": 500
+    },
+    {
+      "framework": "pydantic-ai",
+      "address": "0x52C1e952fC4Da93Fe93e3004c9C405b3Be2d61F5",
+      "balance_atomic": 400,
+      "completed_purchases": 5,
+      "completed_sales": 4,
+      "cumulative_reserved_atomic": 500
+    }
+  ],
+  "scope": "Native Docker MCP paths; testnet only",
+  "runtime_manifest": {
+    "source_resolution": "2026-09-29T13:14:45.542674+00:00",
+    "images": [
+      {
+        "framework": "openclaw",
+        "image": "envarpay:matrix-openclaw",
+        "image_id": "sha256:860a63fb9c9baa11dc7589363f66645e40ac8c624abfdfe360a246300a5a7d3f",
+        "sources": [
+          {
+            "name": "openclaw",
+            "repository": "openclaw/openclaw",
+            "branch": "main",
+            "sha": "aa56d37f1c81c25d856eabfde479b4352763d154"
+          }
+        ]
+      },
+      {
+        "framework": "hermes",
+        "image": "envarpay:matrix-hermes",
+        "image_id": "sha256:d2fb1a05e1211942c5b85d43cc21b424d679b1a38d398c5ea14065c26296f3e2",
+        "sources": [
+          {
+            "name": "hermes",
+            "repository": "NousResearch/hermes-agent",
+            "branch": "main",
+            "sha": "fc042f1d67bc393bf43920e92d4eb5082eddedfb"
+          }
+        ]
+      },
+      {
+        "framework": "opencode",
+        "image": "envarpay:matrix-opencode",
+        "image_id": "sha256:7d2d2f807ac416b24e913b1917ea208e4231db5beb86efb38f54655a4293bac4",
+        "sources": [
+          {
+            "name": "opencode",
+            "repository": "anomalyco/opencode",
+            "branch": "dev",
+            "sha": "7945de208964a49300d7f770d1a71d078db9a4c4",
+            "committed_at": "2026-09-28T22:59:34Z"
+          }
+        ]
+      },
+      {
+        "framework": "goose",
+        "image": "envarpay:matrix-goose",
+        "image_id": "sha256:71653abe3f663a23581ec2c9a66fbc0f065862fb5c0f5111b1f58043c405a2e8",
+        "sources": [
+          {
+            "name": "goose",
+            "repository": "aaif-goose/goose",
+            "branch": "main",
+            "sha": "b92a80daf4a77d7e854709965bdfdc489c0472d2"
+          }
+        ]
+      },
+      {
+        "framework": "langgraph",
+        "image": "envarpay:matrix-python",
+        "image_id": "sha256:f27ea83be44875234792af3d7738e99b76cbb7935523c33ecd833b06c541b26a",
+        "sources": [
+          {
+            "name": "langgraph",
+            "repository": "langchain-ai/langgraph",
+            "branch": "main",
+            "sha": "07b33185eab893be2ed031eedae52f09314bf77c"
+          },
+          {
+            "name": "langchain",
+            "repository": "langchain-ai/langchain",
+            "branch": "master",
+            "sha": "ce9066138d0e234109ac7dd60a10ad7cc10cdfda"
+          }
+        ]
+      },
+      {
+        "framework": "pydantic-ai",
+        "image": "envarpay:matrix-pydantic",
+        "image_id": "sha256:253ec97998fcc106ac2d6d379a8a237ff77089177fce41d08f32e17b9e0378b4",
+        "sources": [
+          {
+            "name": "pydantic-ai",
+            "repository": "pydantic/pydantic-ai",
+            "branch": "main",
+            "sha": "3b68c695b1068736133b7018f9c69d14ce390d38",
+            "committed_at": "2026-09-29T10:23:19Z"
+          }
+        ]
+      }
+    ],
+    "native_harness_sha256": {
+      "native_cli.py": "b5c02d15b2bbc90a626167ea0cc770fe42cb0b40f902e600fdfbf6df62f895cd",
+      "native_python.py": "306af5b521a441395292f08a4f385eea45f314a183bf21eb7c9170fdc876d741"
+    },
+    "sdk_image_id": "sha256:167b5ddc5c5562399aefb42d2b8b677d07035802a6dfa30b3b0a9a91dbba61d7",
+    "sdk_dependency_install": "reused previously verified dependency layer; not clean dependency installation",
+    "runtime_artifact_build": "https://github.com/EnvarAI/EnvarPay/actions/runs/36573863380",
+    "unchanged_opencode_pydantic_artifact_build": "https://github.com/EnvarAI/EnvarPay/actions/runs/36567429668"
+  },
+  "validation_limits": [
+    "MCP payment gate plus native CLI/framework path only; existing Gateway HTTP connectors not tested here",
+    "Dedicated profiles and arithmetic task; no personal-session, long-running-task or delivery-quality guarantee",
+    "SDK container reused a verified dependency layer; not a clean dependency-install result",
+    "Two failed settlements retain original authorization and budget; no new signatures or replacement IDs",
+    "No mainnet payment or package publication"
+  ]
+}

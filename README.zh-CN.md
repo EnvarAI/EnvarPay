@@ -7,8 +7,8 @@
 按你使用的 Agent 查看：[OpenClaw](docs/integrations/openclaw.md) ·
 [Hermes](docs/integrations/hermes.md) · [OpenCode](docs/integrations/other-runtimes.md#opencode) ·
 [Goose](docs/integrations/other-runtimes.md#goose) · [开发框架](docs/integrations/other-runtimes.md#langgraph-and-langchain)。
-先看[支持矩阵](docs/integrations/index.md)：Hermes 的钱包接入与嵌入式执行已测试，
-其他框架目前是经官方接口核实的接入候选，尚无新的跨框架付款验收。
+先看[支持矩阵](docs/integrations/index.md)：六类框架都已在本机 Docker 中实际收付款，
+使用核对时官方主开发分支的源码。逐笔成功交付与结算失败见[链上验收矩阵](docs/integrations/validation.md)，尚不能称为 30/30 全通过。
 `0.1.0a2` 是未发布的源码预览；不是 Hermes 官方插件，也尚未发布到 PyPI。
 
 ## 安装
@@ -34,13 +34,14 @@ x402 2.24.0，可参照示例 Dockerfile，仅为该版本加
 ## 我要收钱
 
 ```sh
-envarpay init --directory ./agent-pay --pay-to 你的完整收款地址 --backend openclaw
-# 已有 Hermes API 服务时，把 backend 改成 hermes-http。
+envarpay init --directory ./agent-pay --pay-to 你的完整收款地址 --backend mcp
 ```
 
-编辑生成的 `seller.toml`，填写已有 Agent 服务地址、固定 Agent 目标和收款价格。
-模型和工具继续在原 Agent 中配置。通过 `ENVARPAY_RUNTIME_TOKEN` 提供专用服务凭据，
-或者配置权限为 0600 的 `api_key_file`。原始 Agent 服务保持私有，只公开收费入口。
+编辑生成的 `seller.toml`，在 `seller.backend.upstream` 填写私有 MCP 服务地址，
+在 `seller.tools` 配置出售的工具名和价格。模型和工具继续在原 Agent 中配置。
+如果 Agent 没有 MCP 服务入口，使用[原生运行时示例](examples/cross-framework/README.md)
+把一次 CLI 或框架调用包装为 `ask_agent` 工具。外层 EnvarPay 收到钱才调用它。
+原始 Agent 服务保持私有，只公开收费入口。
 价格 `amount_atomic = 10000` 表示 0.01 USDC。
 
 ```sh
@@ -51,7 +52,8 @@ envarpay serve --config ./agent-pay/seller.toml
 此时 `http://127.0.0.1:4020/mcp` 提供收费的 `ask_agent` 工具，也支持 `/sse`。
 对方未付款就得到 PaymentRequired；确认收款后才调用原 Agent 执行。
 收款只配置地址，不配置收款私钥。
-已有服务的 HTTP 连接器仍是实验功能，两条路径尚待真实运行时付款验收，
+`openclaw` 和 `hermes-http` 这两个已有服务 HTTP 连接器仍是实验功能；
+本轮实付验证的是 MCP + 原生 CLI/框架路径，HTTP 连接器尚待单独验收。
 具体启用方式参见 [OpenClaw](docs/integrations/openclaw.md) 和 [Hermes](docs/integrations/hermes.md)。
 另有可选 `--backend hermes` 嵌入模式，会新建 `AIAgent`，跳过记忆与工作区上下文；
 它不会接入你正在使用的会话。
@@ -75,6 +77,8 @@ envarpay host-config --host hermes --config ./agent-pay/buyer.toml
 ```
 
 把输出的 `mcp_servers.envarpay` 条目合并进 Hermes 的 MCP 配置，然后重新加载 Hermes。
+OpenClaw、OpenCode、Goose 分别使用 `--host openclaw`、`--host opencode`、`--host goose`。
+LangGraph/LangChain 和 Pydantic AI 使用官方 MCP 适配器，见[框架接入示例](docs/integrations/other-runtimes.md)。
 这个命令只生成配置，不修改你的个人配置文件。若依赖代理或服务凭据环境变量，
 在 Hermes 的该 MCP 条目里显式配置 `env`；不要把钱包私钥交给模型。
 
@@ -102,4 +106,7 @@ envarpay reconcile --config ./agent-pay/buyer.toml --operation-id buy:review-001
 
 新版统一包名、命令和 Python import 为 `envarpay`。已有 0.1.0a1 发布包不变；升级请保留钱包、原授权和预算账本，参见[迁移说明](docs/migration-envarpay.md)。
 
-参见[实测记录](docs/integrations/validation.md)：OpenCode 本机原生 MCP 连接通过；Hermes 本机缺可选 MCP 依赖；OpenClaw 本机版本较旧；其余框架尚待运行时验收。没有新增跨框架链上付款。
+参见[实测记录](docs/integrations/validation.md)：每笔成功购买均有独立交易、原生买方工具调用、
+到账后卖方执行、真实模型结果及无重复付款/执行的重放检查。单笔 100 atomic（0.0001 测试 USDC）。
+CI 只构建依赖和运行文件，实际验收在本机 Docker 执行；没有使用本机旧 OpenClaw。
+结算失败保留原授权和预算，没有更换请求 ID 或补签来凑成功数。

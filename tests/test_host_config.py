@@ -7,7 +7,7 @@ from envarpay.host_config import host_config
 from envarpay.storage import PaymentError
 
 
-@pytest.mark.parametrize("host", ["hermes", "openclaw", "opencode"])
+@pytest.mark.parametrize("host", ["hermes", "openclaw", "opencode", "goose"])
 def test_snippets_only_preserve_configuration_and_use_isolated_python(tmp_path, host):
     initialize(tmp_path / "setup", "0x" + "33" * 20, "mcp")
     path = tmp_path / "setup/buyer.toml"
@@ -22,10 +22,14 @@ def test_snippets_only_preserve_configuration_and_use_isolated_python(tmp_path, 
         command = [item["command"], *item["args"]]
         assert len(item["toolFilter"]["include"]) == 3
         assert item["requestTimeoutMs"] > 180000
-    else:
+    elif host == "opencode":
         item = value["mcp"]["envarpay"]
         command = item["command"]
         assert item["timeout"] > 180000
+    else:
+        item = value["extensions"]["envarpay"]
+        command = [item["cmd"], *item["args"]]
+        assert item["type"] == "stdio" and item["timeout"] > 180
     assert Path(command[0]).is_absolute()
     assert command[1:] == ["-m", "envarpay", "wallet", "--config", str(path)]
     assert path.read_bytes() == before

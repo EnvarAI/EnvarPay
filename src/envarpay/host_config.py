@@ -56,4 +56,17 @@ def host_config(host: str, config_path: Path) -> dict:
                 }
             }
         }
-    raise PaymentError("Choose hermes, openclaw or opencode; other hosts need their own setup")
+    if host == "goose":
+        return {
+            "extensions": {
+                "envarpay": {
+                    "enabled": True,
+                    "type": "stdio",
+                    "name": "envarpay",
+                    "cmd": command,
+                    "args": args,
+                    "timeout": seconds,
+                }
+            }
+        }
+    raise PaymentError("Choose hermes, openclaw, opencode or goose")

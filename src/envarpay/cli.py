@@ -144,7 +144,9 @@ def parser() -> argparse.ArgumentParser:
         if command in ("status", "reconcile"):
             item.add_argument("--operation-id", required=command == "reconcile")
         if command == "host-config":
-            item.add_argument("--host", choices=["hermes", "openclaw", "opencode"], required=True)
+            item.add_argument(
+                "--host", choices=["hermes", "openclaw", "opencode", "goose"], required=True
+            )
         if command == "doctor":
             item.add_argument("--online", action="store_true", help="Also read RPC chain ID")
     return root

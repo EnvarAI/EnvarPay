@@ -17,8 +17,23 @@ from envarpay.transport import connect
 
 
 @pytest.mark.parametrize("transport", ["sse", "streamable-http"])
-async def test_real_http_mcp_payment_required(config, paid_server, respx_mock, transport):
+async def test_real_http_mcp_payment_required(
+    config, paid_server, respx_mock, transport, monkeypatch
+):
     seller, _, _ = paid_server
+    # A developer's outbound proxy must not intercept this loopback transport test.
+    for name in (
+        "HTTP_PROXY",
+        "HTTPS_PROXY",
+        "ALL_PROXY",
+        "http_proxy",
+        "https_proxy",
+        "all_proxy",
+    ):
+        monkeypatch.delenv(name, raising=False)
+    # urllib can also discover the macOS system proxy after env variables are removed.
+    monkeypatch.setenv("NO_PROXY", "*")
+    monkeypatch.setenv("no_proxy", "*")
     # Only facilitator HTTP is simulated; MCP uses a real local TCP socket.
     respx_mock.route(host="127.0.0.1").pass_through()
     with socket.socket() as sock:
