@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="300" viewBox="0 0 1200 300" role="img" aria-labelledby="title desc">
+  <title id="title">EnvarPay</title>
+  <desc id="desc">Get your agents paid. Open-source SDK and CLI. MCP plus x402.</desc>
+  <rect width="1200" height="300" rx="20" fill="#101b23"/>
+  <path d="M80 88h88l-22 28H108v22h47l-20 26h-27v24h60l-22 28H80z" fill="#6ef0b4"/>
+  <text x="206" y="126" fill="#f4fbf7" font-family="ui-sans-serif,system-ui,sans-serif" font-size="64" font-weight="700" letter-spacing="-2">EnvarPay</text>
+  <text x="209" y="181" fill="#b7c9cf" font-family="ui-sans-serif,system-ui,sans-serif" font-size="30">Get your agents paid.</text>
+  <text x="209" y="228" fill="#6ef0b4" font-family="ui-monospace,monospace" font-size="18">OPEN SOURCE · SDK + CLI · MCP + x402</text>
+  <g stroke="#29474b" stroke-width="2" fill="none">
+    <rect x="850" y="90" width="96" height="120" rx="18"/>
+    <rect x="1022" y="90" width="96" height="120" rx="18"/>
+    <path d="M946 134h57m-13-9 13 9-13 9M1022 169h-57m13-9-13 9 13 9" stroke="#6ef0b4"/>
+  </g>
+  <g fill="#f4fbf7" font-family="ui-monospace,monospace" font-size="25" text-anchor="middle">
+    <text x="898" y="160">B</text><text x="1070" y="160">A</text>
+  </g>
+</svg>

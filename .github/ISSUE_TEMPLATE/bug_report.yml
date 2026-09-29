@@ -1,0 +1,25 @@
+name: Bug report
+description: Report a reproducible integration or correctness problem
+body:
+  - type: markdown
+    attributes:
+      value: "Never include private keys, API tokens, signed authorizations or state databases. Use private security reporting for vulnerabilities."
+  - type: input
+    id: version
+    attributes:
+      label: EnvarPay version and Python version
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Minimal reproduction
+      description: Use redacted configuration and synthetic inputs.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected and actual behavior
+    validations:
+      required: true

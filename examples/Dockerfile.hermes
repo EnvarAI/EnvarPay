@@ -1,0 +1,9 @@
+FROM nousresearch/hermes-agent@sha256:16788311e2fa3035456bdc1bafb8ec2b1777db64ebf020af9bb7eb73c3712c9e
+USER root
+COPY dist/*.whl /tmp/envar-wheel/
+RUN uv pip install --python /opt/hermes/.venv/bin/python --index-url https://pypi.org/simple \
+    --exclude-newer-package x402=2026-09-29T23:59:59Z /tmp/envar-wheel/*.whl
+COPY examples/hermes_smoke.py /tmp/hermes_smoke.py
+ENV HERMES_HOME=/tmp/envar-hermes-smoke
+ENTRYPOINT ["/opt/hermes/.venv/bin/python"]
+CMD ["/tmp/hermes_smoke.py"]

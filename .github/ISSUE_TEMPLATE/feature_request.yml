@@ -1,0 +1,14 @@
+name: Integration or feature request
+description: Describe an agent, wallet or workflow you want to connect
+body:
+  - type: textarea
+    id: need
+    attributes:
+      label: What are you trying to do?
+    validations:
+      required: true
+  - type: textarea
+    id: protocol
+    attributes:
+      label: Runtime, protocol and existing integration
+      description: Link to official documentation if available.

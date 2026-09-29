@@ -1,0 +1,11 @@
+dist/
+*.egg-info/
+.venv/
+.pytest_cache/
+.ruff_cache/
+__pycache__/
+state/
+*.key
+*.sqlite3*
+agent-pay/
+.env*
