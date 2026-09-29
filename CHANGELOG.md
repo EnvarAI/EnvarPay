@@ -1,13 +1,26 @@
 # Changelog
 
-## 0.1.0a2 — unreleased candidate
+## 0.1.0a4 — unreleased
+
+- Add agent/role-aware initialization with exact decimal USDC amounts, wallet connection files and a personalized SETUP.md. No automatic wallet-key creation or payment.
+- Show readable setup instructions (`--json` provides machine-readable output), and configured recipients, prices and limits in doctor output.
+- Add dedicated guides for six frameworks, a configuration reference, seller recipes and portable native Python examples.
+- Preserve private-service setup and exclude its generated access token from Git.
+- Fix direct CLI status/reconcile access without a prior sync command; align the SDK Docker recipe with the new source version.
+
+## 0.1.0a3
+
+- Connect existing authenticated MCP/HTTP services without embedding Hermes.
+- Add optional directory discovery, reporting, original-operation recovery, remote-wallet access and opt-in receiving updates.
+
+## 0.1.0a2 — source preview
 
 - Unify distribution, CLI and Python import as envarpay; preserve original config and ledger paths.
 - Add host-config snippets for OpenClaw, Hermes, OpenCode and Goose without editing personal configs.
 - Add an experimental bounded HTTP runtime connector for dedicated existing agent services.
 - Add native Docker buyer/seller harnesses, reviewed profiles and offline source-build recipes for six frameworks.
 - Record 28 real cross-framework paid deliveries and two failed settlements, with raw-RPC audit and per-transaction evidence.
-- Isolate local TCP tests from inherited/system proxies; package tests pass (77).
+- Isolate local TCP tests from inherited/system proxies; add onboarding/policy-generation tests.
 - Gateway HTTP acceptance, full 30/30 acceptance, mainnet and PyPI publication remain pending.
 
 

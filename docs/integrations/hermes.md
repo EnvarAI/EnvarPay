@@ -1,45 +1,115 @@
-# Hermes
+# Hermes: pay and get paid
 
-## Pay another agent
+**Buyer:** add the EnvarPay wallet to Hermes's native MCP configuration.
+**Seller:** expose a dedicated native task as a private MCP tool, then price it with
+EnvarPay. Your model, tools and profile stay in Hermes.
 
-Install EnvarPay in a dedicated environment; initialize/review `buyer.toml`.
-Then print this host's native MCP entry:
+The [official-source Docker matrix](validation.md) includes real Hermes purchases
+and sales. See its individual successes/failures and [source commits](../../examples/cross-framework/sources.json).
+This guide does not treat an older host installation as the tested version.
+
+## 1. Install and choose your role
+
+Follow the [EnvarPay installation steps](../getting-started.md#install) in a separate
+Python environment. Keep your existing Hermes installation/profile. The wallet
+and payment gate use EnvarPay's environment, not the agent's dependencies.
+
+Choose `--role buyer`, `--role seller`, or `--role both`. Both requires your own
+receiving address and a separate counterparty address; see [configuration](../configuration.md).
+
+## 2. Give Hermes a buyer wallet
+
+Obtain the seller's paid MCP URL and full receiving address:
 
 ```sh
-envarpay host-config --host hermes --config /absolute/path/buyer.toml
+envarpay init --agent hermes --role buyer --directory ./hermes-pay \
+  --peer-url https://seller.example/mcp --pay-to SELLER_FULL_ADDRESS \
+  --max-per-call 0.01 --budget 0.05
+
+envarpay keygen --output ./hermes-pay/buyer.key
+envarpay doctor --config ./hermes-pay/buyer.toml
 ```
 
-Merge that entry into the host configuration. Wallet tools are `list_paid_tools`,
-`call_paid_tool`, `payment_status` and `recover_payment`. An Envar connection also
-adds directory lookup tools. See [directory and recovery](../directory-and-recovery.md). The wallet defaults to payments OFF.
-It only spends on configured peers, recipients and tools, within its persistent budget.
+The generated `SETUP.md` lists your exact files and next steps. `buyer.toml` contains
+the allowed recipient/tools and limits. `host-config.json` contains the native
+wallet entry; no private key is embedded in that entry.
 
-The [official main-source Docker run](validation.md) uses the source SHA in
-[sources.json](../../examples/cross-framework/sources.json), not the local installation.
-The [native profile](../../examples/cross-framework/profiles/hermes/buyer/) and
-[CLI wrapper](../../examples/cross-framework/native_cli.py) show the tested configuration.
+Merge **`mcp_servers.envarpay`** from `host-config.json` into **`$HERMES_HOME/config.yaml`, normally `~/.hermes/config.yaml`**.
+Keep all existing model/tool settings and other MCP entries. JSON also works as YAML.
+Do not replace the entire host config with the snippet.
 
-## Tested seller path: private MCP + native CLI
+## 3. Check the connection before enabling payment
 
-Run the native wrapper in seller mode, then put an EnvarPay MCP-backend payment gate
-in front of its private `ask_agent` tool. (The backend is selected
-with `envarpay init --backend mcp`; `serve` reads that seller config.)
-The actual native CLI performs the task after the outer payment gate confirms it.
-See [Docker instructions](../../examples/cross-framework/README.md). This creates a
-new dedicated native task, not a continuation of your personal conversation.
+Restart/reload the selected Hermes profile, then ask it to call EnvarPay's
+`payment_status` for `setup-check-never-paid`. That uses the native tool loop but
+creates no USDC signature; a model invocation can still use your configured model API.
+A new wallet should return an empty status list.
 
-Install Hermes's optional MCP dependencies in its own environment. The current
-main-source test uses `/opt/hermes-latest/bin/hermes chat --oneshot --format stream-json`.
-The base image's old Hermes executable is not used for the matrix.
+You should see `list_paid_tools`, `call_paid_tool`, `payment_status` and `recover_payment` (the host
+may add an MCP prefix). A connected tool is a setup check, not a payment.
 
-## Receive payment using your existing agent service
+Fund the generated buyer address with **Base Sepolia test USDC**. Review the chain,
+USDC contract, exact seller address, tools and limits in `buyer.toml`, then set
+`payments_enabled = true`. Keep the key file private and the state directory intact.
+
+## 4. Make an explicit purchase
+
+Ask Hermes to call the configured seller's `ask_agent` through `call_paid_tool`,
+with the task in `arguments.question` and a stable request ID such as `review-001`.
+Ask it to stop on any error or uncertainty. You can inspect the same attempt with:
+
+```sh
+envarpay status --config ./hermes-pay/buyer.toml --operation-id buy:review-001
+```
+
+The wallet enforces the recipient/tool allowlist and both budgets. The model cannot
+supply a different arbitrary URL. Reusing a completed ID returns the saved result;
+an unresolved ID must not be replaced to force another purchase.
+
+## 5. Let Hermes receive payment
+
+First start a private MCP capability. The [native CLI Docker recipe](../selling.md#native-cli-seller-in-docker)
+uses the real Hermes runtime with a dedicated profile. The
+[recorded seller profile](../../examples/cross-framework/profiles/hermes/seller/)
+is a starting point to review for your own model/provider. It is not an auto-import
+of your personal session.
+
+Once the private `ask_agent` MCP endpoint is running:
+
+```sh
+envarpay init --agent hermes --role seller --directory ./hermes-seller \
+  --pay-to YOUR_FULL_RECEIVING_ADDRESS \
+  --upstream http://127.0.0.1:8000/mcp --tool ask_agent --price 0.01
+
+envarpay doctor --config ./hermes-seller/seller.toml
+envarpay serve --config ./hermes-seller/seller.toml
+```
+
+This example assumes a loopback upstream. In Docker, use the private runtime
+hostname and follow the recipe's explicit HTTP, bind and host-allowlist settings.
+Publish only the gate (`/mcp`, default port 4020) through HTTPS. The seller needs
+its receiving address, not its private key. A correct Transfer/nonce receipt is
+required before the native task starts.
+
+## Troubleshooting
+
+| Symptom | Check |
+|---|---|
+| No MCP tools appear | Install Hermes's optional MCP dependencies in the Hermes environment, then reload the chosen profile |
+| Wallet command is not found | Use the absolute interpreter path generated by EnvarPay, not Hermes's own Python |
+| Tool is registered but not selected | Ensure the profile's CLI toolsets include the EnvarPay MCP tools |
+| Custom provider key is used by unrelated helpers | Keep a dedicated variable such as `ENVARPAY_MODEL_API_KEY` in the runtime profile |
+| Wallet says payments disabled | Complete the funding/policy review, then explicitly enable the dedicated buyer config |
+| Uncertain payment or execution | Preserve the original ID/authorization/state; inspect status before any new purchase |
+
+## Optional: existing Gateway HTTP service (experimental)
 
 The authenticated connection to two existing native Hermes HTTP services and real model delivery has been [verified locally](existing-runtime-validation.md). Paid acceptance is a separate step.
 
 Enable `API_SERVER_ENABLED=true`, set `API_SERVER_KEY`, and run `hermes gateway run` in a dedicated seller profile. The generated target is `hermes-agent`.
 
 ```sh
-envarpay init --directory ./agent-pay --pay-to YOUR_FULL_ADDRESS --backend hermes-http
+envarpay init --role seller --directory ./agent-pay --pay-to YOUR_FULL_ADDRESS --backend hermes-http
 # Review seller.toml: existing /v1 URL, fixed target, price and runtime credential reference.
 # Provide ENVARPAY_RUNTIME_TOKEN securely in the seller process environment.
 envarpay doctor --config ./agent-pay/seller.toml
@@ -75,3 +145,8 @@ The embedded `hermes` backend was removed. Existing `kind = "hermes"` configs ar
 - [Programmatic integration and in-process option](https://github.com/NousResearch/hermes-agent/blob/v2026.9.24/website/docs/developer-guide/programmatic-integration.md)
 - [A2A plugin](https://github.com/NousResearch/hermes-agent/blob/v2026.9.24/website/docs/user-guide/messaging/a2a.md)
 - [Current EnvarPay adapter](../../src/envarpay/backend.py)
+
+
+[All agents](index.md) · [Configuration reference](../configuration.md) · [Payment evidence](validation.md)
+
+Optional: [original-operation recovery, directory discovery and remote wallet isolation](../directory-and-recovery.md). Recovery can resume an already-paid task that never started; it does not create a fresh signature.

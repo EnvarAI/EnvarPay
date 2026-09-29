@@ -5,8 +5,6 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
-import os
-import secrets
 import sys
 from importlib.metadata import version
 from pathlib import Path
@@ -17,101 +15,9 @@ from pydantic import ValidationError
 
 from . import __version__
 from .chain import Chain
-from .config import address, load_config
-from .storage import PaymentError
-
-
-def write_new(path: Path, text: str) -> None:
-    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-    with os.fdopen(fd, "w") as file:
-        file.write(text)
-
-
-def initialize(directory: Path, pay_to: str | None, backend: str, mode: str = "seller") -> dict:
-    if mode not in ("seller", "private") or backend not in ("mcp", "hermes-http", "openclaw"):
-        raise PaymentError("Choose a private or paid entry to an existing MCP/HTTP runtime")
-    if mode == "seller" and not pay_to:
-        raise PaymentError("Seller mode requires --pay-to; private mode does not need a wallet")
-    pay_to = address(pay_to) if mode == "seller" else None
-    directory = directory.expanduser().resolve()
-    directory.mkdir(parents=True, mode=0o700, exist_ok=True)
-    if any(directory.iterdir()):
-        raise PaymentError("Initialization requires an empty directory; nothing was overwritten")
-    write_new(directory / ".gitignore", "*.key\n*-state/\n*.sqlite3*\n.env*\n")
-    backend_config = 'kind = "mcp"\n[seller.backend.upstream]\ntransport = "streamable-http"\nurl = "http://127.0.0.1:8000/mcp"\n'
-    if backend in ("openclaw", "hermes-http"):
-        target = "openclaw/seller" if backend == "openclaw" else "hermes-agent"
-        port = 18789 if backend == "openclaw" else 8642
-        backend_config = (
-            'kind = "http"\nhttp_api = "responses"\n'
-            f'base_url = "http://127.0.0.1:{port}/v1"\nmodel = "{target}"\n'
-            'api_key_env = "ENVARPAY_RUNTIME_TOKEN"\n'
-        )
-    if mode == "private":
-        write_new(directory / "service.token", secrets.token_urlsafe(32) + "\n")
-        write_new(
-            directory / "agent.toml",
-            f"""schema_version = 1
-state_dir = "./agent-state"
-
-[service]
-host = "127.0.0.1"
-port = 4020
-bearer_token_file = "./service.token"
-tools = ["ask_agent"]
-
-[service.backend]
-{backend_config.replace("[seller.backend.upstream]", "[service.backend.upstream]")}""",
-        )
-        return {
-            "directory": str(directory),
-            "config": str(directory / "agent.toml"),
-            "token_file": str(directory / "service.token"),
-            "payments_enabled": False,
-        }
-    write_new(
-        directory / "seller.toml",
-        f'''schema_version = 1
-network = "eip155:84532"
-rpc_url = "https://sepolia.base.org"
-state_dir = "./seller-state"
-
-[seller]
-pay_to = "{pay_to}"
-host = "127.0.0.1"
-port = 4020
-
-[seller.tools.ask_agent]
-amount_atomic = 10000
-
-[seller.backend]
-{backend_config}''',
-    )
-    write_new(
-        directory / "buyer.toml",
-        f'''schema_version = 1
-network = "eip155:84532"
-rpc_url = "https://sepolia.base.org"
-state_dir = "./buyer-state"
-
-[wallet]
-key_file = "./buyer.key"
-payments_enabled = false
-max_per_call_atomic = 10000
-max_total_atomic = 10000
-
-[wallet.peers.seller]
-transport = "streamable-http"
-url = "http://127.0.0.1:4020/mcp"
-pay_to = "{pay_to}"
-tools = ["ask_agent"]
-''',
-    )
-    return {
-        "directory": str(directory),
-        "payments_enabled": False,
-        "next": "Configure the existing runtime, provision buyer.key, and review payment policy",
-    }
+from .config import load_config
+from .setup import AGENTS, describe_config, initialize, write_new
+from .storage import PaymentError, Store
 
 
 def parser() -> argparse.ArgumentParser:
@@ -119,12 +25,57 @@ def parser() -> argparse.ArgumentParser:
     root.add_argument("--version", action="version", version=__version__)
     sub = root.add_subparsers(dest="command", required=True)
     init = sub.add_parser(
-        "init", help="Generate editable seller/buyer configs; payments default off"
+        "init", help="Choose an agent and role; generate configs, wallet entry and setup guide"
     )
-    init.add_argument("--directory", type=Path, required=True)
-    init.add_argument("--pay-to", help="Receiving address; required for seller mode")
-    init.add_argument("--mode", choices=["seller", "private"], default="seller")
-    init.add_argument("--backend", choices=["mcp", "openclaw", "hermes-http"], default="mcp")
+    init.add_argument(
+        "--directory", type=Path, default=Path("agent-pay"), help="New empty setup directory"
+    )
+    init.add_argument(
+        "--agent", choices=AGENTS, default="mcp", help="Your existing agent/framework"
+    )
+    init.add_argument(
+        "--role", choices=["buyer", "seller", "both"], help="Paid setup role (default: both)"
+    )
+    init.add_argument(
+        "--mode",
+        choices=["seller", "private"],
+        default="seller",
+        help="Private mode connects an authenticated service without payments",
+    )
+    init.add_argument(
+        "--pay-to",
+        help="Full receiving address: yours for seller/both, the seller's for buyer",
+    )
+    init.add_argument("--peer-pay-to", help="Other seller's full address when using --role both")
+    init.add_argument(
+        "--peer-url", default="http://127.0.0.1:4020/mcp", help="Paid seller MCP endpoint"
+    )
+    init.add_argument(
+        "--upstream", default="http://127.0.0.1:8000/mcp", help="Private MCP capability to sell"
+    )
+    init.add_argument("--tool", default="ask_agent", help="MCP tool to sell/allow")
+    amounts = init.add_argument_group("amounts in USDC (up to six decimals)")
+    amounts.add_argument(
+        "--price", default="0.01", help="Seller price per tool call (default: 0.01)"
+    )
+    amounts.add_argument(
+        "--max-per-call", default="0.01", help="Buyer per-call limit (default: 0.01)"
+    )
+    amounts.add_argument(
+        "--budget", default="0.01", help="Buyer cumulative limit, not daily (default: 0.01)"
+    )
+    init.add_argument(
+        "--allow-http",
+        action="store_true",
+        help="Allow remote plain HTTP for private container networks",
+    )
+    init.add_argument("--json", action="store_true", help="Print the setup summary as JSON")
+    init.add_argument(
+        "--backend",
+        choices=["mcp", "openclaw", "hermes-http"],
+        default="mcp",
+        help="Seller adapter; defaults to private MCP. HTTP presets are experimental.",
+    )
     keygen = sub.add_parser(
         "keygen", help="Create a new dedicated EVM key, displaying only its address"
     )
@@ -179,7 +130,6 @@ async def read_or_call(args: argparse.Namespace) -> dict | list:
     config = load_config(args.config)
     if args.command == "sync":
         from .directory import Envar
-        from .storage import Store
 
         if not config.connection:
             raise PaymentError("Configure [connection] before synchronizing reports")
@@ -210,7 +160,7 @@ async def read_or_call(args: argparse.Namespace) -> dict | list:
             await AgentBackend(endpoint.backend, config.timeout_seconds).list_tools()
         return {
             "valid": True,
-            "network": config.network,
+            **describe_config(config),
             "rpc_checked": rpc_checked,
             "versions": {name: version(name) for name in ("envarpay", "x402", "mcp")},
         }
@@ -251,7 +201,45 @@ def main() -> None:
     args = parser().parse_args()
     try:
         if args.command == "init":
-            result = initialize(args.directory, args.pay_to, args.backend, args.mode)
+            result = initialize(
+                args.directory,
+                args.pay_to,
+                args.backend,
+                mode=args.mode,
+                agent=args.agent,
+                role=args.role,
+                upstream=args.upstream,
+                peer_url=args.peer_url,
+                peer_pay_to=args.peer_pay_to,
+                tool=args.tool,
+                price=args.price,
+                max_per_call=args.max_per_call,
+                budget=args.budget,
+                allow_http=args.allow_http,
+            )
+            if not args.json:
+                print(f"EnvarPay · {result['agent']} · {result['role']}")
+                print(f"Network: {result['network']} | Buyer payments: OFF")
+                if result["buyer"]:
+                    buyer = result["buyer"]
+                    print(f"\nBuy from: {buyer['peer_url']}")
+                    print(f"  Recipient: {buyer['recipient']}")
+                    print(f"  Tool: {buyer['tool']}")
+                    print(
+                        f"  Limit: {buyer['max_per_call_usdc']} USDC/call; "
+                        f"{buyer['budget_usdc']} USDC cumulative"
+                    )
+                if result["seller"]:
+                    seller = result["seller"]
+                    print(f"\nSell: {seller['tool']} for {seller['price_usdc']} USDC/call")
+                    print(f"  Receive at: {seller['recipient']}")
+                    print(f"  Private upstream: {seller['upstream']} ({seller['backend']})")
+                print("\nCreated in " + result["directory"] + ": " + ", ".join(result["files"]))
+                print("\nNext:")
+                for index, step in enumerate(result["next_steps"], 1):
+                    print(f"  {index}. {step}")
+                print("\nGuide: " + result["guide"])
+                return
         elif args.command == "keygen":
             account = Account.create()
             write_new(args.output.expanduser(), account.key.hex() + "\n")

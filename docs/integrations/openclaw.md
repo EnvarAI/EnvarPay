@@ -1,46 +1,118 @@
-# OpenClaw
+# OpenClaw: pay and get paid
 
-## Pay another agent
+**Buyer:** add the EnvarPay wallet to OpenClaw's native MCP configuration.
+**Seller:** expose a dedicated native task as a private MCP tool, then price it with
+EnvarPay. Your model, tools and profile stay in OpenClaw.
 
-Install EnvarPay in a dedicated environment; initialize/review `buyer.toml`.
-Then print this host's native MCP entry:
+The [official-source Docker matrix](validation.md) includes real OpenClaw purchases
+and sales. See its individual successes/failures and [source commits](../../examples/cross-framework/sources.json).
+This guide does not treat an older host installation as the tested version.
+
+## 1. Install and choose your role
+
+Follow the [EnvarPay installation steps](../getting-started.md#install) in a separate
+Python environment. Keep your existing OpenClaw installation/profile. The wallet
+and payment gate use EnvarPay's environment, not the agent's dependencies.
+
+Choose `--role buyer`, `--role seller`, or `--role both`. Both requires your own
+receiving address and a separate counterparty address; see [configuration](../configuration.md).
+
+## 2. Give OpenClaw a buyer wallet
+
+Obtain the seller's paid MCP URL and full receiving address:
 
 ```sh
-envarpay host-config --host openclaw --config /absolute/path/buyer.toml
+envarpay init --agent openclaw --role buyer --directory ./openclaw-pay \
+  --peer-url https://seller.example/mcp --pay-to SELLER_FULL_ADDRESS \
+  --max-per-call 0.01 --budget 0.05
+
+envarpay keygen --output ./openclaw-pay/buyer.key
+envarpay doctor --config ./openclaw-pay/buyer.toml
 ```
 
-Merge that entry into the host configuration. Wallet tools are `list_paid_tools`,
-`call_paid_tool`, and `payment_status`. The wallet defaults to payments OFF.
-It only spends on configured peers, recipients and tools, within its persistent budget.
+The generated `SETUP.md` lists your exact files and next steps. `buyer.toml` contains
+the allowed recipient/tools and limits. `host-config.json` contains the native
+wallet entry; no private key is embedded in that entry.
 
-The [official main-source Docker run](validation.md) uses the source SHA in
-[sources.json](../../examples/cross-framework/sources.json), not the local installation.
-The [native profile](../../examples/cross-framework/profiles/openclaw/buyer/) and
-[CLI wrapper](../../examples/cross-framework/native_cli.py) show the tested configuration.
+Merge **`mcp.servers.envarpay`** from `host-config.json` into **`~/.openclaw/openclaw.json` or your `OPENCLAW_CONFIG_PATH`**.
+Keep all existing model/tool settings and other MCP entries. JSON also works as YAML.
+Do not replace the entire host config with the snippet.
 
-## Tested seller path: private MCP + native CLI
+## 3. Check the connection before enabling payment
 
-Run the native wrapper in seller mode, then put an EnvarPay MCP-backend payment gate
-in front of its private `ask_agent` tool. (The backend is selected
-with `envarpay init --backend mcp`; `serve` reads that seller config.)
-The actual native CLI performs the task after the outer payment gate confirms it.
-See [Docker instructions](../../examples/cross-framework/README.md). This creates a
-new dedicated native task, not a continuation of your personal conversation.
+```sh
+openclaw mcp doctor envarpay --probe
+```
 
-Current main uses `agents.entries` and `memory.search`; older `agents.list` and
-`agents.defaults.memorySearch` examples no longer match its schema. Persist the
-workspace together with the profile (`/runtime-home/workspace` in the example).
-Use a dedicated model-key variable; the test profile uses `ENVARPAY_MODEL_API_KEY`.
-Do not delete workspace guards or reseed a lost profile to repair payment state.
+Inspect the selected agent's tool permissions if the MCP tools are connected but
+hidden. The current native bridge may show `tool_search`, `tool_describe` and
+`tool_call` around the actual `envarpay__call_paid_tool`; that is the host's dispatch layer.
 
-## Receive payment using your existing agent service
+You should see `list_paid_tools`, `call_paid_tool`, `payment_status` and `recover_payment` (the host
+may add an MCP prefix). A connected tool is a setup check, not a payment.
+
+Fund the generated buyer address with **Base Sepolia test USDC**. Review the chain,
+USDC contract, exact seller address, tools and limits in `buyer.toml`, then set
+`payments_enabled = true`. Keep the key file private and the state directory intact.
+
+## 4. Make an explicit purchase
+
+Ask OpenClaw to call the configured seller's `ask_agent` through `call_paid_tool`,
+with the task in `arguments.question` and a stable request ID such as `review-001`.
+Ask it to stop on any error or uncertainty. You can inspect the same attempt with:
+
+```sh
+envarpay status --config ./openclaw-pay/buyer.toml --operation-id buy:review-001
+```
+
+The wallet enforces the recipient/tool allowlist and both budgets. The model cannot
+supply a different arbitrary URL. Reusing a completed ID returns the saved result;
+an unresolved ID must not be replaced to force another purchase.
+
+## 5. Let OpenClaw receive payment
+
+First start a private MCP capability. The [native CLI Docker recipe](../selling.md#native-cli-seller-in-docker)
+uses the real OpenClaw runtime with a dedicated profile. The
+[recorded seller profile](../../examples/cross-framework/profiles/openclaw/seller/)
+is a starting point to review for your own model/provider. It is not an auto-import
+of your personal session.
+
+Once the private `ask_agent` MCP endpoint is running:
+
+```sh
+envarpay init --agent openclaw --role seller --directory ./openclaw-seller \
+  --pay-to YOUR_FULL_RECEIVING_ADDRESS \
+  --upstream http://127.0.0.1:8000/mcp --tool ask_agent --price 0.01
+
+envarpay doctor --config ./openclaw-seller/seller.toml
+envarpay serve --config ./openclaw-seller/seller.toml
+```
+
+This example assumes a loopback upstream. In Docker, use the private runtime
+hostname and follow the recipe's explicit HTTP, bind and host-allowlist settings.
+Publish only the gate (`/mcp`, default port 4020) through HTTPS. The seller needs
+its receiving address, not its private key. A correct Transfer/nonce receipt is
+required before the native task starts.
+
+## Troubleshooting
+
+| Symptom | Check |
+|---|---|
+| MCP tools connected but unavailable to the agent | Inspect the selected tool profile/allowlist and the generated `toolFilter` |
+| Config rejects `agents.list` or `agents.defaults.memorySearch` | Current main uses `agents.entries` and `memory.search`; see the recorded native profile |
+| Workspace initialization guard refuses a restarted container | Persist the profile **and** workspace (`/runtime-home/workspace` in the example); do not delete guards |
+| An older CLI lacks MCP doctor/probe | Use the documented current source/version; an old host install is not the tested runtime |
+| Wallet says payments disabled | Complete the funding/policy review, then explicitly enable the dedicated buyer config |
+| Uncertain payment or execution | Preserve the original ID/authorization/state; inspect status before any new purchase |
+
+## Optional: existing Gateway HTTP service (experimental)
 
 **Experimental source-preview connector; Gateway HTTP paid acceptance is pending; the native MCP/CLI matrix does not cover it.**
 
 Enable `gateway.http.endpoints.responses.enabled` on a dedicated Gateway. Create/select the fixed seller agent ID (the generated target is `openclaw/seller`).
 
 ```sh
-envarpay init --directory ./agent-pay --pay-to YOUR_FULL_ADDRESS --backend openclaw
+envarpay init --role seller --directory ./agent-pay --pay-to YOUR_FULL_ADDRESS --backend openclaw
 # Review seller.toml: existing /v1 URL, fixed target, price and runtime credential reference.
 # Provide ENVARPAY_RUNTIME_TOKEN securely in the seller process environment.
 envarpay doctor --config ./agent-pay/seller.toml
@@ -71,3 +143,8 @@ reachability or paid delivery. [Actual validation](validation.md) is recorded se
 - [Gateway OpenResponses API](https://github.com/openclaw/openclaw/blob/v2026.9.6/docs/gateway/openresponses-http-api.md)
 - [MCP server bridge scope](https://docs.openclaw.ai/cli/mcp/serve)
 - [Plugin SDK](https://docs.openclaw.ai/plugins/sdk-overview)
+
+
+[All agents](index.md) · [Configuration reference](../configuration.md) · [Payment evidence](validation.md)
+
+Optional: [original-operation recovery, directory discovery and remote wallet isolation](../directory-and-recovery.md). Recovery can resume an already-paid task that never started; it does not create a fresh signature.
