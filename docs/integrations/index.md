@@ -1,7 +1,7 @@
 # Choose your agent
 
 EnvarPay provides a **buyer wallet** and a **seller payment gate**. Configure them independently.
-The package, Python import and CLI are all `envarpay` (unreleased source preview 0.1.0a2).
+The package, Python import and CLI are all `envarpay` (alpha SDK 0.1.0a3).
 
 | Agent | Pay others | Charge for work | Native local Docker validation |
 |---|---|---|---|

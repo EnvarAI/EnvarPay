@@ -9,7 +9,7 @@
 [Goose](docs/integrations/other-runtimes.md#goose) · [开发框架](docs/integrations/other-runtimes.md#langgraph-and-langchain)。
 先看[支持矩阵](docs/integrations/index.md)：六类框架都已在本机 Docker 中实际收付款，
 使用核对时官方主开发分支的源码。逐笔成功交付与结算失败见[链上验收矩阵](docs/integrations/validation.md)，尚不能称为 30/30 全通过。
-`0.1.0a2` 是未发布的源码预览；不是 Hermes 官方插件，也尚未发布到 PyPI。
+`0.1.0a3` 是当前 alpha SDK，支持原请求恢复与本地收款配置同步；不是 Hermes 官方插件。
 
 ## 安装
 
