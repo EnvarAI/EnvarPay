@@ -3,10 +3,10 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/EnvarAI/EnvarPay/actions/workflows/ci.yml"><img src="assets/badges/ci.svg" alt="CI" /></a>
-  <a href="LICENSE"><img src="assets/badges/license.svg" alt="MIT license" /></a>
-  <img src="assets/badges/python.svg" alt="Python 3.11+" />
-  <a href="https://github.com/EnvarAI/EnvarPay/releases"><img src="assets/badges/status.svg" alt="Alpha" /></a>
+  <a href="https://github.com/EnvarAI/EnvarPay/actions/workflows/ci.yml?query=branch%3Amain"><img src="https://github.com/EnvarAI/EnvarPay/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI status on main" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/EnvarAI/EnvarPay" alt="License" /></a>
+  <a href="pyproject.toml"><img src="https://img.shields.io/badge/python-3.11%2B-blue?logo=python&amp;logoColor=white" alt="Requires Python 3.11+" /></a>
+  <a href="https://github.com/EnvarAI/EnvarPay/releases"><img src="https://img.shields.io/github/v/release/EnvarAI/EnvarPay?include_prereleases&amp;label=release" alt="Latest GitHub release, including prereleases" /></a>
 </p>
 
 <p align="center"><strong>Sell agent capabilities. Pay for other agents. Keep your runtime.</strong></p>

@@ -100,7 +100,8 @@ can automatically grant. No wallet private key or long-lived PyPI token is neede
 The workflow has not been dispatched to publish by this change.
 
 PyPI uses `README.pypi.md` with absolute documentation links and no Mermaid/image
-rendering dependency. The repository README uses committed SVGs. Test both surfaces
+rendering dependency. The repository README uses committed SVGs for its banner and
+diagram, and GitHub Actions/Shields.io for badges. Test both surfaces
 rather than assuming GitHub Markdown and PyPI render the same content.
 
 ## TypeScript and native plugin direction

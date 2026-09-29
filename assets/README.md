@@ -1,8 +1,17 @@
 # README visuals
 
-Repository Markdown embeds committed SVGs, so rendering does not depend on a
-live Mermaid parser or an external badge host. The CI badge links to the live
-workflow; its static text does not claim a passing status.
+The banner and payment-flow diagram are committed SVGs, so the diagram does not
+depend on GitHub's live Mermaid parser.
+
+README badges use GitHub Actions and [Shields.io](https://shields.io/):
+
+- CI reports the actual `ci.yml` workflow status on `main`.
+- License and latest GitHub release (including prereleases) come from repository metadata.
+- Python is a Shields.io static badge for the supported version in `pyproject.toml`;
+  update it when `requires-python` changes.
+
+Do not replace these with local status images. Add PyPI/npm version badges only
+after the corresponding packages are actually published.
 
 Edit `payment-flow.mmd`, then regenerate the SVG with Mermaid CLI:
 
