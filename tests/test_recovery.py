@@ -244,3 +244,88 @@ async def test_public_chain_authorization_does_not_grant_private_result(config, 
         assert response.isError
         assert "test-double answer" not in str(response)
     server.backend.call.assert_awaited_once()
+
+
+async def test_wallet_never_recovers_an_unresolved_payment_on_another_network(config, quote):
+    payload = await sign(config, quote)
+    wallet = WalletService(config)
+    wallet.store.claim(
+        "buy:old-chain",
+        "original-binding",
+        {"payload": payload.model_dump(mode="json", by_alias=True)},
+    )
+    wallet.store.reserve_budget("buy:old-chain", 10000, 10000)
+    wallet.store.update("buy:old-chain", "unknown")
+    config.network = "eip155:8453"
+    wallet.chain.prove = AsyncMock()
+    with pytest.raises(PaymentError, match="original network"):
+        await wallet.recover("old-chain")
+    wallet.chain.prove.assert_not_called()
+    assert wallet.store.get("buy:old-chain")["amount"] == 10000
+
+
+async def test_seller_requires_original_network_before_recovering_unstarted_work(
+    config, paid_server, quote
+):
+    server, _, settle = paid_server
+    payload = await sign(config, quote)
+    payment = payload.model_dump(mode="json", by_alias=True)
+    server.chain.prove.side_effect = PaymentError("temporarily unavailable")
+    await server.call(
+        "ask_agent",
+        {"question": "test"},
+        {"x402/payment": payment, "envarpay/recovery-token": "t" * 40},
+    )
+    assert settle.call_count == 1
+    server.config.network = "eip155:8453"
+    request = {
+        "tool": "ask_agent",
+        "arguments": {"question": "test"},
+        "payment": payment,
+        "recover": True,
+        "recovery_token": "t" * 40,
+    }
+    with pytest.raises(PaymentError, match="original network"):
+        await server.payment_status(request)
+    assert server.chain.prove.await_count == 1
+    server.backend.call.assert_not_called()
+    server.config.network = config.network
+    server.chain.prove.side_effect = None
+    assert (await server.payment_status(request))["status"] == "completed"
+    server.backend.call.assert_awaited_once()
+    assert settle.call_count == 1
+
+
+async def test_error_response_without_transaction_can_query_original_seller(
+    config, paid_server, monkeypatch
+):
+    server, _, settle = paid_server
+    config.wallet.peers["seller"].recovery = True
+    server.chain.prove.side_effect = PaymentError("temporarily unavailable")
+
+    class Peer:
+        async def call_tool(self, name, arguments, meta=None, **kwargs):
+            result = await server.call(name, arguments, meta or {})
+            if meta and meta.get("x402/payment"):
+                result.meta = None
+            return result
+
+    @asynccontextmanager
+    async def connect(*args):
+        yield Peer()
+
+    monkeypatch.setattr("envarpay.wallet.connect", connect)
+    wallet = WalletService(config)
+    wallet.chain.check_network = AsyncMock()
+    with pytest.raises(PaymentError):
+        await wallet.call("seller", "ask_agent", {"question": "test"}, "missing-tx-response")
+    data = wallet.store.get("buy:missing-tx-response")["data"]
+    assert data.get("response") and not data.get("transaction")
+    original = copy.deepcopy(data["payload"])
+    server.chain.prove.side_effect = None
+    wallet.chain.prove = AsyncMock(return_value={"transaction": "original-confirmed"})
+    result = await wallet.recover("missing-tx-response")
+    assert result["payment_made"] and not result["result"]["isError"]
+    assert wallet.store.get("buy:missing-tx-response")["data"]["payload"] == original
+    assert settle.call_count == 1
+    server.backend.call.assert_awaited_once()

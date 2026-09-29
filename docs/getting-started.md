@@ -17,7 +17,7 @@ python -m pip install .
 ```
 
 Keep the wallet's MCP 1.28.1 environment separate from frameworks using MCP 2/FastMCP 4.
-The package/import/CLI name is `envarpay`; source preview 0.1.0a4 is not on PyPI yet.
+The package/import/CLI name is `envarpay`; source preview 0.1.0a5 is not on PyPI yet.
 The SDK connects existing services; it does not instantiate an Agent or import Hermes.
 
 ## Connect a private existing service
