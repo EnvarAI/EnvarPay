@@ -1,0 +1,19 @@
+{
+  "GOOSE_PROVIDER": "openai",
+  "GOOSE_MODEL": "gpt-4.1-mini",
+  "GOOSE_MODE": "auto",
+  "extensions": {
+    "envarpay": {
+      "enabled": true,
+      "type": "stdio",
+      "name": "envarpay",
+      "cmd": "/opt/envarpay/.venv/bin/envarpay",
+      "args": [
+        "wallet",
+        "--config",
+        "/config/buyer.toml"
+      ],
+      "timeout": 750
+    }
+  }
+}

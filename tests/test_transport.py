@@ -11,14 +11,29 @@ from mcp.client.stdio import stdio_client
 from x402 import x402Client
 from x402.mcp.client import x402MCPSession
 
-from envar_pay.cli import initialize
-from envar_pay.config import Endpoint, load_config
-from envar_pay.transport import connect
+from envarpay.cli import initialize
+from envarpay.config import Endpoint, load_config
+from envarpay.transport import connect
 
 
 @pytest.mark.parametrize("transport", ["sse", "streamable-http"])
-async def test_real_http_mcp_payment_required(config, paid_server, respx_mock, transport):
+async def test_real_http_mcp_payment_required(
+    config, paid_server, respx_mock, transport, monkeypatch
+):
     seller, _, _ = paid_server
+    # A developer's outbound proxy must not intercept this loopback transport test.
+    for name in (
+        "HTTP_PROXY",
+        "HTTPS_PROXY",
+        "ALL_PROXY",
+        "http_proxy",
+        "https_proxy",
+        "all_proxy",
+    ):
+        monkeypatch.delenv(name, raising=False)
+    # urllib can also discover the macOS system proxy after env variables are removed.
+    monkeypatch.setenv("NO_PROXY", "*")
+    monkeypatch.setenv("no_proxy", "*")
     # Only facilitator HTTP is simulated; MCP uses a real local TCP socket.
     respx_mock.route(host="127.0.0.1").pass_through()
     with socket.socket() as sock:
@@ -51,7 +66,7 @@ async def test_real_http_mcp_payment_required(config, paid_server, respx_mock, t
                 == "upfront"
             )
         seller.backend.call.assert_not_called()
-        from envar_pay.wallet import WalletService
+        from envarpay.wallet import WalletService
 
         config.wallet.peers["seller"].url = endpoint.url
         config.wallet.peers["seller"].transport = endpoint.transport
@@ -72,7 +87,7 @@ async def test_cli_wallet_is_real_stdio_mcp_without_key(tmp_path: Path):
     config = load_config(config_path)
     assert not config.wallet.payments_enabled
     params = StdioServerParameters(
-        command=sys.executable, args=["-m", "envar_pay", "wallet", "--config", str(config_path)]
+        command=sys.executable, args=["-m", "envarpay", "wallet", "--config", str(config_path)]
     )
     async with stdio_client(params) as streams:
         async with ClientSession(*streams) as session:
@@ -88,8 +103,8 @@ async def test_cli_wallet_is_real_stdio_mcp_without_key(tmp_path: Path):
 
 
 async def test_mcp_backend_preserves_schema_and_result(tmp_path: Path):
-    from envar_pay.backend import AgentBackend
-    from envar_pay.config import Backend
+    from envarpay.backend import AgentBackend
+    from envarpay.config import Backend
 
     upstream = tmp_path / "server.py"
     upstream.write_text("""from mcp.server.fastmcp import FastMCP

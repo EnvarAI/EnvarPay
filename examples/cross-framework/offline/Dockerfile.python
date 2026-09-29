@@ -1,0 +1,10 @@
+FROM envarpay:matrix-sdk
+USER root
+COPY python-main/langgraph /wheels/langgraph
+COPY python-main/pydantic-ai /wheels/pydantic-ai
+RUN uv venv /opt/langgraph --python /opt/hermes/.venv/bin/python && \
+    uv pip install --offline --no-index --python /opt/langgraph/bin/python /wheels/langgraph/*.whl && \
+    uv venv /opt/pydantic-ai --python /opt/hermes/.venv/bin/python && \
+    uv pip install --offline --no-index --python /opt/pydantic-ai/bin/python /wheels/pydantic-ai/*.whl
+COPY python-main/sources.json /opt/framework-sources.json
+ENTRYPOINT ["/bin/sh"]

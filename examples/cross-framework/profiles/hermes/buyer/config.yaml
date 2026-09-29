@@ -1,0 +1,28 @@
+{
+  "model": {
+    "default": "gpt-4.1-mini",
+    "provider": "custom",
+    "base_url": "https://api.acedata.cloud/v1",
+    "key_env": "ENVARPAY_MODEL_API_KEY"
+  },
+  "agent": {
+    "max_turns": 8
+  },
+  "platform_toolsets": {
+    "cli": [
+      "mcp_envarpay"
+    ]
+  },
+  "mcp_servers": {
+    "envarpay": {
+      "command": "/opt/envarpay/.venv/bin/envarpay",
+      "args": [
+        "wallet",
+        "--config",
+        "/config/buyer.toml"
+      ],
+      "timeout": 750,
+      "connect_timeout": 30
+    }
+  }
+}

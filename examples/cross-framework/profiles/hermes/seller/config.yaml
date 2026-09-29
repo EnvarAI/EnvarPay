@@ -1,0 +1,14 @@
+{
+  "model": {
+    "default": "gpt-4.1-mini",
+    "provider": "custom",
+    "base_url": "https://api.acedata.cloud/v1",
+    "key_env": "ENVARPAY_MODEL_API_KEY"
+  },
+  "agent": {
+    "max_turns": 8
+  },
+  "platform_toolsets": {
+    "cli": []
+  }
+}

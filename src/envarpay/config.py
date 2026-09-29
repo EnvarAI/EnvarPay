@@ -65,10 +65,13 @@ class Endpoint(StrictModel):
 
 
 class Backend(StrictModel):
-    kind: Literal["mcp", "hermes"]
+    kind: Literal["mcp", "hermes", "http"]
     upstream: Endpoint | None = None
     model: str = ""
     base_url: str | None = None
+    http_api: Literal["responses", "chat-completions"] = "responses"
+    allow_http: bool = False
+    max_response_bytes: int = Field(default=1048576, ge=1024, le=10485760)
     provider: str | None = None
     api_key_env: str | None = None
     api_key_file: str | None = None
@@ -83,6 +86,16 @@ class Backend(StrictModel):
             raise ValueError("MCP backend requires upstream")
         if self.kind == "hermes" and (not self.model or self.upstream is not None):
             raise ValueError("Hermes backend requires model and no upstream")
+        if self.kind == "http":
+            if not self.model or self.model == "YOUR_MODEL" or self.upstream is not None:
+                raise ValueError("HTTP backend requires a fixed model/agent target and no upstream")
+            if not self.base_url:
+                raise ValueError("HTTP backend requires the existing agent's /v1 base_url")
+            self.base_url = web_url(self.base_url, self.allow_http)
+            if not self.base_url.endswith("/v1"):
+                raise ValueError("HTTP base_url must end with /v1")
+            if not (self.api_key_env or self.api_key_file):
+                raise ValueError("HTTP backend requires a server-owned credential reference")
         if self.api_key_env and self.api_key_file:
             raise ValueError("Choose api_key_env or api_key_file")
         return self

@@ -1,0 +1,13 @@
+FROM envarpay:matrix-sdk
+USER root
+ARG PYPI_INDEX=https://pypi.org/simple
+WORKDIR /src/hermes
+COPY hermes/source /src/hermes
+RUN --mount=type=cache,target=/root/.cache/uv uv python install 3.14
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv venv /opt/hermes-latest --python 3.14 && \
+    uv pip install --index-url ${PYPI_INDEX} --python /opt/hermes-latest/bin/python \
+      -e '/src/hermes[mcp]' 'uvicorn>=0.31'
+COPY hermes/source.json /opt/hermes-latest/source.json
+ENV HERMES_HOME=/runtime-home
+ENTRYPOINT ["/opt/hermes-latest/bin/python"]

@@ -1,0 +1,49 @@
+{
+  "resolved_at": "2026-09-29T13:14:45.542674+00:00",
+  "runtime_acceptance": "28/30 paid deliveries; 2 failed settlements; see docs/integrations/validation.md",
+  "source_policy": "Official default-development branch HEAD; pinned for the complete matrix run",
+  "sources": [
+    {
+      "name": "langgraph",
+      "repository": "langchain-ai/langgraph",
+      "branch": "main",
+      "sha": "07b33185eab893be2ed031eedae52f09314bf77c"
+    },
+    {
+      "name": "openclaw",
+      "repository": "openclaw/openclaw",
+      "branch": "main",
+      "sha": "aa56d37f1c81c25d856eabfde479b4352763d154"
+    },
+    {
+      "name": "langchain",
+      "repository": "langchain-ai/langchain",
+      "branch": "master",
+      "sha": "ce9066138d0e234109ac7dd60a10ad7cc10cdfda"
+    },
+    {
+      "name": "pydantic-ai",
+      "repository": "pydantic/pydantic-ai",
+      "branch": "main",
+      "sha": "3b68c695b1068736133b7018f9c69d14ce390d38"
+    },
+    {
+      "name": "hermes",
+      "repository": "NousResearch/hermes-agent",
+      "branch": "main",
+      "sha": "fc042f1d67bc393bf43920e92d4eb5082eddedfb"
+    },
+    {
+      "name": "opencode",
+      "repository": "anomalyco/opencode",
+      "branch": "dev",
+      "sha": "7945de208964a49300d7f770d1a71d078db9a4c4"
+    },
+    {
+      "name": "goose",
+      "repository": "aaif-goose/goose",
+      "branch": "main",
+      "sha": "b92a80daf4a77d7e854709965bdfdc489c0472d2"
+    }
+  ]
+}

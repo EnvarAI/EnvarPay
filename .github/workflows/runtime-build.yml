@@ -1,0 +1,70 @@
+name: Runtime build artifacts (no payments)
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - .github/workflows/runtime-build.yml
+      - examples/cross-framework/build_artifacts.py
+      - examples/cross-framework/sources.json
+
+permissions:
+  contents: read
+
+jobs:
+  python-wheels:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: python examples/cross-framework/build_artifacts.py python
+      - uses: actions/upload-artifact@v4
+        with:
+          name: runtime-python-linux-arm64
+          path: runtime-artifacts/
+          retention-days: 7
+  hermes-wheels:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+      - run: python -m pip install uv
+      - run: python examples/cross-framework/build_artifacts.py hermes
+      - uses: actions/upload-artifact@v4
+        with:
+          name: runtime-hermes-linux-arm64
+          path: runtime-artifacts/
+          retention-days: 7
+  native-cli:
+    strategy:
+      fail-fast: false
+      matrix:
+        runtime: [goose, opencode, openclaw]
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '26'
+      - run: python3 examples/cross-framework/build_artifacts.py ${{ matrix.runtime }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: runtime-${{ matrix.runtime }}-linux-arm64
+          path: runtime-artifacts/
+          retention-days: 7
+
+# These jobs only compile/download public dependencies. No wallet, model key,
+# facilitator call, agent delivery or chain-payment acceptance runs here.

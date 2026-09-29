@@ -1,0 +1,40 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "envarpay/gpt-4.1-mini",
+  "provider": {
+    "envarpay": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "EnvarPay Test",
+      "options": {
+        "baseURL": "https://api.acedata.cloud/v1",
+        "apiKey": "{env:ENVARPAY_MODEL_API_KEY}"
+      },
+      "models": {
+        "gpt-4.1-mini": {
+          "name": "gpt-4.1-mini",
+          "limit": {
+            "context": 128000,
+            "output": 2048
+          }
+        }
+      }
+    }
+  },
+  "permission": {
+    "*": "deny",
+    "envarpay_*": "allow"
+  },
+  "mcp": {
+    "envarpay": {
+      "type": "local",
+      "command": [
+        "/opt/envarpay/.venv/bin/envarpay",
+        "wallet",
+        "--config",
+        "/config/buyer.toml"
+      ],
+      "enabled": true,
+      "timeout": 240000
+    }
+  }
+}

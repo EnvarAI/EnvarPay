@@ -1,6 +1,6 @@
 """Standard-protocol payment adapters; no Hermes core changes required."""
 
-__version__ = "0.1.0a1"
+__version__ = "0.1.0a2"
 
 from .config import Config, load_config
 from .seller import PaidServer

@@ -1,0 +1,44 @@
+{
+  "models": {
+    "providers": {
+      "envarpay": {
+        "baseUrl": "https://api.acedata.cloud/v1",
+        "apiKey": "${ENVARPAY_MODEL_API_KEY}",
+        "api": "openai-completions",
+        "models": [
+          {
+            "id": "gpt-4.1-mini",
+            "name": "GPT 4.1 mini",
+            "contextWindow": 128000,
+            "maxTokens": 2048
+          }
+        ]
+      }
+    }
+  },
+  "agents": {
+    "defaults": {
+      "workspace": "/runtime-home/workspace",
+      "model": {
+        "primary": "envarpay/gpt-4.1-mini"
+      }
+    },
+    "entries": {
+      "seller": {
+        "name": "EnvarPay seller",
+        "workspace": "/runtime-home/workspace"
+      }
+    }
+  },
+  "tools": {
+    "profile": "messaging"
+  },
+  "gateway": {
+    "mode": "local"
+  },
+  "memory": {
+    "search": {
+      "enabled": false
+    }
+  }
+}

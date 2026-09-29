@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.1.0a2 — unreleased candidate
+
+- Unify distribution, CLI and Python import as envarpay; preserve original config and ledger paths.
+- Add host-config snippets for OpenClaw, Hermes, OpenCode and Goose without editing personal configs.
+- Add an experimental bounded HTTP runtime connector for dedicated existing agent services.
+- Add native Docker buyer/seller harnesses, reviewed profiles and offline source-build recipes for six frameworks.
+- Record 28 real cross-framework paid deliveries and two failed settlements, with raw-RPC audit and per-transaction evidence.
+- Isolate local TCP tests from inherited/system proxies; package tests pass (77).
+- Gateway HTTP acceptance, full 30/30 acceptance, mainnet and PyPI publication remain pending.
+
+
 ## 0.1.0a1
 
 Initial public alpha of EnvarPay, extracted from the earlier two-Hermes payment POC.

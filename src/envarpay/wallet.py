@@ -155,7 +155,7 @@ class WalletService:
 
 
 def wallet_mcp(service: WalletService) -> FastMCP:
-    mcp = FastMCP("envar-pay wallet")
+    mcp = FastMCP("envarpay wallet")
 
     @mcp.tool()
     async def list_paid_tools(peer: str) -> dict:

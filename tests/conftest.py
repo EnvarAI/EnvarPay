@@ -8,8 +8,8 @@ import pytest
 from eth_account import Account
 from mcp.types import CallToolResult, TextContent, Tool
 
-from envar_pay.config import Config
-from envar_pay.seller import PaidServer
+from envarpay.config import Config
+from envarpay.seller import PaidServer
 
 PAYEE = "0xaCf233534e258177f6dc704e6251294D96638ACC"
 TX = "0x" + "11" * 32

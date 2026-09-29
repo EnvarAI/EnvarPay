@@ -1,0 +1,12 @@
+FROM envarpay:matrix-sdk
+USER root
+ADD hermes-main/python-3.14-linux-arm64.tar.gz /opt/hermes-python/
+ADD hermes-main/hermes-source.tar.gz /src/
+COPY hermes-main/hermes /wheels/hermes
+WORKDIR /src/hermes
+RUN uv venv /opt/hermes-latest --python /opt/hermes-python/python/bin/python3.14 && \
+    uv pip install --offline --no-index --find-links /wheels/hermes --python /opt/hermes-latest/bin/python /wheels/hermes/*.whl && \
+    uv pip install --offline --no-deps --no-build-isolation --python /opt/hermes-latest/bin/python -e /src/hermes
+COPY hermes-main/sources.json /opt/framework-sources.json
+ENV HERMES_HOME=/runtime-home
+ENTRYPOINT ["/opt/hermes-latest/bin/python"]
