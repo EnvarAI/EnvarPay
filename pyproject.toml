@@ -1,0 +1,57 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "envar-pay"
+version = "0.1.0a1"
+description = "Get your agents paid. MCP and x402 payment SDK and CLI for agents."
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [{name = "EnvarAI contributors"}]
+license = "MIT"
+license-files = ["LICENSE"]
+keywords = ["agents", "payments", "mcp", "x402", "hermes", "usdc"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.13",
+]
+dependencies = [
+  "x402[evm,mcp]==2.24.0",
+  "mcp==1.26.0",
+  "pydantic>=2.11,<3",
+  "httpx>=0.28,<1",
+  "loguru>=0.7,<1",
+  "uvicorn>=0.31,<1",
+  "starlette>=0.40,<1",
+  "jsonschema>=4.20,<5",
+]
+
+[project.urls]
+Homepage = "https://github.com/EnvarAI/EnvarPay"
+Repository = "https://github.com/EnvarAI/EnvarPay"
+Issues = "https://github.com/EnvarAI/EnvarPay/issues"
+Documentation = "https://github.com/EnvarAI/EnvarPay/tree/main/docs"
+
+[project.optional-dependencies]
+test = ["pytest>=8", "pytest-asyncio>=0.25", "respx>=0.22", "build>=1.2", "ruff>=0.12"]
+
+[project.scripts]
+envar-pay = "envar_pay.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/envar_pay"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]

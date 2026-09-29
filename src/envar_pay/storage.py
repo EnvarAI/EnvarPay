@@ -1,0 +1,126 @@
+"""Local durable reservations; ambiguous attempts never release their budget automatically."""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import os
+import sqlite3
+import time
+from collections.abc import Iterator
+from contextlib import contextmanager
+from pathlib import Path
+from typing import Any
+
+
+class PaymentError(RuntimeError):
+    """A safe, user-visible payment refusal."""
+
+
+def digest(value: Any) -> str:
+    return hashlib.sha256(
+        json.dumps(value, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
+
+
+def secret_file(path: Path) -> str:
+    if path.is_symlink() or not path.is_file() or path.stat().st_mode & 0o077:
+        raise PaymentError("Secret file must be a regular, owner-only file (chmod 600)")
+    return path.read_text().strip()
+
+
+class Store:
+    def __init__(self, directory: str):
+        path = Path(directory)
+        path.mkdir(mode=0o700, parents=True, exist_ok=True)
+        if path.is_symlink() or path.stat().st_mode & 0o077:
+            raise PaymentError("State directory must be private (chmod 700)")
+        self.path = path / "payments.sqlite3"
+        if self.path.is_symlink():
+            raise PaymentError("State database cannot be a symbolic link")
+        fd = os.open(self.path, os.O_CREAT | os.O_WRONLY, 0o600)
+        os.close(fd)
+        self.path.chmod(0o600)
+        with self.connect() as db:
+            db.execute("""CREATE TABLE IF NOT EXISTS operations (
+                id TEXT PRIMARY KEY, binding TEXT NOT NULL, status TEXT NOT NULL,
+                amount INTEGER NOT NULL DEFAULT 0, data TEXT NOT NULL, updated REAL NOT NULL)""")
+
+    @contextmanager
+    def connect(self) -> Iterator[sqlite3.Connection]:
+        db = sqlite3.connect(self.path, timeout=30)
+        db.row_factory = sqlite3.Row
+        try:
+            with db:
+                yield db
+        finally:
+            db.close()
+
+    def get(self, key: str) -> dict | None:
+        with self.connect() as db:
+            row = db.execute("SELECT * FROM operations WHERE id=?", (key,)).fetchone()
+        if row is None:
+            return None
+        return {**dict(row), "data": json.loads(row["data"])}
+
+    def claim(self, key: str, binding: str, data: dict) -> None:
+        try:
+            with self.connect() as db:
+                db.execute("BEGIN IMMEDIATE")
+                pending = db.execute(
+                    "SELECT id FROM operations WHERE binding=? AND id LIKE 'buy:%' "
+                    "AND status NOT IN ('completed', 'refused') LIMIT 1",
+                    (binding,),
+                ).fetchone()
+                if key.startswith("buy:") and pending:
+                    raise PaymentError(
+                        "Same purchase has an unresolved attempt; do not use a new ID"
+                    )
+                db.execute(
+                    "INSERT INTO operations VALUES (?, ?, 'reserved', 0, ?, ?)",
+                    (key, binding, json.dumps(data), time.time()),
+                )
+        except sqlite3.IntegrityError as error:
+            raise PaymentError(
+                "Request already attempted; use status with the original request ID"
+            ) from error
+
+    def reserve_budget(self, key: str, amount: int, maximum: int) -> None:
+        with self.connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            row = db.execute("SELECT amount,status FROM operations WHERE id=?", (key,)).fetchone()
+            if not row or row["amount"] or row["status"] != "reserved":
+                raise PaymentError("This request already reserved a signature")
+            used = db.execute(
+                "SELECT COALESCE(SUM(amount),0) FROM operations WHERE id LIKE 'buy:%'"
+            ).fetchone()[0]
+            if amount <= 0 or used + amount > maximum:
+                raise PaymentError("Cumulative wallet budget exceeded")
+            db.execute(
+                "UPDATE operations SET amount=?,status='signing',updated=? WHERE id=?",
+                (amount, time.time(), key),
+            )
+
+    def update(self, key: str, status: str, **data: Any) -> None:
+        with self.connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            row = db.execute("SELECT data FROM operations WHERE id=?", (key,)).fetchone()
+            if not row:
+                raise PaymentError("Missing operation reservation")
+            merged = {**json.loads(row["data"]), **data}
+            db.execute(
+                "UPDATE operations SET status=?,data=?,updated=? WHERE id=?",
+                (status, json.dumps(merged), time.time(), key),
+            )
+
+    def public_status(self, key: str | None = None) -> list[dict]:
+        with self.connect() as db:
+            rows = db.execute(
+                "SELECT id,status,amount,updated,data FROM operations ORDER BY updated DESC"
+            ).fetchall()
+        return [
+            {k: row[k] for k in ("id", "status", "amount", "updated")}
+            | {"transaction": json.loads(row["data"]).get("transaction")}
+            for row in rows
+            if key is None or row["id"] == key
+        ]
