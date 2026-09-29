@@ -3,10 +3,10 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/EnvarAI/EnvarPay/actions/workflows/ci.yml"><img src="https://github.com/EnvarAI/EnvarPay/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT license" /></a>
-  <img src="https://img.shields.io/badge/Python-3.11%2B-blue.svg" alt="Python 3.11+" />
-  <a href="https://github.com/EnvarAI/EnvarPay/releases"><img src="https://img.shields.io/badge/status-alpha-orange.svg" alt="Alpha" /></a>
+  <a href="https://github.com/EnvarAI/EnvarPay/actions/workflows/ci.yml?query=branch%3Amain"><img src="https://github.com/EnvarAI/EnvarPay/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI status on main" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/EnvarAI/EnvarPay" alt="License" /></a>
+  <a href="pyproject.toml"><img src="https://img.shields.io/badge/python-3.11%2B-blue?logo=python&amp;logoColor=white" alt="Requires Python 3.11+" /></a>
+  <a href="https://github.com/EnvarAI/EnvarPay/releases"><img src="https://img.shields.io/github/v/release/EnvarAI/EnvarPay?include_prereleases&amp;label=release" alt="Latest GitHub release, including prereleases" /></a>
 </p>
 
 <p align="center"><strong>Sell agent capabilities. Pay for other agents. Keep your runtime.</strong></p>
@@ -37,21 +37,28 @@ connectors are experimental and have separate acceptance work remaining.
 
 ## Install
 
-Python 3.11+. Install EnvarPay in its own environment:
+The current CLI is a Python distribution that **any MCP-capable agent can use**.
+With [uv](https://docs.astral.sh/uv/getting-started/installation/) installed, install
+the source preview into a persistent isolated tool environment:
 
 ```sh
-git clone https://github.com/EnvarAI/EnvarPay.git
-cd EnvarPay
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install .
-envarpay --help
+uv tool install --python 3.13 'git+https://github.com/EnvarAI/EnvarPay.git@f794729106d1c80543e179c395899c497c6e01f0'
+envarpay --version
 ```
 
-Package, command and Python import are all **`envarpay`**. Source preview `0.1.0a5`
-is not on PyPI yet. The published GitHub prerelease is `0.1.0a3`; the new onboarding commands here
-are in the `0.1.0a5` source. See
-[migration instructions](docs/migration-envarpay.md) if you already have a wallet.
+This pins the reviewed security baseline `0.1.0a5`; it is not a PyPI install.
+The distribution preparation in this branch targets unreleased `0.1.0a6`. Registry checks on
+2026-09-30 found no `envarpay` project on PyPI or npm. The existing GitHub prerelease
+is `0.1.0a3`. We do not advertise `pip install envarpay` or `npm install envarpay`
+as working commands before those packages actually exist.
+
+A standalone service [Dockerfile](Dockerfile) is also provided for hosts that do
+not want to install Python. The npm TypeScript client and framework-native plugins
+are proposed, not shipped. [Packages, languages and publishing status →](docs/packages.md)
+
+For Python API development or contributing, use the [development install](CONTRIBUTING.md).
+Existing wallets should follow [migration instructions](docs/migration-envarpay.md),
+keeping the original key, config and ledger paths.
 
 ## I want my agent to pay others
 
@@ -106,21 +113,9 @@ Expose the payment gate at `http://127.0.0.1:4020/mcp` through your HTTPS servic
 Keep the raw upstream private. The seller needs **only its receiving address**,
 not its private key. `doctor` checks configuration; it does not claim a live delivery.
 
-```mermaid
-sequenceDiagram
-    participant B as Buyer agent
-    participant W as EnvarPay wallet
-    participant G as EnvarPay payment gate
-    participant A as Seller's private agent/tool
-    B->>W: Call a paid tool
-    W->>G: Request capability
-    G-->>W: x402 PaymentRequired + price
-    W->>W: Check recipient and budget; sign
-    W->>G: Request + original authorization
-    G->>G: Settle; verify exact USDC transfer + nonce
-    G->>A: Execute after payment confirmation
-    A-->>B: Deliver result through EnvarPay
-```
+![Agent payment flow](assets/payment-flow.svg)
+
+[Diagram source](assets/payment-flow.mmd)
 
 [Complete seller walkthrough →](docs/getting-started.md#charge-for-a-capability)
 

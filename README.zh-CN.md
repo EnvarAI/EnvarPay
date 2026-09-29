@@ -24,20 +24,24 @@ Agent 继续使用自己的框架、模型和工具，无需 Envar 账号。
 
 ## 安装
 
-Python 3.11+，建议给 EnvarPay 单独建环境：
+当前已实现的是 Python SDK/CLI，任何支持 MCP 的 Agent 都可以连接它。
+安装 [uv](https://docs.astral.sh/uv/getting-started/installation/) 后，一条命令装入持久隔离环境：
 
 ```sh
-git clone https://github.com/EnvarAI/EnvarPay.git
-cd EnvarPay
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install .
-envarpay --help
+uv tool install --python 3.13 'git+https://github.com/EnvarAI/EnvarPay.git@f794729106d1c80543e179c395899c497c6e01f0'
+envarpay --version
 ```
 
-包名、命令和 Python import 都是 **`envarpay`**。`0.1.0a5` 为源码预览，尚未发布到 PyPI。
-GitHub 已有 `0.1.0a3` 预发布包；本文的新初始化功能在`0.1.0a5` 源码中。
-已有钱包升级请先读[迁移说明](docs/migration-envarpay.md)，保留原账本。
+这是固定到已审查的 `0.1.0a5` 安全修复提交的 **Git 源码安装**，不需要手工克隆和激活 venv。
+本分发改进准备的是未发布的 `0.1.0a6` 候选。
+2026-09-30 核对时，PyPI 和 npm 上都没有 `envarpay` 项目；GitHub 已有 `0.1.0a3` 预发布。
+不能把 GitHub Release 当作 PyPI/npm 已上架，也不能把普通 MCP 配置称为原生插件。
+
+仓库另有不捆绑 Agent 的独立服务 [Dockerfile](Dockerfile)。PyPI 发布流程已准备，
+仍需项目 owner 绑定可信发布者后正式发布；npm TypeScript SDK 与原生插件尚未实现。
+[各语言该装什么、当前分发状态和发布方案 →](docs/packages.md)
+
+已有钱包升级请先读[迁移说明](docs/migration-envarpay.md)，保留原账本和密钥路径。
 
 ## 我要让 Agent 给别人付款
 
@@ -89,6 +93,8 @@ envarpay serve --config ./my-service/seller.toml
 如果 Agent 还没有 MCP 服务入口，用对应指南里的原生 CLI 或 Python 包装示例。
 `--agent` 用于选择指南及客户端配置，不会自动安装 Agent、暴露个人会话或替你托管服务。
 原始执行入口保持私有，只对外提供经过 HTTPS 的收款门禁。
+
+![Agent 付款与交付流程](assets/payment-flow.svg)
 
 ## 同一个 Agent 同时付款和收款
 

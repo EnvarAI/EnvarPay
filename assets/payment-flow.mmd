@@ -1,0 +1,15 @@
+sequenceDiagram
+    participant B as Buyer agent
+    participant W as EnvarPay wallet
+    participant G as Payment gate
+    participant A as Private seller agent
+    B->>W: Call a paid tool
+    W->>G: Request capability
+    G-->>W: x402 PaymentRequired + price
+    W->>W: Check recipient and budget, then sign
+    W->>G: Request + original authorization
+    G->>G: Settle and verify exact USDC transfer + nonce
+    G->>A: Execute after payment confirmation
+    A-->>G: Capability result
+    G-->>W: Result and payment receipt
+    W-->>B: Verified result
