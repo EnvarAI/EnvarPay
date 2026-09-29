@@ -49,7 +49,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        runtime: [goose, opencode]
+        runtime: [goose, opencode, openclaw]
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 60
     steps:

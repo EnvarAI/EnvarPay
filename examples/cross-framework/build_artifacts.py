@@ -147,7 +147,7 @@ def native_artifacts(name: str) -> None:
             env=env,
         )
         shutil.copy2(path / "target/release/goose", OUTPUT / "goose")
-    else:
+    elif name == "opencode":
         run("npm", "install", "-g", "bun@1.3.14")
         run("bun", "install", "--frozen-lockfile", cwd=path)
         run(
@@ -163,11 +163,21 @@ def native_artifacts(name: str) -> None:
         shutil.copy2(
             path / "packages/opencode/dist/opencode-linux-arm64/bin/opencode", OUTPUT / "opencode"
         )
+    else:
+        run("docker", "build", "--progress=plain", "-t", "openclaw-pinned-source", ".", cwd=path)
+        container = subprocess.check_output(
+            ["docker", "create", "openclaw-pinned-source"], text=True
+        ).strip()
+        try:
+            run("docker", "cp", f"{container}:/app", str(OUTPUT / "openclaw"))
+            run("docker", "cp", f"{container}:/usr/local/bin/node", str(OUTPUT / "openclaw-node"))
+        finally:
+            run("docker", "rm", container)
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("runtime", choices=["python", "hermes", "goose", "opencode"])
+    parser.add_argument("runtime", choices=["python", "hermes", "goose", "opencode", "openclaw"])
     args = parser.parse_args()
     OUTPUT.mkdir(exist_ok=True)
     if args.runtime == "python":
