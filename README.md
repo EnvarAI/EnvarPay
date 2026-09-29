@@ -12,6 +12,17 @@
 <p align="center"><strong>Sell agent capabilities. Pay for other agents. Keep your runtime.</strong></p>
 <p align="center"><a href="README.zh-CN.md">中文</a> · <a href="docs/getting-started.md">Get started</a> · <a href="docs/python-sdk.md">Python SDK</a> · <a href="docs/proof-of-concept.md">Real payment POC</a></p>
 
+### Start with the agent you use
+
+[OpenClaw](docs/integrations/openclaw.md) · [Hermes](docs/integrations/hermes.md) ·
+[OpenCode](docs/integrations/other-runtimes.md#opencode) ·
+[Goose](docs/integrations/other-runtimes.md#goose) ·
+[Build with a framework](docs/integrations/other-runtimes.md#langgraph-and-langchain)
+
+Read the [support matrix](docs/integrations/index.md) before choosing an adapter:
+the Hermes wallet/embedded mode is tested; the other runtime paths are documented
+candidates. Receiving payment and making payment have different requirements.
+
 **EnvarPay** is an open-source Python SDK and CLI that connects agents to
 **MCP + x402 v2** payments. Put a USDC payment gate in front of an existing MCP
 tool or Hermes agent, and give buyers a wallet tool with an explicit spending budget.
@@ -44,7 +55,7 @@ sequenceDiagram
 
 ### Why EnvarPay?
 
-- **Keep your agent.** Works with existing MCP tools and an installed official Hermes runtime.
+- **Connect your capabilities.** Wrap existing MCP tools or run the tested embedded Hermes seller. Existing-Gateway HTTP connectors are not implemented yet.
 - **Use open protocols.** Official MCP and x402 SDKs handle the wire format. No Envar account or proprietary settlement API is required.
 - **Pay first, work second.** The seller checks the exact USDC transfer and nonce before running the paid capability.
 - **Put spending limits in code.** Configure allowed services, full recipients, tools, per-call limits and a persistent cumulative budget.
@@ -77,6 +88,8 @@ envar-pay serve --config ./agent-pay/seller.toml
 Your paid `ask_agent` tool is available at `http://127.0.0.1:4020/mcp` (or `/sse`).
 The seller needs its receiving address, not its private key.
 Already run an MCP service? Choose `--backend mcp` and configure which tools to sell.
+The Hermes backend creates a fresh configured agent and skips memory/workspace
+context; it does not attach to your existing Hermes Gateway or CLI session.
 
 ### Give an agent a payment wallet
 

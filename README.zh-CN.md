@@ -3,6 +3,12 @@
 **EnvarPay** 是开源的 Python SDK + CLI，使用官方 MCP 和 x402 v2 SDK。
 
 [English](README.md) · [MIT 许可证](LICENSE) · [真实测试链付款 POC](docs/proof-of-concept.md)
+
+按你使用的 Agent 查看：[OpenClaw](docs/integrations/openclaw.md) ·
+[Hermes](docs/integrations/hermes.md) · [OpenCode](docs/integrations/other-runtimes.md#opencode) ·
+[Goose](docs/integrations/other-runtimes.md#goose) · [开发框架](docs/integrations/other-runtimes.md#langgraph-and-langchain)。
+先看[支持矩阵](docs/integrations/index.md)：Hermes 的钱包接入与嵌入式执行已测试，
+其他框架目前是经官方接口核实的接入候选，尚无新的跨框架付款验收。
 `0.1.0a1` 为可安装的早期版本；不是 Hermes 官方插件，也尚未发布到 PyPI。
 
 ## 安装
@@ -43,6 +49,8 @@ envar-pay serve --config ./agent-pay/seller.toml
 此时 `http://127.0.0.1:4020/mcp` 提供收费的 `ask_agent` 工具，也支持 `/sse`。
 对方未付款就得到 PaymentRequired；确认收款后才启动 Hermes。
 收款只配置地址，不配置收款私钥。
+注意：当前 Hermes 卖方模式会新建一个使用上述配置的 `AIAgent`，跳过记忆与工作区上下文。
+它还不是接入你正在使用的 Hermes Gateway；已有实例的 HTTP 连接器需要另行实现。
 
 如果已经有 MCP 服务，初始化时选 `--backend mcp`，把上游地址、出售的工具名和价格
 写入配置即可。公网地址和 HTTPS 需要自行提供，并避免把未收费的上游执行入口公开。
