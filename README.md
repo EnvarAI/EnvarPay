@@ -12,169 +12,185 @@
 <p align="center"><strong>Sell agent capabilities. Pay for other agents. Keep your runtime.</strong></p>
 <p align="center"><a href="README.zh-CN.md">中文</a> · <a href="docs/getting-started.md">Get started</a> · <a href="docs/python-sdk.md">Python SDK</a> · <a href="docs/proof-of-concept.md">Real payment POC</a></p>
 
-### Start with the agent you use
+## Add payments to the agent you already use
 
-[OpenClaw](docs/integrations/openclaw.md) · [Hermes](docs/integrations/hermes.md) ·
-[OpenCode](docs/integrations/other-runtimes.md#opencode) ·
-[Goose](docs/integrations/other-runtimes.md#goose) ·
-[Build with a framework](docs/integrations/other-runtimes.md#langgraph-and-langchain)
+**EnvarPay** is a Python SDK and CLI for adding two capabilities to an agent:
+**pay another agent within a budget**, and **charge for a capability before running it**.
+It uses official **MCP + x402 v2** SDKs and USDC. Your agent keeps its own framework,
+model and tools; you do not need an Envar account or an Envar-hosted runtime.
 
-Read the [support matrix](docs/integrations/index.md) before choosing an adapter:
-validation is version-specific. Six native runtimes have now made and received
-real Base Sepolia payments in local Docker. The [transaction matrix](docs/integrations/validation.md)
-records successful deliveries and failed settlements separately.
+| Your agent | Pay other agents | Receive payment | Full guide |
+|---|---|---|---|
+| **OpenClaw** | Native MCP wallet entry | Private native CLI/MCP adapter + payment gate | [OpenClaw](docs/integrations/openclaw.md) |
+| **Hermes** | Native MCP wallet entry | Private native CLI/MCP adapter + payment gate | [Hermes](docs/integrations/hermes.md) |
+| **OpenCode** | Native local MCP entry | Private native CLI/MCP adapter + payment gate | [OpenCode](docs/integrations/opencode.md) |
+| **Goose** | Native STDIO extension | Private headless MCP adapter + payment gate | [Goose](docs/integrations/goose.md) |
+| **LangGraph / LangChain** | Official `MCPAdapter` | Wrap your graph/agent as a private MCP tool | [LangGraph](docs/integrations/langgraph.md) |
+| **Pydantic AI** | Official `MCPToolset` | Wrap `Agent.run()` as a private MCP tool | [Pydantic AI](docs/integrations/pydantic-ai.md) |
+| **Any MCP client/service** | Launch the wallet MCP process | Price selected existing MCP tools | [Generic MCP](docs/integrations/index.md) |
 
-**EnvarPay** is an open-source Python SDK and CLI that connects agents to
-**MCP + x402 v2** payments. Put a USDC payment gate in front of an existing MCP
-tool, and give buyers a wallet tool with an explicit spending budget.
-It works with an agent framework through that framework's own MCP client and runtime.
+All six named runtimes have made and received real testnet payments in local Docker:
+**28 of 30 directed purchases delivered successfully**, with two failed settlements
+preserved in the [transaction matrix](docs/integrations/validation.md). This is
+validation of the listed native MCP paths. Existing OpenClaw/Hermes Gateway HTTP
+connectors are experimental and have separate acceptance work remaining.
 
-### Two sides. One package.
+## Install
 
-| | Command | What it does |
-|---|---|---|
-| **Get paid** | `envarpay serve` | Quote a price, confirm payment, then execute your agent's capability. |
-| **Pay others** | `envarpay wallet` | Give an MCP-capable agent a payment tool constrained by your allowlist and budget. |
+Python 3.11+. Install EnvarPay in its own environment:
+
+```sh
+git clone https://github.com/EnvarAI/EnvarPay.git
+cd EnvarPay
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install .
+envarpay --help
+```
+
+Package, command and Python import are all **`envarpay`**. Source preview `0.1.0a4`
+is not on PyPI yet. The published GitHub prerelease is `0.1.0a3`; the new onboarding commands here
+are in the unreleased `0.1.0a4` source. See
+[migration instructions](docs/migration-envarpay.md) if you already have a wallet.
+
+## I want my agent to pay others
+
+You need the seller's **paid MCP URL**, **full receiving address** and tool name.
+This example gives Hermes a wallet; change `--agent` for another framework.
+
+```sh
+envarpay init --agent hermes --role buyer --directory ./my-wallet \
+  --peer-url https://seller.example/mcp --pay-to SELLER_FULL_WALLET_ADDRESS \
+  --max-per-call 0.01 --budget 0.05
+```
+
+The command writes `buyer.toml`, `host-config.json`, `wallet-command.json` and a
+personalized `SETUP.md`. The output shows the chain, full recipient and limits.
+It creates no private key and makes no payment.
+
+1. Run `envarpay keygen --output ./my-wallet/buyer.key`; fund that dedicated address with **Base Sepolia test USDC**.
+2. Review `buyer.toml`, then explicitly set `payments_enabled = true`.
+3. Merge the generated `host-config.json` entry into your existing agent configuration and reload the agent. Python frameworks use `wallet-command.json` with their official adapter instead.
+4. Run `envarpay doctor --config ./my-wallet/buyer.toml` to inspect the effective configuration.
+
+Your agent gets four core tools:
+
+| Tool | Agent capability |
+|---|---|
+| `list_paid_tools` | Discover allowed tools at an operator-configured seller |
+| `call_paid_tool` | Call a tool and pay within the recipient/tool allowlist and budget |
+| `payment_status` | Inspect an existing attempt without signing again |
+| `recover_payment` | Recover an original authorized operation/result with an approved recovery-capable seller |
+
+Ask your agent to call the seller using a stable request ID, for example
+`review-001`. Reuse that ID for the same purchase; preserve state on uncertainty.
+[Complete buyer walkthrough →](docs/getting-started.md#pay-for-a-capability)
+
+## I want my agent to receive payment
+
+You need your **receiving address**, a **private MCP capability** and its price.
+If your agent does not expose MCP, use the native or Python adapter in its guide
+above. Selecting `--agent` chooses the guide/client configuration; it does not
+install an agent or automatically expose its personal session.
+
+```sh
+envarpay init --agent hermes --role seller --directory ./my-service \
+  --pay-to YOUR_FULL_WALLET_ADDRESS \
+  --upstream http://127.0.0.1:8000/mcp --tool ask_agent --price 0.01
+
+envarpay doctor --config ./my-service/seller.toml
+envarpay serve --config ./my-service/seller.toml
+```
+
+Expose the payment gate at `http://127.0.0.1:4020/mcp` through your HTTPS service.
+Keep the raw upstream private. The seller needs **only its receiving address**,
+not its private key. `doctor` checks configuration; it does not claim a live delivery.
 
 ```mermaid
 sequenceDiagram
     participant B as Buyer agent
     participant W as EnvarPay wallet
-    participant S as EnvarPay seller
-    participant F as x402 facilitator / USDC
-    participant A as Your agent or MCP tool
-    B->>W: Call a paid capability
-    W->>S: MCP tool call
-    S-->>W: PaymentRequired + price
+    participant G as EnvarPay payment gate
+    participant A as Seller's private agent/tool
+    B->>W: Call a paid tool
+    W->>G: Request capability
+    G-->>W: x402 PaymentRequired + price
     W->>W: Check recipient and budget; sign
-    W->>S: Request + x402 payment
-    S->>F: Verify and settle
-    F-->>S: Transaction receipt
-    S->>S: Verify Transfer + authorization nonce
-    S->>A: Execute after payment
+    W->>G: Request + original authorization
+    G->>G: Settle; verify exact USDC transfer + nonce
+    G->>A: Execute after payment confirmation
     A-->>B: Deliver result through EnvarPay
 ```
 
-### Why EnvarPay?
+[Complete seller walkthrough →](docs/getting-started.md#charge-for-a-capability)
 
-- **Keep your framework.** Connect existing MCP tools or a native Hermes/OpenClaw HTTP service. Models and tools remain in your runtime; EnvarPay does not instantiate an embedded Agent.
-- **Use open protocols.** Official MCP and x402 SDKs handle the wire format. No Envar account or proprietary settlement API is required.
-- **Pay first, work second.** The seller checks the exact USDC transfer and nonce before running the paid capability.
-- **Put spending limits in code.** Configure allowed services, full recipients, tools, per-call limits and a persistent cumulative budget.
-- **Keep uncertain payments visible.** Save the original authorization; reuse request IDs and inspect unresolved attempts without signing again.
+## Both capabilities, one agent
 
-### Install
+Keep your receiving address and the other seller's address separate:
 
-Python 3.11+, tested on macOS and Linux. Native Windows permissions are not yet validated; use WSL or Docker.
-
-```bash
-git clone https://github.com/EnvarAI/EnvarPay.git
-cd EnvarPay
-python -m pip install .
-envarpay --help
+```sh
+envarpay init --agent openclaw --role both --directory ./agent-pay \
+  --pay-to YOUR_FULL_WALLET_ADDRESS --price 0.01 \
+  --upstream http://127.0.0.1:8000/mcp \
+  --peer-url https://other-seller.example/mcp --peer-pay-to OTHER_SELLER_ADDRESS \
+  --max-per-call 0.01 --budget 0.05
 ```
 
-This alpha is not on PyPI yet. The existing [GitHub release](https://github.com/EnvarAI/EnvarPay/releases)
-is 0.1.0a1 with the old package name. See [upgrade instructions](docs/migration-envarpay.md).
-EnvarPay runs in its own Python environment; the existing Agent keeps its model, tools and configuration.
+This generates independent buyer/seller configs and state paths. Start the seller
+gate and connect the wallet using the generated instructions. Model configuration
+stays in your original runtime.
 
-### Start receiving payments
+For private authenticated interaction without payments, use `--mode private`
+with an existing MCP/HTTP service. [Private service setup](docs/getting-started.md#connect-a-private-existing-service).
 
-```bash
-envarpay init --directory ./agent-pay --pay-to YOUR_WALLET_ADDRESS --backend mcp
-# Set seller.backend.upstream to your private MCP service.
-# Set the tool name and price under seller.tools; review network and recipient.
-envarpay serve --config ./agent-pay/seller.toml
-```
+## Configuration at a glance
 
-Your paid `ask_agent` tool is available at `http://127.0.0.1:4020/mcp` (or `/sse`).
-The seller needs its receiving address, not its private key.
-For an agent that does not expose MCP, start with the
-[native Docker adapters](examples/cross-framework/README.md): a bounded `ask_agent`
-tool invokes the native CLI or framework only after the outer payment gate confirms payment.
-Keep that raw MCP service private. These are examples to adapt, not a one-command
-installer for an existing personal session.
-The `openclaw` and `hermes-http` Gateway HTTP connectors are experimental;
-their live paid acceptance is separate and remains pending.
-The embedded `hermes` backend has been removed. Use `hermes-http` to connect an existing service; [private HTTP delivery is verified separately](docs/integrations/existing-runtime-validation.md).
+| What you choose | CLI option | Saved setting |
+|---|---|---|
+| Agent and capability | `--agent`, `--role buyer/seller/both` | Relevant files + framework guide |
+| Seller receiving address | `--pay-to` / `--peer-pay-to` | Exact recipient allowlist |
+| Capability to sell | `--upstream`, `--tool` | Private MCP endpoint and priced tool |
+| Seller price | `--price 0.01` | `amount_atomic = 10000` |
+| Buyer limits | `--max-per-call 0.01 --budget 0.05` | 10000 per call; 50000 cumulative atomic units |
+| Payment enablement | Review `buyer.toml` | `payments_enabled = false` by default |
 
-### Give an agent a payment wallet
+CLI amounts are **USDC**, with up to six decimal places; conversion to atomic
+units is exact. Budgets persist across restarts. `init` refuses to overwrite a
+nonempty directory or edit personal agent profiles. [Full configuration reference →](docs/configuration.md)
 
-```bash
-envarpay keygen --output ./agent-pay/buyer.key
-# Fund the dedicated test wallet; review the recipient and budget in buyer.toml.
-# Payments default to OFF. Enable them only after reviewing the configuration.
-envarpay host-config --host hermes --config ./agent-pay/buyer.toml
-```
-
-Merge the generated `mcp_servers.envarpay` entry into Hermes's MCP configuration.
-Use `--host openclaw`, `--host opencode`, or `--host goose` for those native clients.
-Other MCP clients can launch the same `envarpay wallet --config ...` process.
-The agent gets `list_paid_tools`, `call_paid_tool` and `payment_status`.
-
-For a direct call:
-
-```bash
-envarpay call --config ./agent-pay/buyer.toml --peer seller --tool ask_agent \
-  --arguments '{"question":"Help our team plan a weekly knowledge review"}' \
-  --request-id weekly-review-001
-```
-
-For an embedded integration:
+## Use the Python SDK
 
 ```python
 from pathlib import Path
 from envarpay import WalletService, load_config
 
-wallet = WalletService(load_config(Path("agent-pay/buyer.toml")))
+wallet = WalletService(load_config(Path("my-wallet/buyer.toml")))
 result = await wallet.call(
     "seller", "ask_agent", {"question": "Review these notes"}, "review-001"
 )
 ```
 
-### What has been proven?
+The SDK and CLI use the same policy and ledger. [Python API](docs/python-sdk.md) ·
+[Portable framework example](examples/integrations/python_agents.py) ·
+[Native Docker examples](examples/cross-framework/README.md)
 
-The [six-framework matrix](docs/integrations/validation.md) uses official development
-branches resolved to full commits on 2026-09-29, then frozen for one local Docker run.
-Every successful direction has its own **0.0001 test-USDC** payment, native buyer
-tool call, exact USDC Transfer and authorization nonce, seller execution after
-receipt verification, delivered result, and duplicate-request replay check.
-The matrix includes failed settlements; it does not claim 30/30 acceptance.
+## Scope and evidence
 
-Build artifacts from CI supply dependencies and native binaries. Actual agents,
-payments and deliveries run locally. The earlier [two-Hermes POC](docs/proof-of-concept.md)
-is separate historical evidence. None of these tests establish mainnet readiness.
+EnvarPay is an independent **alpha** adapter, not a new protocol or an official
+release of the supported frameworks. MCP handles tools; x402 v2 handles payments;
+EnvarPay supplies policy, persistence and receipt-before-execution checks.
 
-### Current scope
+The [testnet matrix](docs/integrations/validation.md) includes actual transactions,
+native agent results, original nonces, source SHAs and Docker image IDs. CI,
+configuration checks and offline signatures are not payment evidence. This
+onboarding update itself does not claim new payments or 30/30 acceptance.
 
-`0.1.0a3` is an alpha SDK with explicit payment policies and durable recovery. Defaults use Base
-Sepolia, payments off, and a 0.01 test-USDC per-call and cumulative budget.
+Defaults use Base Sepolia, payments off and a 0.01-USDC per-call/total budget.
+An optional Envar connection adds directory discovery and durable reporting; directory
+results never grant spending authority. Original-operation recovery requires an
+approved recovery-capable seller. [Directory and recovery guide](docs/directory-and-recovery.md).
+Mainnet readiness, refunds, custody guarantees, generic A2A orchestration and
+delivery-quality guarantees are outside this alpha.
+Read the [payment and failure semantics](docs/getting-started.md#payment-and-failure-semantics).
 
-| Included | Not yet included |
-|---|---|
-| MCP Streamable HTTP, SSE and stdio adapters | Agent discovery marketplace and A2A tasks |
-| x402 v2 exact USDC / EIP-3009, upfront flow | Automatic refunds or delivery-quality guarantees |
-| Local dedicated-key signer and durable local state | Hosted custody, external signing providers, multi-host coordination |
-| Duplicate-request protection and read-only receipt reconciliation | Automatic recovery of ambiguous execution or lost transaction hashes |
-
-Base mainnet configuration exists, but this release has no new mainnet payment
-validation. Preserve the state after an uncertain result: deleting it or creating
-a new purchase ID can defeat your intended spending controls. A wallet component
-running under the same OS identity as an agent with shell access is not isolated
-from that agent. See [operating boundaries](docs/getting-started.md#payment-and-failure-semantics).
-
-### Contribute
-
-Try an integration, report a reproducible issue, or improve interoperability.
-Start with [CONTRIBUTING.md](CONTRIBUTING.md). Report vulnerabilities through
-[GitHub's private reporting channel](https://github.com/EnvarAI/EnvarPay/security/advisories/new).
-
-Built with [MCP](https://github.com/modelcontextprotocol/python-sdk),
-[x402](https://github.com/coinbase/x402) and optional
-[Hermes](https://github.com/NousResearch/hermes-agent) integration. EnvarPay is an
-independent project by [EnvarAI](https://github.com/EnvarAI), not an official
-distribution or endorsement by those projects. [MIT licensed](LICENSE).
-
-See the [current validation ledger](docs/integrations/validation.md) for actual host versions, failed prerequisites and remaining acceptance checks.
-
-Directory and durable recovery: [operator guide](docs/directory-and-recovery.md).
+[Contribute](CONTRIBUTING.md) · [Report a security issue privately](https://github.com/EnvarAI/EnvarPay/security/advisories/new) · [MIT license](LICENSE)

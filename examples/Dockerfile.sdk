@@ -4,10 +4,10 @@ FROM nousresearch/hermes-agent@sha256:16788311e2fa3035456bdc1bafb8ec2b1777db64eb
 USER root
 WORKDIR /opt/envarpay
 ARG PYPI_INDEX=https://pypi.org/simple
-COPY dist/envarpay-0.1.0a2-py3-none-any.whl /tmp/envarpay-0.1.0a2-py3-none-any.whl
+COPY dist/envarpay-0.1.0a4-py3-none-any.whl /tmp/envarpay-0.1.0a4-py3-none-any.whl
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv venv /opt/envarpay/.venv --python /opt/hermes/.venv/bin/python && \
     uv pip install --index-url ${PYPI_INDEX} \
-      --python /opt/envarpay/.venv/bin/python /tmp/envarpay-0.1.0a2-py3-none-any.whl
+      --python /opt/envarpay/.venv/bin/python /tmp/envarpay-0.1.0a4-py3-none-any.whl
 ENTRYPOINT ["/opt/envarpay/.venv/bin/envarpay"]
 CMD ["--help"]

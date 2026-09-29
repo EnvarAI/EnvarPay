@@ -16,3 +16,15 @@ directory, regenerate a wallet, raise the budget or re-sign unresolved work.
 Relative paths still resolve from the config file's parent. This rename does not
 change the database schema, nonce/signature storage, request IDs or budget accounting.
 Do not run the old and new wallet processes concurrently as a migration technique.
+
+## 0.1.0a4 new-setup CLI changes
+
+`init` now accepts `--agent` and `--role buyer/seller/both`, writes a local `SETUP.md`,
+and defaults to the generic MCP backend. The embedded `hermes` backend has been
+removed on main; connect an existing `hermes-http` or MCP service instead. Existing
+`--mode private` setup remains available without a wallet. `--price`, `--max-per-call` and `--budget` take
+decimal USDC, while existing TOML policies continue to store atomic integers.
+
+Initialization prints readable instructions by default; scripts consuming its
+JSON output should add `--json`. `host-config` and `doctor` still emit JSON.
+Existing configs and payment ledgers require no rewrite for these setup changes.

@@ -47,7 +47,7 @@ uvicorn.run(service.app(), host=service.policy.host, port=service.policy.port)
 The returned ASGI app handles `/mcp`, `/sse` and `/messages/`. Its lifespan checks
 the RPC network, facilitator support and configured backend tools before serving.
 Keep the ASGI lifespan enabled. The backend can be a configured MCP endpoint or
-an installed official Hermes runtime, or the experimental existing-runtime HTTP connector. See the framework guides and validation ledger for actual support levels.
+an existing HTTP Agent service; no Agent is instantiated by the SDK. See the framework guides and validation ledger for actual support levels.
 
 ## Inspect state
 
