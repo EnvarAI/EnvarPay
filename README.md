@@ -48,9 +48,9 @@ python -m pip install .
 envarpay --help
 ```
 
-Package, command and Python import are all **`envarpay`**. Source preview `0.1.0a4`
+Package, command and Python import are all **`envarpay`**. Source preview `0.1.0a5`
 is not on PyPI yet. The published GitHub prerelease is `0.1.0a3`; the new onboarding commands here
-are in the unreleased `0.1.0a4` source. See
+are in the `0.1.0a5` source. See
 [migration instructions](docs/migration-envarpay.md) if you already have a wallet.
 
 ## I want my agent to pay others

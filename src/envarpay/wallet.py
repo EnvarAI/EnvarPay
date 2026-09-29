@@ -239,10 +239,18 @@ class WalletService:
                 "status": row["status"],
                 "recovery": "No saved authorization; no new signature created",
             }
+        accepted = data["payload"].get("accepted", {})
+        if (
+            accepted.get("network") != self.config.network
+            or accepted.get("asset", "").lower() != self.config.asset.lower()
+        ):
+            raise PaymentError("Restore the original network before recovering this payment")
         if data.get("response"):
-            return await self.finish(
-                key, request_id, CallToolResult.model_validate(data["response"])
-            )
+            raw = CallToolResult.model_validate(data["response"])
+            if data.get("transaction") or (raw.meta or {}).get(
+                MCP_PAYMENT_RESPONSE_META_KEY, {}
+            ).get("transaction"):
+                return await self.finish(key, request_id, raw)
         peer = Peer.model_validate(data["peer_config"])
         if not peer.recovery:
             raise PaymentError("This peer has no approved result-recovery capability")

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.0a5
+
+- Require patched Starlette 1.3.1 or newer for the HTTP services.
+- Recover unresolved purchases only on their original network and asset.
+- Query the original seller when an error response omitted the settlement transaction, without creating another signature or settlement.
+
 ## 0.1.0a4 — unreleased
 
 - Add agent/role-aware initialization with exact decimal USDC amounts, wallet connection files and a personalized SETUP.md. No automatic wallet-key creation or payment.

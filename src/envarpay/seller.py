@@ -295,6 +295,11 @@ class PaidServer:
                 ),
             }
         if arguments.get("recover") and record["status"] in {"reserved", "settled", "confirmed"}:
+            if (
+                payload.accepted.network != self.config.network
+                or payload.accepted.asset.lower() != self.config.asset.lower()
+            ):
+                raise PaymentError("Restore the original network before recovering this payment")
             tx = data.get("transaction")
             if not tx:
                 tx = await self.chain.find_authorization(

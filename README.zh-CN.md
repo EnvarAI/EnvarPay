@@ -35,8 +35,8 @@ python -m pip install .
 envarpay --help
 ```
 
-包名、命令和 Python import 都是 **`envarpay`**。`0.1.0a4` 为源码预览，尚未发布到 PyPI。
-GitHub 已有 `0.1.0a3` 预发布包；本文的新初始化功能在未发布的 `0.1.0a4` 源码中。
+包名、命令和 Python import 都是 **`envarpay`**。`0.1.0a5` 为源码预览，尚未发布到 PyPI。
+GitHub 已有 `0.1.0a3` 预发布包；本文的新初始化功能在`0.1.0a5` 源码中。
 已有钱包升级请先读[迁移说明](docs/migration-envarpay.md)，保留原账本。
 
 ## 我要让 Agent 给别人付款
