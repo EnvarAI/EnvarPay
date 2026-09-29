@@ -10,7 +10,6 @@ from uuid import UUID
 
 from eth_utils import is_address, to_checksum_address
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
-from x402.mechanisms.evm.default_assets import get_default_asset
 
 NETWORKS = {
     "eip155:84532": (84532, "0x036CbD53842c5426634e7929541eC2318f3dCF7e"),
@@ -216,7 +215,7 @@ class Config(StrictModel):
 
     @property
     def token_name(self) -> str:
-        return get_default_asset(self.network)["name"]
+        return "USD Coin" if self.network == "eip155:8453" else "USDC"
 
 
 def load_config(path: Path) -> Config:

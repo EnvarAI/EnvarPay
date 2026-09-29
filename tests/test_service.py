@@ -92,3 +92,18 @@ def test_private_service_requires_auth_and_ownership_proof_contains_no_secret(tm
         )
         assert result.json()["result"]["content"][0]["text"] == "Existing agent result"
         service.backend.call.assert_awaited_once_with("ask_agent", {"question": "Hello"})
+
+
+def test_read_only_import_does_not_load_signers():
+    import subprocess
+    import sys
+
+    subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "import sys; import envarpay.config; from envarpay.chain import verify_usdc_receipt; "
+            'assert "web3" not in sys.modules; assert "envarpay.wallet" not in sys.modules',
+        ],
+        check=True,
+    )
