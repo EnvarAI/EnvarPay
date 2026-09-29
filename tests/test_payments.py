@@ -1,5 +1,4 @@
 import asyncio
-from contextlib import asynccontextmanager
 from unittest.mock import AsyncMock
 
 import pytest
@@ -30,7 +29,10 @@ async def test_unpaid_and_invalid_input_never_execute(paid_server):
 async def test_upfront_sequence_and_exact_replay(config, paid_server, quote):
     server, verify, settle = paid_server
     payload = await sign(config, quote)
-    meta = {"x402/payment": payload.model_dump(mode="json", by_alias=True)}
+    meta = {
+        "envarpay/recovery-token": "t" * 40,
+        "x402/payment": payload.model_dump(mode="json", by_alias=True),
+    }
     order = []
 
     async def prove(*args):
@@ -63,7 +65,9 @@ async def test_no_work_when_chain_proof_fails(config, paid_server, quote):
     payload = await sign(config, quote)
     server.chain.prove.side_effect = PaymentError("Receipt mismatch")
     result = await server.call(
-        "ask_agent", {"question": "test"}, {"x402/payment": payload.model_dump(by_alias=True)}
+        "ask_agent",
+        {"question": "test"},
+        {"envarpay/recovery-token": "t" * 40, "x402/payment": payload.model_dump(by_alias=True)},
     )
     assert result.isError and settle.called
     server.backend.call.assert_not_called()
@@ -111,7 +115,7 @@ async def test_existing_http_runtime_waits_for_proof_and_is_not_replayed(
     unpaid = await server.call("ask_agent", {"question": "test"}, {})
     assert unpaid.isError and not upstream.called
     payload = await sign(config, quote)
-    meta = {"x402/payment": payload.model_dump(by_alias=True)}
+    meta = {"envarpay/recovery-token": "t" * 40, "x402/payment": payload.model_dump(by_alias=True)}
     first = asyncio.create_task(server.call("ask_agent", {"question": "test"}, meta))
     await asyncio.wait_for(proving.wait(), 3)
     assert not upstream.called
@@ -178,7 +182,7 @@ async def test_signature_saved_before_submission_and_storage_failure_stops_send(
 async def test_duplicate_cannot_overwrite_inflight_settlement(config, paid_server, quote):
     server, _, settle = paid_server
     payload = await sign(config, quote)
-    meta = {"x402/payment": payload.model_dump(by_alias=True)}
+    meta = {"envarpay/recovery-token": "t" * 40, "x402/payment": payload.model_dump(by_alias=True)}
     proving, release = asyncio.Event(), asyncio.Event()
 
     async def proof(*args):
@@ -195,21 +199,6 @@ async def test_duplicate_cannot_overwrite_inflight_settlement(config, paid_serve
     assert not (await first).isError
     assert server.store.get(server.payment_key(payload))["status"] == "completed"
     assert settle.call_count == 1
-
-
-@pytest.fixture
-def wire(monkeypatch, paid_server):
-    server, _, _ = paid_server
-
-    class Peer:
-        async def call_tool(self, name, arguments, meta=None, **kwargs):
-            return await server.call(name, arguments, meta or {})
-
-    @asynccontextmanager
-    async def connection(*args):
-        yield Peer()
-
-    monkeypatch.setattr("envarpay.wallet.connect", connection)
 
 
 async def test_wallet_real_sdk_signature_cached_result_and_budget(config, paid_server, wire):

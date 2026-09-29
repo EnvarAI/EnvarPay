@@ -71,6 +71,29 @@ class Chain:
             "verified_at": time.time(),
         }
 
+    async def find_authorization(self, authorization: dict, from_block: int) -> str | None:
+        await self.check_network()
+        latest = int(await self.rpc("eth_blockNumber", []), 16)
+        if from_block < 0 or latest - from_block > 50000:
+            raise PaymentError("Original payment needs a bounded chain audit")
+        used = "0x" + keccak(text="AuthorizationUsed(address,bytes32)").hex()
+        payer = "0x" + address(authorization["from"])[2:].lower().zfill(64)
+        logs = await self.rpc(
+            "eth_getLogs",
+            [
+                {
+                    "address": self.config.asset,
+                    "fromBlock": hex(from_block),
+                    "toBlock": hex(latest),
+                    "topics": [used, payer, authorization["nonce"]],
+                }
+            ],
+        )
+        transactions = {log["transactionHash"] for log in logs if not log.get("removed")}
+        if len(transactions) > 1:
+            raise PaymentError("Ambiguous authorization history")
+        return next(iter(transactions), None)
+
     def validate_receipt(self, receipt: dict, tx: str, authorization: dict) -> int:
         return verify_usdc_receipt(receipt, tx, self.config.asset, authorization)
 

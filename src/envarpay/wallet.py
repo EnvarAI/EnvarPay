@@ -2,18 +2,25 @@
 
 from __future__ import annotations
 
+import json
 import re
+import secrets
 from pathlib import Path
 
+import httpx
 from eth_account import Account
 from mcp.server.fastmcp import FastMCP
+from mcp.server.transport_security import TransportSecuritySettings
+from mcp.types import CallToolResult
 from x402 import x402Client
 from x402.mcp.client import x402MCPSession
+from x402.mcp.types import MCP_PAYMENT_RESPONSE_META_KEY
 from x402.mechanisms.evm.exact import ExactEvmClientScheme
 from x402.schemas.hooks import PaymentCreatedContext, PaymentCreationContext
 
 from .chain import Chain
 from .config import Config, Peer
+from .directory import INVOCATION_META, RECOVERY_META, Envar
 from .storage import PaymentError, Store, digest, secret_file
 from .transport import connect
 
@@ -54,6 +61,7 @@ class WalletService:
             raise PaymentError("This command requires [wallet] configuration")
         self.config, self.policy = config, config.wallet
         self.store, self.chain = Store(config.state_dir), Chain(config)
+        self.envar = Envar(config.connection, self.store) if config.connection else None
 
     def peer(self, name: str, tool: str | None = None) -> Peer:
         peer = self.policy.peers.get(name)
@@ -77,6 +85,8 @@ class WalletService:
     async def call(self, peer_name: str, tool: str, arguments: dict, request_id: str) -> dict:
         if not re.fullmatch(r"[A-Za-z0-9_-]{1,100}", request_id):
             raise PaymentError("request_id must be 1-100 letters, digits, underscores or hyphens")
+        if not isinstance(arguments, dict) or len(json.dumps(arguments).encode()) > 131072:
+            raise PaymentError("Tool arguments must be a bounded JSON object")
         peer = self.peer(peer_name, tool)
         key = "buy:" + request_id
         binding = digest(
@@ -94,7 +104,32 @@ class WalletService:
             if existing["status"] == "completed":
                 return existing["data"]["result"]
             raise PaymentError("Prior attempt is unresolved; inspect status, never re-sign")
-        self.store.claim(key, binding, {"peer": peer_name, "tool": tool, "arguments": arguments})
+        data = {
+            "peer": peer_name,
+            "peer_config": peer.model_dump(),
+            "tool": tool,
+            "arguments": arguments,
+            "payment_state": "unsigned",
+            "recovery_token": secrets.token_urlsafe(32),
+            "execution_state": "not_started",
+        }
+        if self.envar and peer.agent_id and peer.endpoint_id:
+            data["invocation_request"] = {
+                "target_agent_id": peer.agent_id,
+                "endpoint_id": peer.endpoint_id,
+                "tool": tool,
+                "arguments": arguments,
+                "externally_executed": True,
+            }
+        self.store.claim(key, binding, data)
+        invocation_id = None
+        if self.envar and data.get("invocation_request"):
+            self.store.queue_event(key, "buyer_started", {})
+            try:
+                invocation_id = await self.envar.create_invocation(key)
+            except (httpx.HTTPError, TimeoutError, ValueError, PaymentError):
+                pass
+
         client = x402Client()
 
         async def before(ctx: PaymentCreationContext) -> None:
@@ -109,7 +144,10 @@ class WalletService:
 
         async def created(ctx: PaymentCreatedContext) -> None:
             self.store.update(
-                key, "signed", payload=ctx.payment_payload.model_dump(mode="json", by_alias=True)
+                key,
+                "signed",
+                payload=ctx.payment_payload.model_dump(mode="json", by_alias=True),
+                payment_state="signed",
             )
 
         client.on_before_payment_creation(before).on_after_payment_creation(created)
@@ -117,45 +155,139 @@ class WalletService:
             account = Account.from_key(secret_file(Path(self.policy.key_file)))
             client.register(self.config.network, ExactEvmClientScheme(account))
             async with connect(peer, self.config.timeout_seconds) as session:
+                metadata = {RECOVERY_META: data["recovery_token"]}
+                if invocation_id:
+                    metadata[INVOCATION_META] = {"id": invocation_id}
+                session = ObservedSession(session, metadata)
                 paid = x402MCPSession(
                     session, client, max_request_timeout_seconds=self.config.timeout_seconds
                 )
                 result = await paid.call_tool(tool, arguments)
             raw = result.raw_result.model_dump(mode="json", by_alias=True)
             self.store.update(key, "responded", response=raw)
-            proof = None
             if result.payment_made:
                 response = result.payment_response
                 if not response or not getattr(response, "success", False):
                     raise PaymentError("Settlement not confirmed; preserve original authorization")
                 self.store.update(key, "settled", transaction=response.transaction)
-                original = self.store.get(key)["data"]["payload"]
-                proof = await self.chain.prove(
-                    response.transaction, original["payload"]["authorization"]
-                )
-            if result.is_error:
-                raise PaymentError("The service returned an error; inspect status before retrying")
-            value = {
-                "request_id": request_id,
-                "payment_made": result.payment_made,
-                "payment": proof,
-                "result": raw,
-            }
-            self.store.update(key, "completed", result=value)
-            return value
+            return await self.finish(key, request_id, result.raw_result)
+
         except Exception as error:
             row = self.store.get(key)
             status = "unknown" if row["amount"] else "refused"
+            if row["data"].get("payment_state") == "confirmed":
+                status = "failed" if row["data"].get("execution_state") == "failed" else "unknown"
             self.store.update(key, status, error_type=type(error).__name__)
+            self.report(key, "buyer_failed" if status == "failed" else "buyer_unknown", {})
+            if self.envar:
+                await self.envar.flush()
             if isinstance(error, PaymentError):
                 raise
             raise PaymentError(
                 f"Operation {request_id} failed; inspect saved status ({type(error).__name__})"
             ) from None
 
+    def report(self, key, kind, payload):
+        if self.envar and self.store.get(key)["data"].get("invocation_request"):
+            self.store.queue_event(key, kind, payload)
+
+    async def finish(self, key, request_id, raw):
+        data = self.store.get(key)["data"]
+        proof = None
+        if data.get("payload"):
+            tx = data.get("transaction") or (raw.meta or {}).get(
+                MCP_PAYMENT_RESPONSE_META_KEY, {}
+            ).get("transaction")
+            if not tx:
+                raise PaymentError("Original settlement is unresolved; do not sign again")
+            proof = await self.chain.prove(tx, data["payload"]["payload"]["authorization"])
+            self.store.update(
+                key, "settled", transaction=tx, proof=proof, payment_state="confirmed"
+            )
+            if data.get("payment_state") != "confirmed":
+                self.report(key, "payment_observed", {"payment": proof})
+        if raw.isError:
+            self.store.update(key, "failed", execution_state="failed")
+            raise PaymentError("Service execution failed; confirmed payment is not a refund")
+        value = {
+            "request_id": request_id,
+            "payment_made": proof is not None,
+            "payment": proof,
+            "result": raw.model_dump(mode="json", by_alias=True),
+        }
+        self.store.update(key, "completed", execution_state="completed", result=value)
+        self.report(
+            key,
+            "buyer_received",
+            {"result": {k: v for k, v in value["result"].items() if k != "_meta"}},
+        )
+        if self.envar:
+            await self.envar.flush()
+        return value
+
+    async def recover(self, request_id):
+        key = "buy:" + request_id
+        row = self.store.get(key)
+        if not row:
+            raise PaymentError("Unknown original request")
+        data = row["data"]
+        if row["status"] == "completed":
+            return data["result"]
+        if not data.get("payload"):
+            return {
+                "request_id": request_id,
+                "status": row["status"],
+                "recovery": "No saved authorization; no new signature created",
+            }
+        if data.get("response"):
+            return await self.finish(
+                key, request_id, CallToolResult.model_validate(data["response"])
+            )
+        peer = Peer.model_validate(data["peer_config"])
+        if not peer.recovery:
+            raise PaymentError("This peer has no approved result-recovery capability")
+        async with connect(peer, self.config.timeout_seconds) as session:
+            result = await session.call_tool(
+                "envarpay_payment_status",
+                {
+                    "tool": data["tool"],
+                    "arguments": data["arguments"],
+                    "payment": data["payload"],
+                    "recover": True,
+                    "recovery_token": data.get("recovery_token", ""),
+                },
+            )
+        if result.isError or not isinstance(result.structuredContent, dict):
+            raise PaymentError("Original service result remains unresolved")
+        status = result.structuredContent
+        if not status.get("result"):
+            return {"request_id": request_id, **status}
+        raw = CallToolResult.model_validate(status["result"])
+        self.store.update(key, "responded", response=raw.model_dump(mode="json", by_alias=True))
+        return await self.finish(key, request_id, raw)
+
+
+class ObservedSession:
+    """Preserve standard x402 handling while attaching optional invocation correlation."""
+
+    def __init__(self, session, metadata):
+        self.session, self.metadata = session, metadata
+
+    async def call_tool(self, *args, **kwargs):
+        kwargs["meta"] = {**(kwargs.get("meta") or {}), **self.metadata}
+        return await self.session.call_tool(*args, **kwargs)
+
 
 def wallet_mcp(service: WalletService) -> FastMCP:
-    mcp = FastMCP("envarpay wallet")
+    settings = service.config.wallet_server
+    mcp = FastMCP(
+        "envarpay wallet",
+        stateless_http=True,
+        json_response=True,
+        transport_security=TransportSecuritySettings(
+            allowed_hosts=settings.allowed_hosts if settings else ["localhost:*", "127.0.0.1:*"]
+        ),
+    )
 
     @mcp.tool()
     async def list_paid_tools(peer: str) -> dict:
@@ -172,4 +304,33 @@ def wallet_mcp(service: WalletService) -> FastMCP:
         """Read a prior attempt without creating another signature or exposing secrets."""
         return service.store.public_status("buy:" + request_id)
 
+    @mcp.tool()
+    async def recover_payment(request_id: str) -> dict:
+        """Query the original payment and saved result; never create another signature."""
+        return await service.recover(request_id)
+
+    if service.envar:
+
+        @mcp.tool()
+        async def discover_agents(query: str) -> dict:
+            """Find Envar candidates without authorizing payment or changing the allowlist."""
+            return await service.envar.search(query)
+
+        @mcp.tool()
+        async def get_agent(handle: str) -> dict:
+            """Read a published Agent profile before selecting an already-approved peer."""
+            return await service.envar.get(handle)
+
     return mcp
+
+
+def wallet_app(service):
+    from .service import authenticated_app
+
+    settings = service.config.wallet_server
+    if not settings:
+        raise PaymentError("Configure [wallet_server] before exposing the wallet service")
+    bearer = secret_file(Path(settings.bearer_token_file))
+    if len(bearer) < 32 or any(ord(c) < 33 or ord(c) > 126 for c in bearer):
+        raise PaymentError("Wallet service requires a strong printable bearer token")
+    return authenticated_app(wallet_mcp(service).streamable_http_app(), bearer)

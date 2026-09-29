@@ -176,3 +176,5 @@ independent project by [EnvarAI](https://github.com/EnvarAI), not an official
 distribution or endorsement by those projects. [MIT licensed](LICENSE).
 
 See the [current validation ledger](docs/integrations/validation.md) for actual host versions, failed prerequisites and remaining acceptance checks.
+
+Directory and durable recovery: [operator guide](docs/directory-and-recovery.md).

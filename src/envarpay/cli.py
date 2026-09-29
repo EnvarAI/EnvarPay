@@ -18,7 +18,7 @@ from pydantic import ValidationError
 from . import __version__
 from .chain import Chain
 from .config import address, load_config
-from .storage import PaymentError, Store
+from .storage import PaymentError
 
 
 def write_new(path: Path, text: str) -> None:
@@ -132,6 +132,9 @@ def parser() -> argparse.ArgumentParser:
     for command in [
         "serve",
         "wallet",
+        "wallet-serve",
+        "sync",
+        "recover",
         "call",
         "probe",
         "tools",
@@ -151,6 +154,10 @@ def parser() -> argparse.ArgumentParser:
             item.add_argument(
                 "--request-id", required=True, help="Stable ID; reuse for the same request"
             )
+        if command == "recover":
+            item.add_argument("--request-id", required=True)
+        if command == "sync":
+            item.add_argument("--watch", action="store_true")
         if command in ("status", "reconcile"):
             item.add_argument("--operation-id", required=command == "reconcile")
         if command == "host-config":
@@ -170,6 +177,20 @@ async def read_or_call(args: argparse.Namespace) -> dict | list:
     from .wallet import WalletService
 
     config = load_config(args.config)
+    if args.command == "sync":
+        from .directory import Envar
+        from .storage import Store
+
+        if not config.connection:
+            raise PaymentError("Configure [connection] before synchronizing reports")
+        envar = Envar(config.connection, Store(config.state_dir))
+        while True:
+            result = await envar.flush()
+            if not args.watch:
+                return result
+            await asyncio.sleep(5)
+    if args.command == "recover":
+        return await WalletService(config).recover(args.request_id)
     if args.command == "doctor":
         endpoint = config.seller or config.service
         if endpoint and endpoint.backend.kind == "http":
@@ -247,6 +268,20 @@ def main() -> None:
             from .wallet import WalletService, wallet_mcp
 
             wallet_mcp(WalletService(load_config(args.config))).run(transport="stdio")
+            return
+        elif args.command == "wallet-serve":
+            import uvicorn
+
+            from .wallet import WalletService, wallet_app
+
+            config = load_config(args.config)
+            app = wallet_app(WalletService(config))
+            uvicorn.run(
+                app,
+                host=config.wallet_server.host,
+                port=config.wallet_server.port,
+                log_level="warning",
+            )
             return
         elif args.command == "serve":
             import uvicorn

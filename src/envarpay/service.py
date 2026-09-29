@@ -57,6 +57,10 @@ def service_app(server, initialize, *, allowed_hosts, registration=None, bearer=
             Mount("/messages/", app=sse.handle_post_message),
         ],
     )
+    return authenticated_app(app, bearer)
+
+
+def authenticated_app(app, bearer):
     if not bearer:
         return app
 

@@ -1,6 +1,7 @@
 """Test doubles are offline protocol tests, never real-payment evidence."""
 
 import copy
+from contextlib import asynccontextmanager
 from pathlib import Path
 from unittest.mock import AsyncMock
 
@@ -69,6 +70,7 @@ async def paid_server(config: Config, tmp_path: Path, respx_mock):
     )
     server = PaidServer(seller_config)
     server.chain.check_network = AsyncMock()
+    server.chain.rpc = AsyncMock(return_value="0x10")
     server.chain.prove = AsyncMock(return_value={"transaction": TX})
     server.backend.list_tools = AsyncMock(
         return_value=[
@@ -99,3 +101,18 @@ async def quote(paid_server):
     server, _, _ = paid_server
     result = await server.call("ask_agent", {"question": "test"}, {})
     return copy.deepcopy(result.structuredContent)
+
+
+@pytest.fixture
+def wire(monkeypatch, paid_server):
+    server, _, _ = paid_server
+
+    class Peer:
+        async def call_tool(self, name, arguments, meta=None, **kwargs):
+            return await server.call(name, arguments, meta or {})
+
+    @asynccontextmanager
+    async def connection(*args):
+        yield Peer()
+
+    monkeypatch.setattr("envarpay.wallet.connect", connection)

@@ -7,6 +7,7 @@ import json
 import os
 import sqlite3
 import time
+import uuid
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
@@ -101,17 +102,56 @@ class Store:
                 (amount, time.time(), key),
             )
 
-    def update(self, key: str, status: str, **data: Any) -> None:
+    def update(
+        self, key: str, status: str | None, *, expected: set[str] | None = None, **data: Any
+    ) -> bool:
+        with self.connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            row = db.execute("SELECT data,status FROM operations WHERE id=?", (key,)).fetchone()
+            if not row:
+                raise PaymentError("Missing operation reservation")
+            if expected is not None and row["status"] not in expected:
+                return False
+            merged = {**json.loads(row["data"]), **data}
+            db.execute(
+                "UPDATE operations SET status=?,data=?,updated=? WHERE id=?",
+                (status or row["status"], json.dumps(merged), time.time(), key),
+            )
+            return True
+
+    def queue_event(self, key: str, kind: str, payload: dict) -> None:
         with self.connect() as db:
             db.execute("BEGIN IMMEDIATE")
             row = db.execute("SELECT data FROM operations WHERE id=?", (key,)).fetchone()
             if not row:
                 raise PaymentError("Missing operation reservation")
-            merged = {**json.loads(row["data"]), **data}
-            db.execute(
-                "UPDATE operations SET status=?,data=?,updated=? WHERE id=?",
-                (status, json.dumps(merged), time.time(), key),
-            )
+            data = json.loads(row["data"])
+            events = data.setdefault("outbox", [])
+            if len(events) >= 64:
+                raise PaymentError("Too many pending reports; synchronize the original operation")
+            events.append({"event_id": str(uuid.uuid4()), "kind": kind, "payload": payload})
+            db.execute("UPDATE operations SET data=? WHERE id=?", (json.dumps(data), key))
+
+    def pending_reports(self) -> list[dict]:
+        with self.connect() as db:
+            rows = db.execute(
+                "SELECT * FROM operations "
+                "WHERE json_array_length(json_extract(data, '$.outbox')) > 0 "
+                "ORDER BY updated LIMIT 1000"
+            ).fetchall()
+        return [
+            {**dict(row), "data": json.loads(row["data"])}
+            for row in rows
+            if json.loads(row["data"]).get("outbox")
+        ]
+
+    def acknowledge_event(self, key: str, event_id: str) -> None:
+        with self.connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            row = db.execute("SELECT data FROM operations WHERE id=?", (key,)).fetchone()
+            data = json.loads(row["data"])
+            data["outbox"] = [e for e in data.get("outbox", []) if e["event_id"] != event_id]
+            db.execute("UPDATE operations SET data=? WHERE id=?", (json.dumps(data), key))
 
     def public_status(self, key: str | None = None) -> list[dict]:
         with self.connect() as db:
@@ -120,7 +160,11 @@ class Store:
             ).fetchall()
         return [
             {k: row[k] for k in ("id", "status", "amount", "updated")}
-            | {"transaction": json.loads(row["data"]).get("transaction")}
+            | {
+                field: json.loads(row["data"]).get(field)
+                for field in ("transaction", "payment_state", "execution_state", "invocation_id")
+            }
+            | {"report_pending": bool(json.loads(row["data"]).get("outbox"))}
             for row in rows
             if key is None or row["id"] == key
         ]
