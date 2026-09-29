@@ -4,20 +4,14 @@ from __future__ import annotations
 
 import asyncio
 import time
-from contextlib import asynccontextmanager
 from contextvars import ContextVar
 from typing import Any
 
-import jsonschema
+from jsonschema.validators import validator_for
 from loguru import logger
 from mcp.server import Server
-from mcp.server.sse import SseServerTransport
-from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
-from mcp.server.transport_security import TransportSecuritySettings
 from mcp.types import CallToolResult, TextContent, Tool
-from starlette.applications import Starlette
-from starlette.responses import Response
-from starlette.routing import Mount, Route
+from referencing import Registry
 from x402 import x402ResourceServer
 from x402.http import HTTPFacilitatorClient
 from x402.mcp.server_async import PaymentWrapperConfig, create_payment_wrapper
@@ -185,7 +179,9 @@ class PaidServer:
             )
         ownership = self.owned.set(False)
         try:
-            jsonschema.validate(arguments, self.tools[name].inputSchema)
+            validator_for(self.tools[name].inputSchema)(
+                self.tools[name].inputSchema, registry=Registry()
+            ).validate(arguments)
             payload = extract_payment_from_meta({"_meta": meta})
             record, key = None, None
             if payload:
@@ -219,33 +215,12 @@ class PaidServer:
         finally:
             self.owned.reset(ownership)
 
-    def app(self) -> Starlette:
-        security = TransportSecuritySettings(allowed_hosts=self.policy.allowed_hosts)
-        manager = StreamableHTTPSessionManager(
-            self.server, stateless=True, security_settings=security
-        )
-        sse = SseServerTransport("/messages/", security_settings=security)
+    def app(self):
+        from .service import service_app
 
-        @asynccontextmanager
-        async def lifespan(app: Starlette):
-            await self.initialize()
-            async with manager.run():
-                yield
-
-        async def sse_endpoint(request: Any) -> Response:
-            async with sse.connect_sse(request.scope, request.receive, request._send) as streams:
-                await self.server.run(*streams, self.server.create_initialization_options())
-            return Response()
-
-        class StreamableApp:
-            async def __call__(self, scope: Any, receive: Any, send: Any) -> None:
-                await manager.handle_request(scope, receive, send)
-
-        return Starlette(
-            lifespan=lifespan,
-            routes=[
-                Route("/mcp", endpoint=StreamableApp()),
-                Route("/sse", endpoint=sse_endpoint),
-                Mount("/messages/", app=sse.handle_post_message),
-            ],
+        return service_app(
+            self.server,
+            self.initialize,
+            allowed_hosts=self.policy.allowed_hosts,
+            registration=self.config.registration,
         )

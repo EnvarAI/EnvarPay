@@ -53,7 +53,7 @@ class Chain:
                 raise PaymentError("Receipt remains unconfirmed; do not sign again")
             await asyncio.sleep(1)
         block = await self.rpc("eth_getBlockByNumber", [receipt["blockNumber"], False])
-        self.validate_receipt(receipt, tx, authorization)
+        log_index = self.validate_receipt(receipt, tx, authorization)
         if not block or block["hash"].lower() != receipt["blockHash"].lower():
             raise PaymentError("Receipt is not on the current canonical chain")
         return {
@@ -65,33 +65,41 @@ class Chain:
             "amount_atomic": str(authorization["value"]),
             "nonce": authorization["nonce"],
             "block_number": int(receipt["blockNumber"], 16),
+            "block_hash": receipt["blockHash"],
+            "log_index": log_index,
             "confirmations": self.config.confirmations,
             "verified_at": time.time(),
         }
 
-    def validate_receipt(self, receipt: dict, tx: str, authorization: dict) -> None:
-        if int(receipt["status"], 16) != 1 or receipt["transactionHash"].lower() != tx.lower():
-            raise PaymentError("Transaction did not succeed")
-        payer = "0x" + address(authorization["from"])[2:].lower().zfill(64)
-        recipient = "0x" + address(authorization["to"])[2:].lower().zfill(64)
-        transfer = "0x" + keccak(text="Transfer(address,address,uint256)").hex()
-        used = "0x" + keccak(text="AuthorizationUsed(address,bytes32)").hex()
-        logs = [
-            log
-            for log in receipt["logs"]
-            if log["address"].lower() == self.config.asset.lower() and not log.get("removed")
-        ]
-        transfers = [
-            log
-            for log in logs
-            if [t.lower() for t in log["topics"]] == [transfer, payer, recipient]
-            and len(log["data"]) == 66
-            and int(log["data"], 16) == int(authorization["value"])
-        ]
-        nonces = [
-            log
-            for log in logs
-            if [t.lower() for t in log["topics"]] == [used, payer, authorization["nonce"].lower()]
-        ]
-        if len(transfers) != 1 or len(nonces) != 1:
-            raise PaymentError("Exact USDC Transfer and original AuthorizationUsed nonce required")
+    def validate_receipt(self, receipt: dict, tx: str, authorization: dict) -> int:
+        return verify_usdc_receipt(receipt, tx, self.config.asset, authorization)
+
+
+def verify_usdc_receipt(receipt: dict, tx: str, asset: str, authorization: dict) -> int:
+    """Verify transfer identity without constructing a wallet or reading a signing key."""
+    if int(receipt["status"], 16) != 1 or receipt["transactionHash"].lower() != tx.lower():
+        raise PaymentError("Transaction did not succeed")
+    payer = "0x" + address(authorization["from"])[2:].lower().zfill(64)
+    recipient = "0x" + address(authorization["to"])[2:].lower().zfill(64)
+    transfer = "0x" + keccak(text="Transfer(address,address,uint256)").hex()
+    used = "0x" + keccak(text="AuthorizationUsed(address,bytes32)").hex()
+    logs = [
+        log
+        for log in receipt["logs"]
+        if log["address"].lower() == asset.lower() and not log.get("removed")
+    ]
+    transfers = [
+        log
+        for log in logs
+        if [t.lower() for t in log["topics"]] == [transfer, payer, recipient]
+        and len(log["data"]) == 66
+        and int(log["data"], 16) == int(authorization["value"])
+    ]
+    nonces = [
+        log
+        for log in logs
+        if [t.lower() for t in log["topics"]] == [used, payer, authorization["nonce"].lower()]
+    ]
+    if len(transfers) != 1 or len(nonces) != 1:
+        raise PaymentError("Exact USDC Transfer and original AuthorizationUsed nonce required")
+    return int(transfers[0]["logIndex"], 16)
