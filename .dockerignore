@@ -4,6 +4,13 @@ __pycache__
 .pytest_cache
 .ruff_cache
 .env*
+**/.env*
 *.key
+**/*.key
+*.token
+**/*.token
 *.sqlite3*
+**/*.sqlite3*
 agent-pay
+.git
+plans

@@ -1,0 +1,13 @@
+{
+  "startOnLoad": false,
+  "theme": "base",
+  "themeVariables": {
+    "fontFamily": "Arial, sans-serif",
+    "actorBkg": "#edf8f2",
+    "actorBorder": "#58796a",
+    "actorTextColor": "#193b2d",
+    "signalColor": "#58796a",
+    "signalTextColor": "#193b2d",
+    "lineColor": "#a1b9ad"
+  }
+}

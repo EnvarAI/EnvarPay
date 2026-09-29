@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.0a6 — unreleased distribution candidate
+
+- Replace fragile README diagram/badge rendering with repository-owned SVG assets.
+- Add a PyPI-specific long description, manual Trusted Publishing preparation and an agent-independent non-root container build.
+- Document actual registry availability and the distinct roles of Python/TypeScript SDKs, MCP services and native plugins.
+- Include the 0.1.0a5 security baseline; no registry upload or new payment is implied.
+
 ## 0.1.0a5
 
 - Require patched Starlette 1.3.1 or newer for the HTTP services.

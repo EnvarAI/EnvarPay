@@ -1,0 +1,89 @@
+name: Python distribution
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/publish-python.yml
+      - pyproject.toml
+      - README.pypi.md
+      - src/**
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag matching pyproject.toml (for example v0.1.0a6)
+        type: string
+        required: true
+      publish:
+        description: Publish the verified artifacts to PyPI (requires configured Trusted Publisher)
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: python-distribution-${{ github.event_name }}-${{ inputs.tag || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && format('refs/tags/{0}', inputs.tag) || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Verify selected release
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+          MANUAL: ${{ github.event_name == 'workflow_dispatch' }}
+        run: |
+          python - <<'PY'
+          import os, pathlib, re, tomllib
+          project = tomllib.loads(pathlib.Path("pyproject.toml").read_text())["project"]
+          assert project["name"] == "envarpay"
+          if os.environ["MANUAL"] == "true":
+              tag = os.environ["RELEASE_TAG"]
+              assert re.fullmatch(r"v[0-9]+\.[0-9]+\.[0-9]+(?:a[0-9]+|b[0-9]+|rc[0-9]+)?", tag)
+              assert tag == "v" + project["version"], "Tag and package version must match"
+          PY
+      - run: python -m pip install build 'twine>=7,<8'
+      - run: python -m build
+      - run: python -m twine check --strict dist/*
+      - name: Inspect the installed wheel
+        run: |
+          python -m venv /tmp/envarpay-release-check
+          /tmp/envarpay-release-check/bin/pip install dist/*.whl
+          /tmp/envarpay-release-check/bin/envarpay --version
+          /tmp/envarpay-release-check/bin/pip check
+      - name: Record artifact hashes
+        run: sha256sum dist/* >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: python-distribution
+          path: dist/
+          if-no-files-found: error
+
+  publish:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish }}
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/envarpay/
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: python-distribution
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist/
+
+# No tag push, PR or merge publishes a package. Publishing is an explicit manual
+# action after the PyPI owner configures the repository/workflow/environment trust.

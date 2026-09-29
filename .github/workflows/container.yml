@@ -1,0 +1,39 @@
+name: Service container
+
+on:
+  pull_request:
+    paths:
+      - Dockerfile
+      - .dockerignore
+      - .github/workflows/container.yml
+      - pyproject.toml
+      - README.pypi.md
+      - src/**
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-latest, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - run: docker build -t envarpay:check .
+      - run: docker run --rm --network none envarpay:check --version
+      - name: Check non-root setup without signing
+        run: |
+          docker run --rm --network none --entrypoint sh envarpay:check -ec '
+            test "$(id -u)" = 10001
+            envarpay init --role buyer --pay-to 0x3333333333333333333333333333333333333333 --directory /data/check --json
+            envarpay doctor --config /data/check/buyer.toml
+            test ! -e /data/check/buyer.key
+          '
+
+# Builds only. No registry credentials, image push, model call or blockchain payment.
