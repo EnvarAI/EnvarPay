@@ -18,7 +18,9 @@ sparse checkout encountered slow transfers/disconnections; its image is pending.
   verified dependency layer; this is not a clean dependency-install test.
 - Python framework source build: corrected monorepo path resolution; dependency
   download subsequently failed/timed out against public package indexes.
-- Hermes source build: Python 3.14 toolchain download has not completed.
+- Hermes source build: Python 3.14.4 downloaded, but a required dependency wheel
+  timed out after retries. The recipe now caches toolchain and dependency stages
+  separately so another package failure does not discard a completed toolchain step.
 - Goose source build: official Rust image layers have not finished downloading.
 - OpenCode source build: npm and mirror connections reset while installing Bun.
 - Dedicated test wallets/configs exist, with payments disabled and no funding
