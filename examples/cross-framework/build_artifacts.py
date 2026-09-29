@@ -67,7 +67,10 @@ def python_artifacts() -> None:
         "uvicorn",
     )
     pai = source("pydantic-ai")
-    env = dict(os.environ, UV_DYNAMIC_VERSIONING_BYPASS="2.51.0+source.3b68c695")
+    env = dict(
+        os.environ,
+        UV_DYNAMIC_VERSIONING_BYPASS="2.51.0+source." + SOURCES["pydantic-ai"]["sha"][:8],
+    )
     wheels(
         "pydantic-ai",
         str(pai / "pydantic_graph"),
@@ -148,7 +151,8 @@ def native_artifacts(name: str) -> None:
         )
         shutil.copy2(path / "target/release/goose", OUTPUT / "goose")
     elif name == "opencode":
-        run("npm", "install", "-g", "bun@1.3.14")
+        package = json.loads((path / "package.json").read_text())
+        run("npm", "install", "-g", package["packageManager"])
         run("bun", "install", "--frozen-lockfile", cwd=path)
         run(
             "bun",
@@ -158,7 +162,12 @@ def native_artifacts(name: str) -> None:
             "--skip-install",
             "--skip-embed-web-ui",
             cwd=path / "packages/opencode",
-            env=dict(os.environ, OPENCODE_VERSION="1.18.33"),
+            env=dict(
+                os.environ,
+                OPENCODE_VERSION=json.loads((path / "packages/opencode/package.json").read_text())[
+                    "version"
+                ],
+            ),
         )
         shutil.copy2(
             path / "packages/opencode/dist/opencode-linux-arm64/bin/opencode", OUTPUT / "opencode"
@@ -173,6 +182,12 @@ def native_artifacts(name: str) -> None:
             run("docker", "cp", f"{container}:/usr/local/bin/node", str(OUTPUT / "openclaw-node"))
         finally:
             run("docker", "rm", container)
+        # Preserve pnpm's hidden directories, symlinks and executable modes.
+        with tarfile.open(OUTPUT / "openclaw-runtime.tar.gz", "w:gz") as tar:
+            tar.add(OUTPUT / "openclaw", arcname="app")
+            tar.add(OUTPUT / "openclaw-node", arcname="node")
+        shutil.rmtree(OUTPUT / "openclaw")
+        (OUTPUT / "openclaw-node").unlink()
 
 
 def main() -> None:

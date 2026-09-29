@@ -7,14 +7,19 @@ The previous GitHub release remains 0.1.0a1 with its old names; PyPI publication
 | Your agent | Pay others | Charge for work | Validation |
 |---|---|---|---|
 | [OpenClaw](openclaw.md) | Generate native `mcp.servers` config | Experimental existing Gateway `/v1/responses` connector | New host version and live paid acceptance pending |
-| [Hermes](hermes.md) | Generate native `mcp_servers` config | Experimental existing API server connector, or embedded Hermes | Earlier embedded tests; local optional MCP dependency missing |
-| [OpenCode](other-runtimes.md#opencode) | Generate native local MCP config | Own runtime SDK/service wrapper still needed | Local 1.15.13 connected to wallet; no paid run |
+| [Hermes](hermes.md) | Generate native `mcp_servers` config | Experimental existing API server connector, or embedded Hermes | Official main-source Docker acceptance pending |
+| [OpenCode](other-runtimes.md#opencode) | Generate native local MCP config | Own runtime SDK/service wrapper still needed | Official development-branch Docker acceptance pending |
 | [Goose](other-runtimes.md#goose) | Configure a STDIO MCP extension | Own headless-service wrapper still needed | Native runtime test pending |
 | [LangGraph / LangChain](other-runtimes.md#langgraph-and-langchain) | MCP adapter in separate environment | Existing Agent Server MCP, or wrap your graph | Runtime compatibility test pending |
 | [Pydantic AI](other-runtimes.md#pydantic-ai) | MCPToolset in separate environment | Wrap your Agent.run as MCP | Runtime compatibility test pending |
 
 See the [validation ledger](validation.md) for versions, failures and acceptance
 criteria. No new cross-framework chain payment has occurred.
+
+Acceptance uses the current official development branch, resolved to a full SHA
+for each run: `main` for OpenClaw, Hermes, Goose, LangGraph and Pydantic AI;
+`dev` for OpenCode; `master` for LangChain. Host-installed versions do not count.
+The SHA stays fixed during a matrix run so all 30 directions use comparable inputs.
 
 ## Generate a buyer configuration
 
