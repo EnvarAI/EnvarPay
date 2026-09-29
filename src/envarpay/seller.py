@@ -52,6 +52,8 @@ class PaidServer:
         self.resource.register(config.network, ExactEvmServerScheme())
         self.resource.on_before_settle(self.before_settle).on_after_settle(self.after_settle)
         self.server = Server("envarpay seller")
+        self.current = None
+        self.applied_digest = ""
         self.tools: dict[str, Tool] = {}
         self.wrappers: dict[str, Any] = {}
         self.envar = Envar(config.connection, self.store) if config.connection else None
@@ -60,7 +62,7 @@ class PaidServer:
         @self.server.list_tools()
         async def listing() -> list[Tool]:
             return [
-                *self.tools.values(),
+                *(self.current or self).tools.values(),
                 Tool(
                     name="envarpay_payment_status",
                     description="Recover the original paid result without paying again.",
@@ -82,7 +84,9 @@ class PaidServer:
         @self.server.call_tool()
         async def calling(name: str, arguments: dict) -> CallToolResult:
             meta = self.server.request_context.meta
-            return await self.call(name, arguments, meta.model_dump() if meta else {})
+            return await (self.current or self).call(
+                name, arguments, meta.model_dump() if meta else {}
+            )
 
     @staticmethod
     def payment_key(payload: Any) -> str:
@@ -373,7 +377,15 @@ class PaidServer:
         finally:
             self.owned.reset(ownership)
 
-    def app(self):
+    async def synchronize(self, config_path):
+        if self.envar:
+            if self.config.connection.accept_receiving_updates:
+                from .receiving import apply_receiving
+
+                await apply_receiving(self, config_path)
+            await self.envar.flush()
+
+    def app(self, *, config_path=None):
         from .service import service_app
 
         return service_app(
@@ -381,4 +393,5 @@ class PaidServer:
             self.initialize,
             allowed_hosts=self.policy.allowed_hosts,
             registration=self.config.registration,
+            tick=(lambda: self.synchronize(config_path)) if self.envar else None,
         )

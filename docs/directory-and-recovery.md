@@ -93,3 +93,20 @@ Tests cover real local TCP authentication, lost responses, exact result replay,
 interrupted and concurrent execution, unchanged authorizations/budget and reporter
 outages. Test facilitator/chain responses are simulated. Final two-account native
 Hermes paid delivery is tracked by the dependent platform acceptance.
+
+## Apply receiving settings from Envar
+
+A dedicated seller can opt in to receiving the UI's wallet address and fixed tool
+prices by setting `connection.accept_receiving_updates = true`. `serve` polls the
+bound Agent's receiving configuration, validates the shared `Receiving` schema,
+persists it atomically, and swaps the service used by new calls. Calls already in
+flight retain their original configuration. An acknowledgement failure is retried
+without restarting a purchase. The config directory must be writable; mount the
+directory rather than a single config file when using Docker.
+
+Only the seller's receiving address and prices can be applied. Buyer wallets and
+runtime settings are never accepted in that response. A network change requires
+selecting the same network locally first. Turning the opt-in off in the local
+file immediately prevents further changes. The platform separately checks live
+PaymentRequired responses; an application acknowledgement alone is not proof of
+correct pricing or an actual payment.

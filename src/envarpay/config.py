@@ -99,6 +99,14 @@ class Price(StrictModel):
     amount_atomic: int = Field(ge=1, le=10**12)
 
 
+class Receiving(StrictModel):
+    network: Literal["eip155:84532", "eip155:8453"]
+    pay_to: str
+    tools: dict[str, Price] = Field(min_length=1, max_length=64)
+
+    _pay_to = field_validator("pay_to")(address)
+
+
 class Registration(StrictModel):
     agent_id: str
     challenge: str = Field(min_length=20, max_length=64)
@@ -152,6 +160,7 @@ class Wallet(StrictModel):
 
 
 class Connection(StrictModel):
+    accept_receiving_updates: bool = False
     platform_url: str = "https://envar.ai"
     agent_id: str
     token_file: str

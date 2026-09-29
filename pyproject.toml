@@ -28,6 +28,7 @@ dependencies = [
   "uvicorn>=0.31,<1",
   "starlette>=0.40,<1",
   "jsonschema>=4.20,<5",
+  "tomli-w>=1.2,<2",
 ]
 
 [project.urls]

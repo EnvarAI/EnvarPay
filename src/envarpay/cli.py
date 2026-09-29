@@ -292,7 +292,7 @@ def main() -> None:
             config = load_config(args.config)
             service = PaidServer(config) if config.seller else AgentService(config)
             uvicorn.run(
-                service.app(),
+                service.app(config_path=args.config) if config.seller else service.app(),
                 host=service.policy.host,
                 port=service.policy.port,
                 log_level="warning",
