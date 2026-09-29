@@ -20,7 +20,7 @@ def test_snippets_only_preserve_configuration_and_use_isolated_python(tmp_path, 
     elif host == "openclaw":
         item = value["mcp"]["servers"]["envarpay"]
         command = [item["command"], *item["args"]]
-        assert len(item["toolFilter"]["include"]) == 3
+        assert len(item["toolFilter"]["include"]) == 4
         assert item["requestTimeoutMs"] > 180000
     elif host == "opencode":
         item = value["mcp"]["envarpay"]

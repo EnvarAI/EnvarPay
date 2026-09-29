@@ -6,7 +6,7 @@ exposes a bounded buyer wallet as an MCP server. Start with the
 [guide for your framework](integrations/index.md); six native runtimes have
 real paid-delivery evidence in the [Docker matrix](integrations/validation.md).
 
-Version `0.1.0a2` is an unreleased source preview. This package is an Envar adapter using official SDKs;
+Version `0.1.0a3` is the current alpha SDK. This package is an Envar adapter using official SDKs;
 it is not an official Hermes/x402 distribution or a new payment protocol.
 The package has not been published to PyPI.
 

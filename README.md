@@ -147,7 +147,7 @@ is separate historical evidence. None of these tests establish mainnet readiness
 
 ### Current scope
 
-`0.1.0a2` is an **unreleased source preview**, not a production financial system. Defaults use Base
+`0.1.0a3` is an alpha SDK with explicit payment policies and durable recovery. Defaults use Base
 Sepolia, payments off, and a 0.01 test-USDC per-call and cumulative budget.
 
 | Included | Not yet included |
@@ -176,3 +176,5 @@ independent project by [EnvarAI](https://github.com/EnvarAI), not an official
 distribution or endorsement by those projects. [MIT licensed](LICENSE).
 
 See the [current validation ledger](docs/integrations/validation.md) for actual host versions, failed prerequisites and remaining acceptance checks.
+
+Directory and durable recovery: [operator guide](docs/directory-and-recovery.md).

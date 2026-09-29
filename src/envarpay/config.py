@@ -10,7 +10,6 @@ from uuid import UUID
 
 from eth_utils import is_address, to_checksum_address
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
-from x402.mechanisms.evm.default_assets import get_default_asset
 
 NETWORKS = {
     "eip155:84532": (84532, "0x036CbD53842c5426634e7929541eC2318f3dCF7e"),
@@ -99,6 +98,14 @@ class Price(StrictModel):
     amount_atomic: int = Field(ge=1, le=10**12)
 
 
+class Receiving(StrictModel):
+    network: Literal["eip155:84532", "eip155:8453"]
+    pay_to: str
+    tools: dict[str, Price] = Field(min_length=1, max_length=64)
+
+    _pay_to = field_validator("pay_to")(address)
+
+
 class Registration(StrictModel):
     agent_id: str
     challenge: str = Field(min_length=20, max_length=64)
@@ -134,6 +141,9 @@ class Seller(StrictModel):
 
 
 class Peer(Endpoint):
+    agent_id: str | None = None
+    endpoint_id: str | None = None
+    recovery: bool = False
     pay_to: str
     tools: list[str] = Field(min_length=1)
 
@@ -148,6 +158,27 @@ class Wallet(StrictModel):
     peers: dict[str, Peer] = Field(min_length=1)
 
 
+class Connection(StrictModel):
+    accept_receiving_updates: bool = False
+    platform_url: str = "https://envar.ai"
+    agent_id: str
+    token_file: str
+
+    _url = field_validator("platform_url")(secure_url)
+
+    @field_validator("agent_id")
+    @classmethod
+    def valid_id(cls, value: str) -> str:
+        return str(UUID(value))
+
+
+class WalletServer(StrictModel):
+    host: str = "127.0.0.1"
+    port: int = Field(default=4021, ge=1, le=65535)
+    allowed_hosts: list[str] = Field(default_factory=lambda: ["localhost:*", "127.0.0.1:*"])
+    bearer_token_file: str
+
+
 class Config(StrictModel):
     schema_version: Literal[1] = 1
     network: Literal["eip155:84532", "eip155:8453"] = "eip155:84532"
@@ -159,6 +190,8 @@ class Config(StrictModel):
     wallet: Wallet | None = None
     service: Service | None = None
     registration: Registration | None = None
+    connection: Connection | None = None
+    wallet_server: WalletServer | None = None
 
     _rpc = field_validator("rpc_url")(secure_url)
 
@@ -166,6 +199,8 @@ class Config(StrictModel):
     def role_required(self) -> Config:
         if self.seller is None and self.wallet is None and self.service is None:
             raise ValueError("Configure an existing service, seller or wallet")
+        if self.wallet_server and (not self.wallet or self.seller or self.service):
+            raise ValueError("Run the wallet server separately from the Agent or seller")
         if self.seller is not None and self.service is not None:
             raise ValueError("Use separate private and public paid service configurations")
         return self
@@ -180,7 +215,7 @@ class Config(StrictModel):
 
     @property
     def token_name(self) -> str:
-        return get_default_asset(self.network)["name"]
+        return "USD Coin" if self.network == "eip155:8453" else "USDC"
 
 
 def load_config(path: Path) -> Config:
@@ -194,6 +229,10 @@ def load_config(path: Path) -> Config:
         )
 
     config.state_dir = resolve(config.state_dir)
+    if config.connection:
+        config.connection.token_file = resolve(config.connection.token_file)
+    if config.wallet_server:
+        config.wallet_server.bearer_token_file = resolve(config.wallet_server.bearer_token_file)
     if config.wallet:
         config.wallet.key_file = resolve(config.wallet.key_file)
     if config.seller and config.seller.backend.api_key_file:

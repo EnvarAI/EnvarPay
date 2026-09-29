@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import asyncio
+import re
+import secrets
 import time
+import uuid
 from contextvars import ContextVar
 from typing import Any
 
@@ -15,15 +18,16 @@ from referencing import Registry
 from x402 import x402ResourceServer
 from x402.http import HTTPFacilitatorClient
 from x402.mcp.server_async import PaymentWrapperConfig, create_payment_wrapper
-from x402.mcp.types import MCPToolContext, MCPToolResult
+from x402.mcp.types import MCP_PAYMENT_RESPONSE_META_KEY, MCPToolContext, MCPToolResult
 from x402.mcp.utils import extract_payment_from_meta
 from x402.mechanisms.evm.exact import ExactEvmServerScheme
-from x402.schemas import ResourceConfig, ResourceInfo
+from x402.schemas import PaymentPayload, ResourceConfig, ResourceInfo, SettleResponse
 from x402.schemas.hooks import SettleContext, SettleResultContext
 
 from .backend import AgentBackend
 from .chain import Chain
 from .config import Config, address
+from .directory import INVOCATION_META, RECOVERY_META, Envar
 from .storage import PaymentError, Store, digest
 
 
@@ -48,18 +52,41 @@ class PaidServer:
         self.resource.register(config.network, ExactEvmServerScheme())
         self.resource.on_before_settle(self.before_settle).on_after_settle(self.after_settle)
         self.server = Server("envarpay seller")
+        self.current = None
+        self.applied_digest = ""
         self.tools: dict[str, Tool] = {}
         self.wrappers: dict[str, Any] = {}
+        self.envar = Envar(config.connection, self.store) if config.connection else None
         self.owned: ContextVar[bool] = ContextVar("owns_settlement", default=False)
 
         @self.server.list_tools()
         async def listing() -> list[Tool]:
-            return list(self.tools.values())
+            return [
+                *(self.current or self).tools.values(),
+                Tool(
+                    name="envarpay_payment_status",
+                    description="Recover the original paid result without paying again.",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "tool": {"type": "string"},
+                            "arguments": {"type": "object"},
+                            "payment": {"type": "object"},
+                            "recover": {"type": "boolean"},
+                            "recovery_token": {"type": "string"},
+                        },
+                        "required": ["tool", "arguments", "payment"],
+                        "additionalProperties": False,
+                    },
+                ),
+            ]
 
         @self.server.call_tool()
         async def calling(name: str, arguments: dict) -> CallToolResult:
             meta = self.server.request_context.meta
-            return await self.call(name, arguments, meta.model_dump() if meta else {})
+            return await (self.current or self).call(
+                name, arguments, meta.model_dump() if meta else {}
+            )
 
     @staticmethod
     def payment_key(payload: Any) -> str:
@@ -76,6 +103,8 @@ class PaidServer:
     async def initialize(self) -> None:
         await self.chain.check_network()
         await asyncio.to_thread(self.resource.initialize)
+        if "envarpay_payment_status" in self.policy.tools:
+            raise PaymentError("The payment-status tool name is reserved")
         available = {tool.name: tool for tool in await self.backend.list_tools()}
         if not self.policy.tools.keys() <= available.keys():
             raise PaymentError("A priced tool is missing from the backend")
@@ -134,12 +163,23 @@ class PaidServer:
                 ctx.payment_payload.model_dump(mode="json", by_alias=True),
             ]
         )
+        invocation = transport.get("meta", {}).get(INVOCATION_META) or {}
+        invocation_id = str(uuid.UUID(invocation["id"])) if invocation.get("id") else None
+        recovery_token = transport.get("meta", {}).get(RECOVERY_META, "")
+        if recovery_token and not re.fullmatch(r"[A-Za-z0-9_-]{32,128}", recovery_token):
+            raise PaymentError("Invalid recovery credential")
+        start_block = int(await self.chain.rpc("eth_blockNumber", []), 16)
         self.store.claim(
             key,
             binding,
             {
                 "payload": ctx.payment_payload.model_dump(mode="json", by_alias=True),
                 "tool": transport["toolName"],
+                "start_block": start_block,
+                "recovery_token_hash": digest(recovery_token) if recovery_token else "",
+                "payment_state": "unknown",
+                "execution_state": "not_started",
+                "invocation_id": invocation_id,
                 "arguments": transport["arguments"],
             },
         )
@@ -150,21 +190,69 @@ class PaidServer:
         if not ctx.result.success:
             return
         key = self.payment_key(ctx.payment_payload)
-        self.store.update(key, "settled", transaction=ctx.result.transaction)
+        self.store.update(
+            key,
+            "settled",
+            transaction=ctx.result.transaction,
+            settlement_response=ctx.result.model_dump(
+                mode="json", by_alias=True, exclude_none=True
+            ),
+        )
         proof = await self.chain.prove(
             ctx.result.transaction, ctx.payment_payload.payload["authorization"]
         )
-        self.store.update(key, "confirmed", proof=proof)
+        self.store.update(key, "confirmed", proof=proof, payment_state="confirmed")
+        self.report(key, "payment_observed", {"payment": proof})
+
+    def report(self, key, kind, payload):
+        if self.envar and self.store.get(key)["data"].get("invocation_id"):
+            self.store.queue_event(key, kind, payload)
+
+    def saved_result(self, record):
+        data = record["data"]
+        result = CallToolResult.model_validate(data["result"])
+        if data.get("transaction") and data.get("payment_state") == "confirmed":
+            result.meta = {
+                **(result.meta or {}),
+                MCP_PAYMENT_RESPONSE_META_KEY: data.get("settlement_response")
+                or SettleResponse(
+                    success=True,
+                    transaction=data["transaction"],
+                    network=self.config.network,
+                    payer=data["payload"]["payload"]["authorization"]["from"],
+                ).model_dump(mode="json", by_alias=True, exclude_none=True),
+            }
+        return result
+
+    async def execute_saved(self, key):
+        if not self.store.update(
+            key,
+            "executing",
+            expected={"confirmed"},
+            execution_state="executing",
+            started_at=time.time(),
+        ):
+            raise PaymentError("Original execution already started; query its saved status")
+        data = self.store.get(key)["data"]
+        try:
+            result = await self.backend.call(data["tool"], data["arguments"])
+        except BaseException:
+            self.store.update(key, "unknown", execution_state="unknown")
+            self.report(key, "execution_unknown", {})
+            raise
+        self.store.update(
+            key,
+            "failed" if result.isError else "completed",
+            execution_state="failed" if result.isError else "completed",
+            result=result.model_dump(mode="json", by_alias=True),
+            finished_at=time.time(),
+        )
+        self.report(key, "seller_failed" if result.isError else "seller_completed", {})
+        return self.saved_result(self.store.get(key))
 
     async def execute(self, arguments: dict, ctx: MCPToolContext) -> MCPToolResult:
         payload = extract_payment_from_meta({"_meta": ctx.meta})
-        key = self.payment_key(payload)
-        record = self.store.get(key)
-        if not record or record["status"] != "confirmed":
-            raise PaymentError("Verified upfront receipt required before execution")
-        self.store.update(key, "executing", started_at=time.time())
-        result = await self.backend.call(ctx.tool_name, arguments)
-        self.store.update(key, "executed", finished_at=time.time())
+        result = await self.execute_saved(self.payment_key(payload))
         return MCPToolResult(
             content=[c.model_dump(mode="json", by_alias=True) for c in result.content],
             is_error=result.isError,
@@ -172,7 +260,78 @@ class PaidServer:
             meta=result.meta,
         )
 
+    @staticmethod
+    def authorize_recovery(record, token):
+        expected = record["data"].get("recovery_token_hash")
+        if (
+            not expected
+            or not isinstance(token, str)
+            or not secrets.compare_digest(expected, digest(token))
+        ):
+            raise PaymentError(
+                "Private recovery credential required; chain data does not grant result access"
+            )
+
+    async def payment_status(self, arguments):
+        payload = PaymentPayload.model_validate(arguments["payment"])
+        key = self.payment_key(payload)
+        record = self.store.get(key)
+        binding = digest(
+            [
+                arguments["tool"],
+                arguments["arguments"],
+                payload.model_dump(mode="json", by_alias=True),
+            ]
+        )
+        if not record or record["binding"] != binding:
+            raise PaymentError("Original signed payment and exact request are required")
+        self.authorize_recovery(record, arguments.get("recovery_token"))
+        data = record["data"]
+        if "result" in data:
+            return {
+                "status": record["status"],
+                "result": self.saved_result(record).model_dump(
+                    mode="json", by_alias=True, exclude_none=True
+                ),
+            }
+        if arguments.get("recover") and record["status"] in {"reserved", "settled", "confirmed"}:
+            tx = data.get("transaction")
+            if not tx:
+                tx = await self.chain.find_authorization(
+                    payload.payload["authorization"], data["start_block"]
+                )
+            if tx:
+                proof = await self.chain.prove(tx, payload.payload["authorization"])
+                self.store.update(
+                    key,
+                    "confirmed",
+                    expected={"reserved", "settled", "confirmed"},
+                    transaction=tx,
+                    proof=proof,
+                    payment_state="confirmed",
+                )
+                self.report(key, "payment_observed", {"payment": proof})
+                await self.execute_saved(key)
+                return await self.payment_status({**arguments, "recover": False})
+        if self.envar:
+            await self.envar.flush()
+        return {
+            "status": record["status"],
+            "payment_state": data.get("payment_state"),
+            "execution_state": data.get("execution_state"),
+            "transaction": data.get("transaction"),
+        }
+
     async def call(self, name: str, arguments: dict, meta: dict) -> CallToolResult:
+        if name == "envarpay_payment_status":
+            try:
+                value = await self.payment_status(arguments)
+                return CallToolResult(content=[], structuredContent=value)
+            except Exception:
+                return CallToolResult(
+                    content=[TextContent(type="text", text="Original payment is unresolved")],
+                    isError=True,
+                )
         if name not in self.tools:
             return CallToolResult(
                 content=[TextContent(type="text", text="Unknown priced tool")], isError=True
@@ -191,8 +350,9 @@ class PaidServer:
                 if record:
                     if record["binding"] != binding:
                         raise PaymentError("Authorization is already bound to different arguments")
-                    if record["status"] == "completed":
-                        return CallToolResult.model_validate(record["data"]["result"])
+                    self.authorize_recovery(record, meta.get(RECOVERY_META))
+                    if "result" in record["data"]:
+                        return self.saved_result(record)
                     raise PaymentError(
                         "Original attempt is unresolved; no automatic settlement/execution retry"
                     )
@@ -200,9 +360,11 @@ class PaidServer:
             if key and self.owned.get():
                 self.store.update(
                     key,
-                    "failed" if result.isError else "completed",
-                    result=result.model_dump(mode="json", by_alias=True),
+                    None,
+                    response=result.model_dump(mode="json", by_alias=True),
                 )
+            if self.envar:
+                await self.envar.flush()
             return result
         except Exception as error:
             logger.warning("Tool refused: {}", type(error).__name__)
@@ -215,7 +377,15 @@ class PaidServer:
         finally:
             self.owned.reset(ownership)
 
-    def app(self):
+    async def synchronize(self, config_path):
+        if self.envar:
+            if self.config.connection.accept_receiving_updates:
+                from .receiving import apply_receiving
+
+                await apply_receiving(self, config_path)
+            await self.envar.flush()
+
+    def app(self, *, config_path=None):
         from .service import service_app
 
         return service_app(
@@ -223,4 +393,5 @@ class PaidServer:
             self.initialize,
             allowed_hosts=self.policy.allowed_hosts,
             registration=self.config.registration,
+            tick=(lambda: self.synchronize(config_path)) if self.envar else None,
         )

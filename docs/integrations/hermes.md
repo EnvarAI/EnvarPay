@@ -10,7 +10,8 @@ envarpay host-config --host hermes --config /absolute/path/buyer.toml
 ```
 
 Merge that entry into the host configuration. Wallet tools are `list_paid_tools`,
-`call_paid_tool`, and `payment_status`. The wallet defaults to payments OFF.
+`call_paid_tool`, `payment_status` and `recover_payment`. An Envar connection also
+adds directory lookup tools. See [directory and recovery](../directory-and-recovery.md). The wallet defaults to payments OFF.
 It only spends on configured peers, recipients and tools, within its persistent budget.
 
 The [official main-source Docker run](validation.md) uses the source SHA in

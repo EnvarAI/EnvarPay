@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import asyncio
 import secrets
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from pathlib import Path
 
 from jsonschema.validators import validator_for
+from loguru import logger
 from mcp.server import Server
 from mcp.server.sse import SseServerTransport
 from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
@@ -21,7 +23,7 @@ from .backend import AgentBackend
 from .storage import PaymentError, secret_file
 
 
-def service_app(server, initialize, *, allowed_hosts, registration=None, bearer=""):
+def service_app(server, initialize, *, allowed_hosts, registration=None, bearer="", tick=None):
     security = TransportSecuritySettings(allowed_hosts=allowed_hosts)
     manager = StreamableHTTPSessionManager(
         server, stateless=True, json_response=True, security_settings=security
@@ -31,8 +33,24 @@ def service_app(server, initialize, *, allowed_hosts, registration=None, bearer=
     @asynccontextmanager
     async def lifespan(app):
         await initialize()
+
+        async def synchronize():
+            while True:
+                try:
+                    await tick()
+                except Exception as error:
+                    logger.warning("Configuration/report sync pending: {}", type(error).__name__)
+                await asyncio.sleep(5)
+
         async with manager.run():
-            yield
+            task = asyncio.create_task(synchronize()) if tick else None
+            try:
+                yield
+            finally:
+                if task:
+                    task.cancel()
+                    with suppress(asyncio.CancelledError):
+                        await task
 
     async def proof(request):
         if registration and request.path_params["agent_id"] == registration.agent_id:
@@ -57,6 +75,10 @@ def service_app(server, initialize, *, allowed_hosts, registration=None, bearer=
             Mount("/messages/", app=sse.handle_post_message),
         ],
     )
+    return authenticated_app(app, bearer)
+
+
+def authenticated_app(app, bearer):
     if not bearer:
         return app
 

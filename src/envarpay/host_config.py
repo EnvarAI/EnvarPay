@@ -17,7 +17,9 @@ def host_config(host: str, config_path: Path) -> dict:
     args = ["-m", "envarpay", "wallet", "--config", str(config_path.expanduser().resolve())]
     # Allow quote, settlement, confirmations and execution to finish before host timeout.
     seconds = config.timeout_seconds * 4 + 30
-    tools = ["list_paid_tools", "call_paid_tool", "payment_status"]
+    tools = ["list_paid_tools", "call_paid_tool", "payment_status", "recover_payment"]
+    if config.connection:
+        tools += ["discover_agents", "get_agent"]
     if host == "hermes":
         return {
             "mcp_servers": {

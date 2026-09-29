@@ -55,7 +55,7 @@ async def test_real_http_mcp_payment_required(
         )
         async with connect(endpoint) as session:
             tools = await session.list_tools()
-            assert [t.name for t in tools.tools] == ["ask_agent"]
+            assert [t.name for t in tools.tools] == ["ask_agent", "envarpay_payment_status"]
             result = await x402MCPSession(session, x402Client(), auto_payment=False).call_tool(
                 "ask_agent", {"question": "unpaid"}
             )
@@ -97,6 +97,7 @@ async def test_cli_wallet_is_real_stdio_mcp_without_key(tmp_path: Path):
                 "list_paid_tools",
                 "call_paid_tool",
                 "payment_status",
+                "recover_payment",
             }
             status = await session.call_tool("payment_status", {"request_id": "not-attempted"})
             assert not status.isError
@@ -129,3 +130,53 @@ mcp.run(transport="stdio")
     )
     result = await backend.call("add", {"left": 2, "right": 3})
     assert result.structuredContent == {"sum": 5} and result.meta["source"] == "test-upstream"
+
+
+async def test_wallet_http_requires_private_bearer_and_exposes_no_policy_mutation(
+    config, tmp_path, monkeypatch
+):
+    import httpx
+
+    from envarpay.config import WalletServer
+    from envarpay.wallet import WalletService, wallet_app
+
+    key = tmp_path / "wallet-service.token"
+    key.write_text("private_wallet_" + "x" * 40)
+    key.chmod(0o600)
+    config.wallet_server = WalletServer(bearer_token_file=str(key))
+    with socket.socket() as sock:
+        sock.bind(("127.0.0.1", 0))
+        port = sock.getsockname()[1]
+    server = uvicorn.Server(
+        uvicorn.Config(
+            wallet_app(WalletService(config)), host="127.0.0.1", port=port, log_level="error"
+        )
+    )
+    task = asyncio.create_task(server.serve())
+    try:
+        for _ in range(100):
+            if server.started:
+                break
+            await asyncio.sleep(0.02)
+        async with httpx.AsyncClient(trust_env=False) as http:
+            response = await http.post(f"http://127.0.0.1:{port}/mcp", json={})
+            assert response.status_code == 401
+        monkeypatch.setenv("TEST_WALLET_SERVICE_TOKEN", key.read_text())
+        async with connect(
+            Endpoint(
+                url=f"http://127.0.0.1:{port}/mcp", bearer_token_env="TEST_WALLET_SERVICE_TOKEN"
+            )
+        ) as session:
+            tools = await session.list_tools()
+            assert {t.name for t in tools.tools} == {
+                "list_paid_tools",
+                "call_paid_tool",
+                "payment_status",
+                "recover_payment",
+            }
+            result = await session.call_tool("payment_status", {"request_id": "absent"})
+            assert not result.isError
+            assert str(key) not in str(result) and key.read_text() not in str(result)
+    finally:
+        server.should_exit = True
+        await asyncio.wait_for(task, 5)
