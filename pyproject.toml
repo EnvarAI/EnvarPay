@@ -21,7 +21,7 @@ classifiers = [
 ]
 dependencies = [
   "x402[evm,mcp]==2.24.0",
-  "mcp==1.26.0",
+  "mcp==1.28.1",
   "pydantic>=2.11,<3",
   "httpx>=0.28,<1",
   "loguru>=0.7,<1",

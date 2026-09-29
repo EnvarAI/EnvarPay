@@ -33,9 +33,9 @@ The base image's old Hermes executable is not used for the matrix.
 
 ## Receive payment using your existing agent service
 
-**Experimental source-preview connector; Gateway HTTP paid acceptance is pending; the native MCP/CLI matrix does not cover it.**
+The authenticated connection to two existing native Hermes HTTP services and real model delivery has been [verified locally](existing-runtime-validation.md). Paid acceptance is a separate step.
 
-Enable `API_SERVER_ENABLED=true`, set `API_SERVER_KEY`, and run `hermes gateway` in a dedicated seller profile. The generated target is `hermes-agent`.
+Enable `API_SERVER_ENABLED=true`, set `API_SERVER_KEY`, and run `hermes gateway run` in a dedicated seller profile. The generated target is `hermes-agent`.
 
 ```sh
 envarpay init --directory ./agent-pay --pay-to YOUR_FULL_ADDRESS --backend hermes-http
@@ -61,12 +61,11 @@ On an uncertain result, preserve the original payment and execution state.
 `doctor` validates local configuration and credential availability, not agent
 reachability or paid delivery. [Actual validation](validation.md) is recorded separately.
 
-## Optional embedded mode
+## Private platform connection
 
-`--backend hermes` still creates a fresh AIAgent with its own model configuration.
-It skips memory, workspace context and soul identity; it does not attach to an
-existing CLI/Gateway session. Only that embedded mode needs EnvarPay installed
-inside the compatible Hermes Python environment. Keep it distinct from `hermes-http`.
+Use `envarpay init --mode private --backend hermes-http --directory ./my-agent` to expose an authenticated MCP entry to the existing Hermes API. Add the public HTTPS tunnel URL in Envar and supply the generated service token separately. Apply the platform's ownership challenge with the config's `[registration]` section before verification.
+
+The embedded `hermes` backend was removed. Existing `kind = "hermes"` configs are rejected rather than silently starting a fresh Agent. Switch to the existing HTTP service; keep model and tool settings in Hermes itself.
 
 ## Official sources
 

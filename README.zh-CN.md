@@ -55,8 +55,7 @@ envarpay serve --config ./agent-pay/seller.toml
 `openclaw` 和 `hermes-http` 这两个已有服务 HTTP 连接器仍是实验功能；
 本轮实付验证的是 MCP + 原生 CLI/框架路径，HTTP 连接器尚待单独验收。
 具体启用方式参见 [OpenClaw](docs/integrations/openclaw.md) 和 [Hermes](docs/integrations/hermes.md)。
-另有可选 `--backend hermes` 嵌入模式，会新建 `AIAgent`，跳过记忆与工作区上下文；
-它不会接入你正在使用的会话。
+已删除新建 `AIAgent` 的嵌入模式。使用 `hermes-http` 连接你已有的服务，模型和工具仍由原 Agent 管理。
 
 如果已经有 MCP 服务，初始化时选 `--backend mcp`，把上游地址、出售的工具名和价格
 写入配置即可。公网地址和 HTTPS 需要自行提供，并避免把未收费的上游执行入口公开。

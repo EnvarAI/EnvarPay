@@ -6,6 +6,7 @@ import argparse
 import asyncio
 import json
 import os
+import secrets
 import sys
 from importlib.metadata import version
 from pathlib import Path
@@ -26,29 +27,18 @@ def write_new(path: Path, text: str) -> None:
         file.write(text)
 
 
-def initialize(directory: Path, pay_to: str, backend: str) -> dict:
-    pay_to = address(pay_to)
+def initialize(directory: Path, pay_to: str | None, backend: str, mode: str = "seller") -> dict:
+    if mode not in ("seller", "private") or backend not in ("mcp", "hermes-http", "openclaw"):
+        raise PaymentError("Choose a private or paid entry to an existing MCP/HTTP runtime")
+    if mode == "seller" and not pay_to:
+        raise PaymentError("Seller mode requires --pay-to; private mode does not need a wallet")
+    pay_to = address(pay_to) if mode == "seller" else None
     directory = directory.expanduser().resolve()
     directory.mkdir(parents=True, mode=0o700, exist_ok=True)
     if any(directory.iterdir()):
         raise PaymentError("Initialization requires an empty directory; nothing was overwritten")
     write_new(directory / ".gitignore", "*.key\n*-state/\n*.sqlite3*\n.env*\n")
-    backend_config = (
-        """kind = "hermes"
-model = "YOUR_MODEL"
-base_url = "https://YOUR_MODEL_ENDPOINT/v1"
-provider = "custom"
-api_key_env = "LLM_API_KEY"
-system_prompt = "Answer the buyer's request."
-toolsets = []
-"""
-        if backend == "hermes"
-        else """kind = "mcp"
-[seller.backend.upstream]
-transport = "streamable-http"
-url = "http://127.0.0.1:8000/mcp"
-"""
-    )
+    backend_config = 'kind = "mcp"\n[seller.backend.upstream]\ntransport = "streamable-http"\nurl = "http://127.0.0.1:8000/mcp"\n'
     if backend in ("openclaw", "hermes-http"):
         target = "openclaw/seller" if backend == "openclaw" else "hermes-agent"
         port = 18789 if backend == "openclaw" else 8642
@@ -57,6 +47,28 @@ url = "http://127.0.0.1:8000/mcp"
             f'base_url = "http://127.0.0.1:{port}/v1"\nmodel = "{target}"\n'
             'api_key_env = "ENVARPAY_RUNTIME_TOKEN"\n'
         )
+    if mode == "private":
+        write_new(directory / "service.token", secrets.token_urlsafe(32) + "\n")
+        write_new(
+            directory / "agent.toml",
+            f"""schema_version = 1
+state_dir = "./agent-state"
+
+[service]
+host = "127.0.0.1"
+port = 4020
+bearer_token_file = "./service.token"
+tools = ["ask_agent"]
+
+[service.backend]
+{backend_config.replace("[seller.backend.upstream]", "[service.backend.upstream]")}""",
+        )
+        return {
+            "directory": str(directory),
+            "config": str(directory / "agent.toml"),
+            "token_file": str(directory / "service.token"),
+            "payments_enabled": False,
+        }
     write_new(
         directory / "seller.toml",
         f'''schema_version = 1
@@ -98,7 +110,7 @@ tools = ["ask_agent"]
     return {
         "directory": str(directory),
         "payments_enabled": False,
-        "next": "Configure the backend/model, provision buyer.key, and review payment policy",
+        "next": "Configure the existing runtime, provision buyer.key, and review payment policy",
     }
 
 
@@ -110,10 +122,9 @@ def parser() -> argparse.ArgumentParser:
         "init", help="Generate editable seller/buyer configs; payments default off"
     )
     init.add_argument("--directory", type=Path, required=True)
-    init.add_argument("--pay-to", required=True)
-    init.add_argument(
-        "--backend", choices=["hermes", "mcp", "openclaw", "hermes-http"], default="hermes"
-    )
+    init.add_argument("--pay-to", help="Receiving address; required for seller mode")
+    init.add_argument("--mode", choices=["seller", "private"], default="seller")
+    init.add_argument("--backend", choices=["mcp", "openclaw", "hermes-http"], default="mcp")
     keygen = sub.add_parser(
         "keygen", help="Create a new dedicated EVM key, displaying only its address"
     )
@@ -126,7 +137,6 @@ def parser() -> argparse.ArgumentParser:
         "tools",
         "status",
         "reconcile",
-        "hermes-config",
         "host-config",
         "doctor",
     ]:
@@ -161,18 +171,26 @@ async def read_or_call(args: argparse.Namespace) -> dict | list:
 
     config = load_config(args.config)
     if args.command == "doctor":
-        if config.seller and config.seller.backend.kind in ("hermes", "http"):
+        endpoint = config.seller or config.service
+        if endpoint and endpoint.backend.kind == "http":
+            from .runtime_http import RuntimeHTTP
+
+            RuntimeHTTP(endpoint.backend, config.timeout_seconds).credential()
+        if config.service:
+            from .service import AgentService
+
+            AgentService(config)
+        rpc_checked = bool(args.online and (config.seller or config.wallet))
+        if rpc_checked:
+            await Chain(config).check_network()
+        if args.online and endpoint:
             from .backend import AgentBackend
 
-            AgentBackend(config.seller.backend, config.timeout_seconds).check_configuration()
-            if config.seller.backend.kind == "hermes":
-                AgentBackend.check_hermes()
-        if args.online:
-            await Chain(config).check_network()
+            await AgentBackend(endpoint.backend, config.timeout_seconds).list_tools()
         return {
             "valid": True,
             "network": config.network,
-            "rpc_checked": args.online,
+            "rpc_checked": rpc_checked,
             "versions": {name: version(name) for name in ("envarpay", "x402", "mcp")},
         }
     if args.command in ("status", "reconcile"):
@@ -212,7 +230,7 @@ def main() -> None:
     args = parser().parse_args()
     try:
         if args.command == "init":
-            result = initialize(args.directory, args.pay_to, args.backend)
+            result = initialize(args.directory, args.pay_to, args.backend, args.mode)
         elif args.command == "keygen":
             account = Account.create()
             write_new(args.output.expanduser(), account.key.hex() + "\n")
@@ -225,24 +243,6 @@ def main() -> None:
             from .host_config import host_config
 
             result = host_config(args.host, args.config)
-        elif args.command == "hermes-config":
-            load_config(args.config)
-            result = {
-                "mcp_servers": {
-                    "payments": {
-                        "command": sys.executable,
-                        "args": [
-                            "-m",
-                            "envarpay",
-                            "wallet",
-                            "--config",
-                            str(args.config.expanduser().resolve()),
-                        ],
-                        "timeout": 600,
-                        "connect_timeout": 30,
-                    }
-                }
-            }
         elif args.command == "wallet":
             from .wallet import WalletService, wallet_mcp
 
@@ -252,8 +252,10 @@ def main() -> None:
             import uvicorn
 
             from .seller import PaidServer
+            from .service import AgentService
 
-            service = PaidServer(load_config(args.config))
+            config = load_config(args.config)
+            service = PaidServer(config) if config.seller else AgentService(config)
             uvicorn.run(
                 service.app(),
                 host=service.policy.host,

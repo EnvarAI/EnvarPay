@@ -6,7 +6,7 @@ The package, Python import and CLI are all `envarpay` (unreleased source preview
 | Agent | Pay others | Charge for work | Native local Docker validation |
 |---|---|---|---|
 | [OpenClaw](openclaw.md) | `host-config --host openclaw`, native MCP bridge | Native CLI exposed as private MCP | Paid directions recorded in the matrix |
-| [Hermes](hermes.md) | `host-config --host hermes`, native MCP client | Native CLI exposed as private MCP | Paid directions recorded in the matrix |
+| [Hermes](hermes.md) | `host-config --host hermes`, native MCP client | Native CLI or existing authenticated HTTP service | Paid CLI directions in the matrix; [HTTP connection verified](existing-runtime-validation.md) |
 | [OpenCode](other-runtimes.md#opencode) | `host-config --host opencode` | `opencode run` exposed as private MCP | Paid directions recorded in the matrix |
 | [Goose](other-runtimes.md#goose) | `host-config --host goose` | `goose run` exposed as private MCP | Paid directions recorded in the matrix |
 | [LangGraph / LangChain](other-runtimes.md#langgraph-and-langchain) | Official `MCPAdapter` | Native `create_agent().ainvoke()` behind MCP | Paid directions recorded in the matrix |

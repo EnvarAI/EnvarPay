@@ -25,7 +25,9 @@ async def test_existing_runtime_preset_has_no_model_dependency(
     assert config.seller.backend.base_url == f"http://127.0.0.1:{port}/v1"
     monkeypatch.setenv("ENVARPAY_RUNTIME_TOKEN", "test-token")
     backend = AgentBackend(config.seller.backend, 30)
-    monkeypatch.setattr(backend, "check_hermes", lambda: pytest.fail("must not embed Hermes"))
+    import sys
+
+    monkeypatch.setitem(sys.modules, "run_agent", None)
     tools = await backend.list_tools()
     assert [tool.name for tool in tools] == ["ask_agent"]
 

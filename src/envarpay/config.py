@@ -6,6 +6,7 @@ import tomllib
 from pathlib import Path
 from typing import Literal
 from urllib.parse import urlsplit
+from uuid import UUID
 
 from eth_utils import is_address, to_checksum_address
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -65,27 +66,20 @@ class Endpoint(StrictModel):
 
 
 class Backend(StrictModel):
-    kind: Literal["mcp", "hermes", "http"]
+    kind: Literal["mcp", "http"]
     upstream: Endpoint | None = None
     model: str = ""
     base_url: str | None = None
     http_api: Literal["responses", "chat-completions"] = "responses"
     allow_http: bool = False
     max_response_bytes: int = Field(default=1048576, ge=1024, le=10485760)
-    provider: str | None = None
     api_key_env: str | None = None
     api_key_file: str | None = None
-    system_prompt: str = "Answer the user's request."
-    toolsets: list[str] = Field(default_factory=list)
-    max_iterations: int = Field(default=5, ge=1, le=30)
-    max_tokens: int = Field(default=1500, ge=1, le=16000)
 
     @model_validator(mode="after")
     def valid_backend(self) -> Backend:
         if self.kind == "mcp" and self.upstream is None:
             raise ValueError("MCP backend requires upstream")
-        if self.kind == "hermes" and (not self.model or self.upstream is not None):
-            raise ValueError("Hermes backend requires model and no upstream")
         if self.kind == "http":
             if not self.model or self.model == "YOUR_MODEL" or self.upstream is not None:
                 raise ValueError("HTTP backend requires a fixed model/agent target and no upstream")
@@ -103,6 +97,27 @@ class Backend(StrictModel):
 
 class Price(StrictModel):
     amount_atomic: int = Field(ge=1, le=10**12)
+
+
+class Registration(StrictModel):
+    agent_id: str
+    challenge: str = Field(min_length=20, max_length=64)
+
+    @field_validator("agent_id")
+    @classmethod
+    def valid_id(cls, value: str) -> str:
+        return str(UUID(value))
+
+
+class Service(StrictModel):
+    """An authenticated entry to an existing private Agent, without a receiving wallet."""
+
+    host: str = "127.0.0.1"
+    port: int = Field(default=4020, ge=1, le=65535)
+    allowed_hosts: list[str] = Field(default_factory=lambda: ["localhost:*", "127.0.0.1:*"])
+    bearer_token_file: str
+    backend: Backend
+    tools: list[str] = Field(min_length=1, max_length=64)
 
 
 class Seller(StrictModel):
@@ -142,13 +157,17 @@ class Config(StrictModel):
     timeout_seconds: int = Field(default=180, ge=5, le=600)
     seller: Seller | None = None
     wallet: Wallet | None = None
+    service: Service | None = None
+    registration: Registration | None = None
 
     _rpc = field_validator("rpc_url")(secure_url)
 
     @model_validator(mode="after")
     def role_required(self) -> Config:
-        if self.seller is None and self.wallet is None:
-            raise ValueError("Configure seller or wallet")
+        if self.seller is None and self.wallet is None and self.service is None:
+            raise ValueError("Configure an existing service, seller or wallet")
+        if self.seller is not None and self.service is not None:
+            raise ValueError("Use separate private and public paid service configurations")
         return self
 
     @property
@@ -179,4 +198,8 @@ def load_config(path: Path) -> Config:
         config.wallet.key_file = resolve(config.wallet.key_file)
     if config.seller and config.seller.backend.api_key_file:
         config.seller.backend.api_key_file = resolve(config.seller.backend.api_key_file)
+    if config.service:
+        config.service.bearer_token_file = resolve(config.service.bearer_token_file)
+        if config.service.backend.api_key_file:
+            config.service.backend.api_key_file = resolve(config.service.backend.api_key_file)
     return config

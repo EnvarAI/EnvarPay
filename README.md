@@ -57,7 +57,7 @@ sequenceDiagram
 
 ### Why EnvarPay?
 
-- **Keep your framework.** OpenClaw, Hermes, OpenCode and Goose use native MCP clients; LangGraph/LangChain and Pydantic AI use their official adapters. Seller examples wrap the actual native runtime as MCP.
+- **Keep your framework.** Connect existing MCP tools or a native Hermes/OpenClaw HTTP service. Models and tools remain in your runtime; EnvarPay does not instantiate an embedded Agent.
 - **Use open protocols.** Official MCP and x402 SDKs handle the wire format. No Envar account or proprietary settlement API is required.
 - **Pay first, work second.** The seller checks the exact USDC transfer and nonce before running the paid capability.
 - **Put spending limits in code.** Configure allowed services, full recipients, tools, per-call limits and a persistent cumulative budget.
@@ -76,8 +76,7 @@ envarpay --help
 
 This alpha is not on PyPI yet. The existing [GitHub release](https://github.com/EnvarAI/EnvarPay/releases)
 is 0.1.0a1 with the old package name. See [upgrade instructions](docs/migration-envarpay.md).
-Only the embedded Hermes seller needs installation into Hermes's Python environment; see the
-[Hermes setup notes](docs/getting-started.md#install).
+EnvarPay runs in its own Python environment; the existing Agent keeps its model, tools and configuration.
 
 ### Start receiving payments
 
@@ -97,8 +96,7 @@ Keep that raw MCP service private. These are examples to adapt, not a one-comman
 installer for an existing personal session.
 The `openclaw` and `hermes-http` Gateway HTTP connectors are experimental;
 their live paid acceptance is separate and remains pending.
-The optional `--backend hermes` mode creates a fresh embedded agent and skips
-memory/workspace context; it does not attach to an existing session.
+The embedded `hermes` backend has been removed. Use `hermes-http` to connect an existing service; [private HTTP delivery is verified separately](docs/integrations/existing-runtime-validation.md).
 
 ### Give an agent a payment wallet
 

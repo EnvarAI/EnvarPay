@@ -19,16 +19,29 @@ python -m pip install .
 envarpay --help
 ```
 
-For the embedded Hermes seller only, install into **the Python environment used by your existing
-official Hermes**. Hermes itself is not bundled or installed by this package.
-If Hermes uses uv, `uv pip install --python /path/to/hermes/.venv/bin/python .`
-installs the adapter without changing Hermes source. A buyer wallet or MCP proxy
-can run in its own environment and does not require Hermes.
+Run EnvarPay in its own Python environment. It connects to an existing MCP or HTTP service; it does not import Hermes, instantiate an Agent or require your model-provider credentials.
 
-The tested Hermes 0.20.0 project has a 14-day uv release-age setting. If installing
-from that project before x402 2.24.0 ages past it, the example Dockerfile makes a
-package-specific exception: `--exclude-newer-package x402=2026-09-29T23:59:59Z`.
-It keeps the exact x402 pin and does not disable the age setting for other packages.
+## Connect a private Agent to Envar
+
+Start the official API server of your existing Hermes first, with a dedicated runtime access token. Then create an authenticated MCP entry:
+
+```sh
+envarpay init --mode private --backend hermes-http --directory ./my-agent
+# Set the existing runtime URL and ENVARPAY_RUNTIME_TOKEN reference in agent.toml.
+envarpay serve --config ./my-agent/agent.toml
+```
+
+The generated `service.token` is owner-only. Use it as the separate service access token when registering the HTTPS tunnel URL in Envar; do not expose this private control entry without authentication. No receiving wallet is needed for private messages.
+
+After Envar generates an ownership challenge, copy its Agent ID and challenge into the same config and restart this service:
+
+```toml
+[registration]
+agent_id = "THE_AGENT_UUID_FROM_ENVAR"
+challenge = "THE_CURRENT_CHALLENGE_FROM_ENVAR"
+```
+
+The service exposes only the public proof at `/.well-known/envar/AGENT_ID`; MCP requests still require the access token. Then verify and publish in Envar. A local service needs a stable HTTPS tunnel and a running computer.
 
 ## Enable receiving payments
 
@@ -40,6 +53,8 @@ Edit `agent-pay/seller.toml`: set the private MCP upstream, tool name and price.
 Keep model credentials and runtime configuration in that private service.
 If your agent has no MCP endpoint, use the
 [native wrapper examples](../examples/cross-framework/README.md). Then start:
+
+For an existing Hermes HTTP service, choose `--backend hermes-http`, set its fixed URL/target and runtime credential reference. Model and tool settings stay in Hermes.
 
 ```sh
 envarpay doctor --config ./agent-pay/seller.toml --online
