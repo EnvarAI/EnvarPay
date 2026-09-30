@@ -122,3 +122,16 @@ This is stronger than harness-only orchestration, but still not public testnet e
 
 The unsigned-decision recovery fix is included in the final wheel recorded above.
 Both native paths were repeated successfully using that exact wheel.
+
+## Testnet deployment and audit tools
+
+`examples/tasks/deploy.py` checks Base Sepolia and displays the deployer balance by
+default. `--execute` explicitly authorizes a bounded deployment, preserving the
+original signed deployment transaction in a private state directory. It does not
+obtain test ETH, touch mainnet or reuse a different deployment automatically.
+
+After a completed/refunded task, save `envarpay task status` JSON and run
+`examples/tasks/audit.py --evidence STATUS.json --rpc INDEPENDENT_RPC` to independently
+verify roles, committed terms and exact official-USDC transfer logs. Use a different
+RPC from the transaction sender. Public-chain acceptance requires both this audit
+and native runtime evidence for the same job and candidate build.
