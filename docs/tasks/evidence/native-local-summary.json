@@ -1,0 +1,94 @@
+{
+  "chain_id": 31337,
+  "public_testnet": false,
+  "wheel_sha256": "0c6d89c2aafa50d16fb0146f2eaa61f37f246d528eaa3c33b22c4e5c9c007eb2",
+  "hermes_source": "fc042f1d67bc393bf43920e92d4eb5082eddedfb",
+  "pydantic_ai": "2.52.0",
+  "model": "gpt-4.1-mini",
+  "cases": [
+    {
+      "request_id": "native-hermes-task-v1",
+      "job_id": "406f261fab84af789f8dc842d70f976f62a637897bda3bd708ef13af571b970d",
+      "status": "completed",
+      "funding": {
+        "transaction": "0xc17a0eb760dd278db0813897ee429e4ee1f7b2fe722af0123627557f91cc4f50",
+        "block": 2492,
+        "block_hash": "0x1b8d67c14ab1fd25bac9a539d4a901719d810d14d112c26f828863bbb74fa9c9",
+        "log_index": 0,
+        "payer": "0xBd393bd20471154975573fB9875e00070FE090a4",
+        "recipient": "0x3365B69c6EDb737C6c8d4594246776A07B841412",
+        "amount_atomic": 10000
+      },
+      "settlement": {
+        "transaction": "0x28fd6654158f0ba5b0423aa0200b1974e0a5fca6bd7e7faa0e9b98e78e714500",
+        "block": 2519,
+        "block_hash": "0xb0fe2891ac155bd87c47ba54d8d6248d2b7eaed0c4cbf85d522dc466365dd283",
+        "log_index": 0,
+        "payer": "0x3365B69c6EDb737C6c8d4594246776A07B841412",
+        "recipient": "0xF5048E5d9e77036A90265760b99d7A3ED5C6e011",
+        "amount_atomic": 10000
+      },
+      "decision": {
+        "action": "accept",
+        "reason": "Verified answer and marker"
+      },
+      "result": {
+        "_meta": null,
+        "content": [
+          {
+            "type": "text",
+            "text": "{\"answer\":323,\"marker\":\"ENVAR_TASK_NATIVE_V1\"}",
+            "annotations": null,
+            "_meta": null
+          }
+        ],
+        "structuredContent": {
+          "result": "{\"answer\":323,\"marker\":\"ENVAR_TASK_NATIVE_V1\"}"
+        },
+        "isError": false
+      }
+    },
+    {
+      "request_id": "native-pydantic-task-v1",
+      "job_id": "09eb48713467edfca3bc5d427e6fb70c5bc97e2a43d4c39a465018ce8e3b88f8",
+      "status": "completed",
+      "funding": {
+        "transaction": "0x42d07b46afbbbee5ce22de625f9a1f166a199b30681a38c0ca8ff791434a5dda",
+        "block": 3011,
+        "block_hash": "0x5c908577a57905199f26e1f30b68666f0aa0eb8abb891e2c465c6b3b55dc110e",
+        "log_index": 0,
+        "payer": "0xBd393bd20471154975573fB9875e00070FE090a4",
+        "recipient": "0x3365B69c6EDb737C6c8d4594246776A07B841412",
+        "amount_atomic": 10000
+      },
+      "settlement": {
+        "transaction": "0x0792cb12e3a075a8c2e779923a117fee4b5c3fef596d603c75b76bf2d89b6300",
+        "block": 3037,
+        "block_hash": "0xc02a35ffe39a696e74ca359949d0b84c83fa1cfc5e44c705a3db836f8e9d8e01",
+        "log_index": 0,
+        "payer": "0x3365B69c6EDb737C6c8d4594246776A07B841412",
+        "recipient": "0xF5048E5d9e77036A90265760b99d7A3ED5C6e011",
+        "amount_atomic": 10000
+      },
+      "decision": {
+        "action": "accept",
+        "reason": "Verified answer and marker"
+      },
+      "result": {
+        "_meta": null,
+        "content": [
+          {
+            "type": "text",
+            "text": "{\"answer\":667,\"marker\":\"ENVAR_TASK_PYDANTIC_V1\"}",
+            "annotations": null,
+            "_meta": null
+          }
+        ],
+        "structuredContent": {
+          "result": "{\"answer\":667,\"marker\":\"ENVAR_TASK_PYDANTIC_V1\"}"
+        },
+        "isError": false
+      }
+    }
+  ]
+}

@@ -36,6 +36,12 @@ def add_parser(sub):
 
 
 def run(args):
+    from importlib.util import find_spec
+
+    from ..storage import PaymentError
+
+    if find_spec("web3") is None:
+        raise PaymentError("Task mode requires the optional task extra: install envarpay[task]")
     from .config import load_task_config
 
     cfg = load_task_config(args.config)

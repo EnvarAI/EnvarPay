@@ -470,3 +470,24 @@ def test_evaluator_disabled_and_runtime_failure(env):
         wallet.decide("failed", "reject", "failed")
     wallet.config.evaluator_enabled = True
     assert wallet.decide("failed", "reject", "runtime failure")["payment"]["status"] == "Rejected"
+
+
+def test_unsigned_failed_accept_can_be_replaced_with_refund(env, monkeypatch):
+    wallet = env["wallet"]
+    wallet.purchase("seller", "ask", {"question": "decision"}, "exact", "decision")
+    wait_result(wallet, "decision")
+    original = wallet.chain.verdict
+
+    def refuse(*args):
+        raise PaymentError("injected insufficient gas before signing")
+
+    monkeypatch.setattr(wallet.chain, "verdict", refuse)
+    with pytest.raises(PaymentError):
+        wallet.decide("decision", "accept", "good")
+    monkeypatch.setattr(wallet.chain, "verdict", original)
+    assert (
+        wallet.decide("decision", "reject", "operator cancels unsigned decision")["payment"][
+            "status"
+        ]
+        == "Rejected"
+    )

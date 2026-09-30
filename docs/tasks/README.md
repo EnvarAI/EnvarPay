@@ -77,7 +77,8 @@ existing call wallet, so use distinct funded keys for the two configurations.
 
 The signer saves the original signed transaction before broadcast. Recovery queries
 that hash and replays identical bytes only if the node does not know the transaction.
-It never substitutes a nonce, amount or transaction. An unresolved earlier transaction
+It never substitutes a nonce, amount or transaction. A decision that never produced
+signed bytes can be explicitly changed; a signed decision stays frozen. An unresolved earlier transaction
 blocks new signing. A reverted transaction is retained for manual diagnosis; this
 version does not automatically replace or skip it.
 
@@ -108,3 +109,16 @@ Public acceptance remains separately required: current wheel + two native agents
 actual lock/submit/release, rejected and expired refunds, bounded signing recovery,
 and an independent second-RPC receipt audit. Older x402 payments and the previous
 standalone four-framework local POC are not evidence for this implementation.
+
+## Candidate native acceptance
+
+On 2026-10-01, the built candidate wheel completed two **local EVM** agent-driven
+flows: Hermes → Hermes and Pydantic AI 2.52.0 → Hermes. Buyers actually called
+`create_task`, fetched/verified the original result, and called `decide_task` through
+the native MCP tool loop; the seller invoked native Hermes 2026.9.24 from source
+`fc042f1d67bc393bf43920e92d4eb5082eddedfb`. Both used gpt-4.1-mini.
+The result/transactions and wheel digest are in [evidence](evidence/native-final-local-summary.json).
+This is stronger than harness-only orchestration, but still not public testnet evidence.
+
+The unsigned-decision recovery fix is included in the final wheel recorded above.
+Both native paths were repeated successfully using that exact wheel.

@@ -8,7 +8,8 @@ Ship only as an explicit experimental testnet feature after this candidate passe
 - [x] Bounded HTTP task queue and existing runtime adapter; per-buyer access isolation.
 - [x] Frozen terms, durable budgets, original signed transaction recovery, result commitment.
 - [x] Local EVM success, reject, expiry, tamper, restart and real killed worker checks.
-- [ ] Candidate wheel/native framework task creation and evaluation, not harness-only decisions.
+- [x] Candidate wheel/native framework task creation and evaluation: Hermes and Pydantic AI buyers to Hermes, local EVM.
+- [x] Repeat native acceptance on the exact final wheel after follow-up fixes.
 - [ ] Base Sepolia deploy, official USDC success/reject/expiry with exact receipt audits.
 - [ ] Second RPC independently confirms canonical chain, escrow, amounts, roles and outcomes.
 - [ ] CI and clean wheel installation on the final commit.

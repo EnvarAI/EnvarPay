@@ -7,7 +7,7 @@ from pathlib import Path
 import httpx
 
 from ..storage import PaymentError, secret_file
-from .chain import Escrow
+from .chain import Escrow, exclusive
 from .models import TaskSpec, commitment
 from .store import TaskStore
 
@@ -172,6 +172,11 @@ class TaskWallet:
         return result
 
     def decide(self, request_id, decision, reason):
+        # Serialize a decision and its original signature as a single operation.
+        with exclusive(self.store.path.parent / "task-decision.lock"):
+            return self._decide(request_id, decision, reason)
+
+    def _decide(self, request_id, decision, reason):
         if decision in ("accept", "reject") and not self.config.evaluator_enabled:
             raise PaymentError("Evaluator authority is disabled in this wallet policy")
         if (
@@ -201,6 +206,20 @@ class TaskWallet:
             or state["timestamp"] < spec.deadline
         ):
             raise PaymentError("Task has not reached its refund deadline")
+        previous = row["data"].get("decision")
+        if previous and previous != {"action": decision, "reason": reason}:
+            old_action = {"accept": "complete", "reject": "reject", "refund": "refundExpired"}[
+                previous["action"]
+            ]
+            with self.store.connect() as db:
+                signed = db.execute(
+                    "SELECT id FROM task_transactions WHERE id=?",
+                    (spec.job_id.hex() + ":" + old_action,),
+                ).fetchone()
+            if signed:
+                raise PaymentError("Original signed evaluator decision unresolved; do not replace")
+            # No signed bytes ever existed; an operator may explicitly choose a new decision.
+            self.store.transition(spec.job_id.hex(), None, decision=None)
         self.store.freeze_decision(spec.job_id.hex(), {"action": decision, "reason": reason})
         action = {"accept": "complete", "reject": "reject", "refund": "refundExpired"}[decision]
         proof = self.chain.verdict(
