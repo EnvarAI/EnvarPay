@@ -1,0 +1,21 @@
+mode = "task"
+network = "base-sepolia"
+contract = "REPLACE_DEPLOYED_PINNED_ESCROW_ADDRESS"
+key_file = "./seller.key"
+state_dir = "./seller-task-state"
+signing_enabled = false
+host = "127.0.0.1"
+port = 4030
+allowed_hosts = ["localhost", "127.0.0.1", "seller.example"]
+
+[clients.buyer]
+address = "REPLACE_BUYER_ADDRESS"
+token_file = "./buyer-access.token"
+
+[tools]
+ask_agent = 10000
+
+[backend]
+kind = "mcp"
+[backend.upstream]
+url = "http://127.0.0.1:8000/mcp"

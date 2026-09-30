@@ -24,6 +24,9 @@ def parser() -> argparse.ArgumentParser:
     root = argparse.ArgumentParser(prog="envarpay", description="MCP + x402 agent payments")
     root.add_argument("--version", action="version", version=__version__)
     sub = root.add_subparsers(dest="command", required=True)
+    from .tasks.cli import add_parser
+
+    add_parser(sub)
     init = sub.add_parser(
         "init", help="Choose an agent and role; generate configs, wallet entry and setup guide"
     )
@@ -200,6 +203,11 @@ def main() -> None:
     logger.add(sys.stderr, level="WARNING", format="{level}: {message}")
     args = parser().parse_args()
     try:
+        if args.command == "task":
+            from .tasks.cli import run
+
+            run(args)
+            return
         if args.command == "init":
             result = initialize(
                 args.directory,

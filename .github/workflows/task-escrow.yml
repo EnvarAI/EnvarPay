@@ -1,0 +1,49 @@
+name: Task escrow
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  local-evm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: pip install -e '.[test,task]'
+      - run: npm ci --ignore-scripts --prefix contracts/task
+      - run: npm run build --prefix contracts/task
+      - name: Check reproducible contract artifact
+        run: git diff --exit-code -- src/envarpay/tasks/escrow.json contracts/task/MockUSDC.json
+      - name: Run local EVM tests without public funds
+        run: |
+          node contracts/task/node_modules/ganache/dist/node/cli.js --server.host 127.0.0.1 --server.port 18546 --chain.chainId 31337 --wallet.deterministic --miner.blockTime 1 --logging.quiet > /tmp/evm.log 2>&1 &
+          EVM_PID=$!
+          trap 'kill "$EVM_PID"' EXIT
+          python - <<'PY'
+          import time, urllib.request
+          for _ in range(40):
+              try:
+                  urllib.request.urlopen('http://127.0.0.1:18546', timeout=1)
+              except urllib.error.HTTPError:
+                  break
+              except OSError:
+                  time.sleep(.25)
+              else:
+                  break
+          PY
+          ENVARPAY_TASK_TEST_RPC=http://127.0.0.1:18546 pytest -q tests/tasks
+      - run: python -m build
+      - name: Verify clean task wheel install
+        run: |
+          python -m venv /tmp/task-wheel
+          /tmp/task-wheel/bin/pip install 'dist/'*.whl 'web3>=7,<8'
+          /tmp/task-wheel/bin/envarpay task --help
+          /tmp/task-wheel/bin/python -c 'from envarpay.tasks.chain import artifact; assert artifact()["abi"]'

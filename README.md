@@ -189,3 +189,9 @@ delivery-quality guarantees are outside this alpha.
 Read the [payment and failure semantics](docs/getting-started.md#payment-and-failure-semantics).
 
 [Contribute](CONTRIBUTING.md) · [Report a security issue privately](https://github.com/EnvarAI/EnvarPay/security/advisories/new) · [MIT license](LICENSE)
+
+## Experimental task escrow
+
+The task escrow candidate is documented in [docs/tasks](docs/tasks/README.md).
+It is separate from prepaid x402 calls and is not mainnet-ready. Public testnet
+acceptance is pending; previous POC results do not certify this candidate.
