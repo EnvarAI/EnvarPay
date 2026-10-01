@@ -1,8 +1,9 @@
 # Packages, languages and installation channels
 
-**Registry status checked 2026-10-02:** [PyPI `envarpay` 0.1.0a9](https://pypi.org/project/envarpay/0.1.0a9/)
-is published through the [verified release](https://github.com/EnvarAI/EnvarPay/actions/runs/36929207877).
-Its clean registry installation and artifact hashes have been verified.
+**Registry status checked 2026-10-02:** [PyPI `envarpay` 0.1.0a10](https://pypi.org/project/envarpay/0.1.0a10/)
+is published through the [verified release](https://github.com/EnvarAI/EnvarPay/actions/runs/36932006901).
+Its clean registry installation and artifact hashes have been verified; wheel metadata,
+runtime and CLI report the same version.
 The npm package name is **`@envarai/envarpay`**. Its TypeScript client is implemented
 as candidate `0.1.0-alpha.2`; npm publication is pending.
 
@@ -10,7 +11,7 @@ as candidate `0.1.0-alpha.2`; npm publication is pending.
 
 | Need | Distribution | Current state |
 |---|---|---|
-| Run a wallet/payment gate with any MCP-capable agent | Python CLI, installed persistently with uv/pipx | Published on PyPI as 0.1.0a9 |
+| Run a wallet/payment gate with any MCP-capable agent | Python CLI, installed persistently with uv/pipx | Published on PyPI as 0.1.0a10 |
 | Embed calls in a Python application | Python `envarpay` API | Implemented; install in a compatible isolated environment |
 | Run the service without installing Python on the agent host | Standalone OCI container | Dockerfile and build checks added; no published GHCR image claimed |
 | Use typed API calls from JS/TS | `@envarai/envarpay` wallet MCP client | Implemented; npm publication pending |
@@ -28,7 +29,7 @@ Install [uv](https://docs.astral.sh/uv/getting-started/installation/), then use 
 persistent tool environment pinned to the published version:
 
 ```sh
-uv tool install --python 3.13 envarpay==0.1.0a9
+uv tool install --python 3.13 envarpay==0.1.0a10
 envarpay --version
 ```
 
@@ -44,9 +45,9 @@ regenerate connection snippets while keeping the original config/key/state paths
 For another Python version or a library environment:
 
 ```sh
-uv tool install envarpay==0.1.0a9
+uv tool install envarpay==0.1.0a10
 # For a Python library environment:
-python -m pip install envarpay==0.1.0a9
+python -m pip install envarpay==0.1.0a10
 ```
 
 The npm client does not install Python behind an `npx` command.
