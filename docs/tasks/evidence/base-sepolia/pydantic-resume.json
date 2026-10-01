@@ -1,0 +1,20 @@
+{
+  "framework": "pydantic-ai",
+  "tool_calls": [
+    {
+      "name": "task_result",
+      "arguments": {
+        "request_id": "sepolia-pydantic-v1"
+      }
+    },
+    {
+      "name": "decide_task",
+      "arguments": {
+        "request_id": "sepolia-pydantic-v1",
+        "decision": "accept",
+        "reason": "Verified answer and marker."
+      }
+    }
+  ],
+  "answer": "Status: **completed and accepted**.\n\nVerified result:\n```json\n{\"answer\":667,\"marker\":\"ENVAR_SEPOLIA_PYDANTIC_V1\"}\n```\n\nThe task was accepted with reason: \u201cVerified answer and marker.\u201d"
+}

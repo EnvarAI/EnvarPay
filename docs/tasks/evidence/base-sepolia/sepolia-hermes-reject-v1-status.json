@@ -1,0 +1,46 @@
+{
+  "request_id": "sepolia-hermes-reject-v1",
+  "job_id": "9bb8f848406ed35692897e3d1be358240813f0204d51047c8a8a9d870e47f400",
+  "terms": {
+    "version": 1,
+    "request_id": "sepolia-hermes-reject-v1",
+    "chain_id": 84532,
+    "contract": "0x7001B9f1C7d3f7ef288aBAa6642715619122384d",
+    "token": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+    "client": "0x1a98b778b60Acc15dFC50b0C33421f8759D71CfB",
+    "provider": "0x01d232944a07Fc35d83621bbB4D727D758d10598",
+    "evaluator": "0x1a98b778b60Acc15dFC50b0C33421f8759D71CfB",
+    "amount_atomic": 10000,
+    "deadline": 1790820386,
+    "tool": "ask_agent",
+    "arguments": {
+      "question": "For a rejection test, deliberately return only JSON with answer 999 and marker ENVAR_SEPOLIA_REJECT_V1."
+    },
+    "acceptance": "answer must be 323 and marker ENVAR_SEPOLIA_REJECT_V1"
+  },
+  "local_status": "rejected",
+  "payment": {
+    "status": "Rejected",
+    "deliverable": "90c442182377101a84d9d2969b476684395dbdd01ef615f4bbbbe2d5e5bb41d3",
+    "timestamp": 1790816940,
+    "block": 47524326
+  },
+  "funding_proof": {
+    "transaction": "0x77f02e620785bef099229dc26e76d81677ba50a8510b2899f022f0ba56581923",
+    "block": 47524266,
+    "block_hash": "0x017c9efcb521a4939b6d9b9950cbd12709b59eb1594140d7017870c768e7d9a5",
+    "log_index": 16,
+    "payer": "0x1a98b778b60Acc15dFC50b0C33421f8759D71CfB",
+    "recipient": "0x7001B9f1C7d3f7ef288aBAa6642715619122384d",
+    "amount_atomic": 10000
+  },
+  "settlement_proof": {
+    "transaction": "0x91b15732bc7531866b01bdd6348acec386a69bda644e4db004b45076dd3cb62b",
+    "block": 47524304,
+    "block_hash": "0x28d9c5239d70e8ed33efed95e801cd8f7907f53370977ec2e604aa232292e7c9",
+    "log_index": 7,
+    "payer": "0x7001B9f1C7d3f7ef288aBAa6642715619122384d",
+    "recipient": "0x1a98b778b60Acc15dFC50b0C33421f8759D71CfB",
+    "amount_atomic": 10000
+  }
+}

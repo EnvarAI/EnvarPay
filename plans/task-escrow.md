@@ -10,9 +10,9 @@ Ship only as an explicit experimental testnet feature after this candidate passe
 - [x] Local EVM success, reject, expiry, tamper, restart and real killed worker checks.
 - [x] Candidate wheel/native framework task creation and evaluation: Hermes and Pydantic AI buyers to Hermes, local EVM.
 - [x] Repeat native acceptance on the exact final wheel after follow-up fixes.
-- [ ] Base Sepolia deploy, official USDC success/reject/expiry with exact receipt audits.
-- [ ] Second RPC independently confirms canonical chain, escrow, amounts, roles and outcomes.
-- [ ] CI and clean wheel installation on the final commit.
+- [x] Base Sepolia deploy, official USDC success/reject/expiry with exact receipt audits.
+- [x] Second RPC independently confirms canonical chain, escrow, amounts, roles and outcomes.
+- [x] CI and clean wheel installation; final documentation-only evidence update reruns CI.
 
 Keep mainnet rejected and signing/evaluator authority off by default. The immutable
 prototype is version-pinned, not a declaration of ERC-8183 conformance or an audited

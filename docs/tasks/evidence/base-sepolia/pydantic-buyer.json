@@ -1,0 +1,73 @@
+{
+  "framework": "pydantic-ai",
+  "tool_calls": [
+    {
+      "name": "create_task",
+      "arguments": {
+        "peer": "seller",
+        "tool": "ask_agent",
+        "arguments": {
+          "question": "Return only JSON with answer equal to 23 times 29 and marker ENVAR_SEPOLIA_PYDANTIC_V1."
+        },
+        "acceptance": "Exact JSON answer 667 and marker ENVAR_SEPOLIA_PYDANTIC_V1",
+        "request_id": "sepolia-pydantic-v1",
+        "duration": 3600
+      }
+    },
+    {
+      "name": "task_result",
+      "arguments": {
+        "request_id": "sepolia-pydantic-v1"
+      }
+    },
+    {
+      "name": "task_status",
+      "arguments": {
+        "request_id": "sepolia-pydantic-v1"
+      }
+    },
+    {
+      "name": "task_result",
+      "arguments": {
+        "request_id": "sepolia-pydantic-v1"
+      }
+    },
+    {
+      "name": "task_status",
+      "arguments": {
+        "request_id": "sepolia-pydantic-v1"
+      }
+    },
+    {
+      "name": "task_result",
+      "arguments": {
+        "request_id": "sepolia-pydantic-v1"
+      }
+    },
+    {
+      "name": "task_status",
+      "arguments": {
+        "request_id": "sepolia-pydantic-v1"
+      }
+    },
+    {
+      "name": "task_result",
+      "arguments": {
+        "request_id": "sepolia-pydantic-v1"
+      }
+    },
+    {
+      "name": "task_status",
+      "arguments": {
+        "request_id": "sepolia-pydantic-v1"
+      }
+    },
+    {
+      "name": "task_result",
+      "arguments": {
+        "request_id": "sepolia-pydantic-v1"
+      }
+    }
+  ],
+  "answer": "Status: **delivered, but no result was provided** (`result: null`). No acceptance decision was made because the required answer and marker could not be verified."
+}

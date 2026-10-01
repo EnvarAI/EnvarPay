@@ -1,0 +1,21 @@
+{
+  "id": "d95d21da520ea03b4a6d4d6f10073b9297be662e13981def74f37e7c89602e9a",
+  "terms_hash": "ef3f026332ebc5e6f19824d3e1789d5e4c76a1111b064f3c31cf7a18fba6ba2c",
+  "status": "submitted",
+  "result": {
+    "_meta": null,
+    "content": [
+      {
+        "type": "text",
+        "text": "ENVAR_SEPOLIA_RECOVERY_OK",
+        "annotations": null,
+        "_meta": null
+      }
+    ],
+    "structuredContent": {
+      "result": "ENVAR_SEPOLIA_RECOVERY_OK"
+    },
+    "isError": false
+  },
+  "error": null
+}

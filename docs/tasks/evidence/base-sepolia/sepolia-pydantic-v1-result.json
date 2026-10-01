@@ -1,0 +1,21 @@
+{
+  "id": "c415ce490da753928c500e22fdc3f862450c17f4a4b12bd4d044fd169fe16afc",
+  "terms_hash": "50ff778b499ec9922f611a51d0d3696be4ef723099efb19882bbd13663eda98c",
+  "status": "submitted",
+  "result": {
+    "_meta": null,
+    "content": [
+      {
+        "type": "text",
+        "text": "{\"answer\":667,\"marker\":\"ENVAR_SEPOLIA_PYDANTIC_V1\"}",
+        "annotations": null,
+        "_meta": null
+      }
+    ],
+    "structuredContent": {
+      "result": "{\"answer\":667,\"marker\":\"ENVAR_SEPOLIA_PYDANTIC_V1\"}"
+    },
+    "isError": false
+  },
+  "error": null
+}

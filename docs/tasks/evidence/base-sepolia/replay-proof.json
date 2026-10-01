@@ -1,0 +1,10 @@
+{
+  "request_id": "sepolia-hermes-success-v1",
+  "same_purchase_no_new_signature": true,
+  "same_decision_no_new_payout": true,
+  "same_result_retrieved": true,
+  "counts": {
+    "transactions": 20,
+    "executions": 4
+  }
+}

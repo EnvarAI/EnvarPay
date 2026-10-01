@@ -5,8 +5,8 @@ the provider executes and commits its deliverable, and the buyer explicitly acce
 or rejects it. Acceptance releases escrow; rejection or expiry refunds the buyer.
 Existing `call`, x402 wire formats and `init --mode private/seller` keep their meaning.
 
-This branch is a candidate implementation. Public Base Sepolia and current-candidate
-native-agent acceptance must pass before release. The bundled immutable contract is
+This branch is an experimental candidate. [Base Sepolia acceptance](testnet-acceptance.md)
+passed five real escrow cases, including native-agent delivery and refunds. The bundled immutable contract is
 experimental, not audited or a claim of full ERC-8183 compatibility. Mainnet is rejected.
 
 ## Installation and roles
@@ -105,10 +105,10 @@ Run the full existing suite and local EVM suite using the `Task escrow` workflow
 Contract builds are pinned and checked for artifact reproducibility. Local tests use
 MockUSDC and chain 31337. Public tests require chain 84532 and Circle's official USDC.
 
-Public acceptance remains separately required: current wheel + two native agents,
-actual lock/submit/release, rejected and expired refunds, bounded signing recovery,
-and an independent second-RPC receipt audit. Older x402 payments and the previous
-standalone four-framework local POC are not evidence for this implementation.
+Public acceptance is recorded separately in [testnet acceptance](testnet-acceptance.md):
+actual lock/submit/release, rejected and expired refunds, original-transaction recovery,
+and independent second-RPC receipt audits. Older x402 payments and the previous
+standalone four-framework local POC are not used as evidence for this candidate.
 
 ## Candidate native acceptance
 

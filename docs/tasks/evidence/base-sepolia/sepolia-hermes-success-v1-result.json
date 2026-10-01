@@ -1,0 +1,21 @@
+{
+  "id": "5c1fba3db79b857ce083a382d24d2a6248956e8b25abd2d3330dbdfd8ffb3b6a",
+  "terms_hash": "5dd1734117574faed0351e8e79956a7ef60847d60d9c0510a42ee9d45f036609",
+  "status": "submitted",
+  "result": {
+    "_meta": null,
+    "content": [
+      {
+        "type": "text",
+        "text": "{\"answer\":323,\"marker\":\"ENVAR_SEPOLIA_HERMES_V1\"}",
+        "annotations": null,
+        "_meta": null
+      }
+    ],
+    "structuredContent": {
+      "result": "{\"answer\":323,\"marker\":\"ENVAR_SEPOLIA_HERMES_V1\"}"
+    },
+    "isError": false
+  },
+  "error": null
+}
