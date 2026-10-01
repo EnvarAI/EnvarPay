@@ -29,7 +29,7 @@ Agent 保留自己的框架、模型、工具和记忆。使用标准 MCP 与 x4
 | 宿主不适合嵌入任一种包 | 独立 MCP 服务 | 在单独进程、机器或自建容器中运行服务，Agent 使用自己的 MCP 客户端连接 |
 | Agent 只有 HTTP API 或 CLI | 私有薄适配器 | 把一个明确的能力包装成 MCP，再放到收费入口后面 |
 
-Python [0.1.0a7 已上架 PyPI](https://pypi.org/project/envarpay/)。npm 客户端已实现，首次发布待完成。
+Python [0.1.0a8 已上架 PyPI](https://pypi.org/project/envarpay/)。npm 客户端已实现，首次发布待完成。
 [分发渠道与版本](docs/packages.md)。目前不宣称有可直接拉取的公开容器镜像。
 
 “任意 Agent”需要它能调用 MCP，或者有可被包装的 API/CLI；只有界面的应用需要另做接入。
