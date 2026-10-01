@@ -6,19 +6,23 @@ Your runtime keeps its own model, tools and workspace.
 
 ## Install
 
-Python 3.11+:
+For the CLI, install a persistent isolated tool environment with Python 3.11+:
 
 ```sh
-git clone https://github.com/EnvarAI/EnvarPay.git
-cd EnvarPay
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install .
+uv tool install --python 3.13 --prerelease allow envarpay
+envarpay --version
 ```
 
 Keep the wallet's MCP 1.28.1 environment separate from frameworks using MCP 2/FastMCP 4.
-The package/import/CLI name is `envarpay`; source preview 0.1.0a5 is not on PyPI yet.
+The package/import/CLI name is `envarpay`, published on PyPI. Python applications
+can use `python -m pip install --pre envarpay` in their own environment. JS/TS
+applications use the [npm wallet client](../packages/typescript/README.md); agents
+with native MCP support can connect directly without that library.
 The SDK connects existing services; it does not instantiate an Agent or import Hermes.
+
+For registration, receiving settings, discovery and transaction pages, follow
+[the Envar guide](envar.md). For other host languages or HTTP/CLI-only agents,
+see [agent routing](integrations/other-runtimes.md).
 
 ## Connect a private existing service
 

@@ -71,6 +71,18 @@ test('bearer authentication is enforced by the actual Python wallet middleware',
   await assert.rejects(WalletClient.connect({ url, token: 'wrong-token' }));
 });
 
+test('Envar catalog discovery does not authorize a new recipient or seller alias', async () => {
+  const wallet = await WalletClient.connect({ url, token });
+  try {
+    const discovery = await wallet.discoverAgents('Research');
+    assert.equal(discovery.payment_authorized, false);
+    assert.equal(discovery.candidates[0].handle, 'researcher');
+    assert.equal((await wallet.getAgent('researcher')).display_name, 'Research agent');
+    await assert.rejects(wallet.listPaidTools('researcher'), WalletToolError);
+    assert.deepEqual(await wallet.paymentStatus('not-bought'), []);
+  } finally { await wallet.close(); }
+});
+
 test('a redirect cannot forward wallet authentication to another endpoint', async () => {
   let forwarded = 0;
   const target = createServer((_req, res) => { forwarded++; res.end('{}'); });

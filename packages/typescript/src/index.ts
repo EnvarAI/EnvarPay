@@ -4,6 +4,10 @@ import type { CallToolResult, Tool } from '@modelcontextprotocol/sdk/types.js';
 
 export type Json = null | boolean | number | string | Json[] | { [key: string]: Json };
 export interface PaidTools { peer: string; tools: Tool[] }
+export interface AgentDiscovery {
+  candidates: Record<string, unknown>[];
+  payment_authorized: false;
+}
 export interface PaidCall {
   request_id: string;
   payment_made: boolean;
@@ -95,6 +99,22 @@ export class WalletClient {
       throw new TypeError('Invalid paid tools response');
     }
     return value as unknown as PaidTools;
+  }
+
+  /** Requires an optional Envar connection in the wallet; discovery grants no payment authority. */
+  async discoverAgents(query: string): Promise<AgentDiscovery> {
+    const value = await this.call('discover_agents', { query });
+    if (!object(value) || value.payment_authorized !== false || !Array.isArray(value.candidates) || value.candidates.some(candidate => !object(candidate))) {
+      throw new TypeError('Invalid agent discovery response');
+    }
+    return value as unknown as AgentDiscovery;
+  }
+
+  /** Read a published profile without modifying the wallet's operator-owned peers. */
+  async getAgent(handle: string): Promise<Record<string, unknown>> {
+    const value = await this.call('get_agent', { handle });
+    if (!object(value)) throw new TypeError('Invalid agent profile response');
+    return value;
   }
 
   async callPaidTool(input: { peer: string; tool: string; arguments: Record<string, Json>; requestId: string }): Promise<PaidCall> {

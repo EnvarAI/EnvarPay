@@ -161,7 +161,11 @@ certifies end-to-end readiness. Neither mode creates a payment ledger.
 Initialization always uses Base Sepolia, official USDC
 `0x036CbD53842c5426634e7929541eC2318f3dCF7e`, two confirmations and payments off.
 Advanced network/timeouts remain explicit TOML settings; no mainnet switch is hidden
-in an agent preset. The current alpha's mainnet profile is not live-payment validated.
+in an agent preset. For Base mainnet, explicitly select `eip155:8453`, a matching
+mainnet RPC and a standard facilitator whose supported requirements include that
+network and its official USDC. Review the complete receiving address, price,
+funding and budget separately. The framework matrix covers testnet acceptance,
+not a guarantee for every runtime or mainnet configuration. Task escrow rejects mainnet.
 
 Do not re-run `init`, move to a fresh state directory or raise a budget to clear an
 uncertain attempt. Preserve the original request ID, payload and nonce and follow

@@ -3,6 +3,14 @@
 Install the package into your Python 3.11+ environment. Configuration, budgets and
 state are shared with the CLI; using the Python API does not bypass them.
 
+```sh
+python -m pip install --pre envarpay
+```
+
+Use [the Envar guide](envar.md) for registration, receiving settings, discovery and
+transaction reports. For a non-Python agent, run the wallet/gate separately and
+connect standard MCP; embedding the Python library is optional.
+
 ## Buy a capability
 
 ```python
