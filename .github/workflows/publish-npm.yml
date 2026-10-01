@@ -13,7 +13,11 @@ on:
         type: string
         required: true
       publish:
-        description: Publish to npm using the configured Trusted Publisher
+        description: Publish the verified artifact to npm
+        type: boolean
+        default: false
+      bootstrap:
+        description: First release only, using the temporary NPM_BOOTSTRAP_TOKEN
         type: boolean
         default: false
 
@@ -89,7 +93,7 @@ jobs:
           if-no-files-found: error
 
   publish:
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish }}
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish && github.ref == 'refs/heads/main' }}
     needs: build
     runs-on: ubuntu-latest
     environment:
@@ -112,5 +116,22 @@ jobs:
         with:
           name: npm-distribution-24
           path: package-dist
-      - run: npm publish "$GITHUB_WORKSPACE"/package-dist/*.tgz --access public --tag next --provenance
+      - name: Verify the first-release artifact
+        if: ${{ inputs.bootstrap }}
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          test "$RELEASE_TAG" = npm-v0.1.0-alpha.1
+          echo '3550eb8097bd6b8311c4de58fbeac8bac91d1e44ddff8e51ca9b24636e332c74  package-dist/envarai-envarpay-0.1.0-alpha.1.tgz' | sha256sum --check
+      - name: Publish using Trusted Publishing
+        if: ${{ !inputs.bootstrap }}
+        run: npm publish "$GITHUB_WORKSPACE"/package-dist/*.tgz --access public --tag next --provenance
+        working-directory: packages/typescript
+      - name: Publish the first release using the temporary token
+        if: ${{ inputs.bootstrap }}
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_BOOTSTRAP_TOKEN }}
+        run: |
+          test -n "$NODE_AUTH_TOKEN" || { echo 'NPM_BOOTSTRAP_TOKEN is not configured'; exit 1; }
+          npm publish "$GITHUB_WORKSPACE"/package-dist/*.tgz --access public --tag next --provenance
         working-directory: packages/typescript
