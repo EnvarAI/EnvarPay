@@ -143,17 +143,35 @@ class TaskWallet:
             != TaskPeer.model_validate(row["data"]["peer_snapshot"]).model_dump()
         ):
             raise PaymentError("Peer policy changed; inspect original task")
+        state = self.chain.job(spec, latest=True)
+        # Chain progress does not prove that the local original receipts survived.
+        # Reconcile funding before a saved decision can encounter an unresolved tx.
+        if state and state["status"] in ("Funded", "Submitted", "Completed", "Rejected", "Expired"):
+            actions = {spec.job_id.hex() + ":" + name for name in ("create", "approve", "fund")}
+            with self.store.connect() as db:
+                original = {
+                    r["id"]: r["status"]
+                    for r in db.execute(
+                        "SELECT id,status FROM task_transactions WHERE id IN (?,?,?)",
+                        tuple(sorted(actions)),
+                    )
+                }
+            if "funding_proof" not in row["data"] or any(
+                v != "confirmed" for v in original.values()
+            ):
+                if set(original) != actions:
+                    raise PaymentError(
+                        "Original funding transaction record missing; inspect task, never replace"
+                    )
+                proof = self.chain.fund(spec)
+                self.store.transition(spec.job_id.hex(), None, funding_proof=proof)
         if row["data"].get("decision"):
             decision = row["data"]["decision"]
             return self.decide(request_id, decision["action"], decision["reason"])
-        state = self.chain.job(spec, latest=True)
         if state is None or state["status"] == "Open":
             if self.chain.web3.eth.get_block("latest").timestamp >= spec.deadline:
                 raise PaymentError("Task expired before funding; inspect original transactions")
             proof = self.chain.fund(spec)
-            self.store.transition(spec.job_id.hex(), "funded", funding_proof=proof)
-        elif state["status"] == "Funded" and "funding_proof" not in row["data"]:
-            proof = self.chain.fund(spec)  # only original signed transactions and receipts
             self.store.transition(spec.job_id.hex(), "funded", funding_proof=proof)
         state = self.chain.job(spec)
         if state and state["status"] == "Funded":
