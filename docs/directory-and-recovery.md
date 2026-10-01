@@ -70,7 +70,11 @@ bearer_token_file = "./wallet-service.token"
 Run `envarpay wallet-serve --config buyer.toml` on a private network and configure
 the Agent's native MCP client with that URL and strong bearer credential. Expose
 only the selected private Agent entry or public paid seller through a tunnel.
-Never publish the wallet service. `wallet` remains available for trusted stdio
+Never publish wallet controls in the public directory or expose them anonymously.
+For Envar website purchases, use a dedicated, strong-bearer HTTPS entry reachable
+by Envar; this deliberately grants the platform access within the local wallet
+allowlist and budget. Revoke it locally and in Envar when no longer needed.
+Direct agent-only wallets can remain on a private network. `wallet` remains available for trusted stdio
 hosts; sharing an OS user with unrestricted shell access is not key isolation.
 
 ## Optional platform observations
