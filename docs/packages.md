@@ -1,19 +1,18 @@
 # Packages, languages and installation channels
 
-**Registry status checked 2026-09-30:** PyPI `envarpay` and npm `envarpay` both
-returned 404. GitHub prereleases exist; they are not PyPI/npm publications.
-This distribution candidate is 0.1.0a6 and includes the 0.1.0a5 security baseline.
-At the initial registry check, the published GitHub prerelease was 0.1.0a3.
-The newer setup commands require the matching source version.
+**Registry status checked 2026-10-01:** [PyPI `envarpay` 0.1.0a6](https://pypi.org/project/envarpay/0.1.0a6/)
+is published and its clean installation and artifact hashes have been verified.
+The npm package name is **`@envarai/envarpay`**. Its TypeScript client is implemented
+as candidate `0.1.0-alpha.1`; npm publication is pending.
 
 ## What to install
 
 | Need | Distribution | Current state |
 |---|---|---|
-| Run a wallet/payment gate with any MCP-capable agent | Python CLI, installed persistently with uv/pipx | Source-installable; PyPI publishing preparation added |
+| Run a wallet/payment gate with any MCP-capable agent | Python CLI, installed persistently with uv/pipx | Published on PyPI as 0.1.0a6 |
 | Embed calls in a Python application | Python `envarpay` API | Implemented; install in a compatible isolated environment |
 | Run the service without installing Python on the agent host | Standalone OCI container | Dockerfile and build checks added; no published GHCR image claimed |
-| Use typed API calls from JS/TS | A genuine npm TypeScript client | Proposed; not implemented/published |
+| Use typed API calls from JS/TS | `@envarai/envarpay` wallet MCP client | Implemented; npm publication pending |
 | Add OpenClaw/OpenCode-specific UI/hooks | Native npm plugin with its own manifest | Optional future adapter; ordinary SDK and MCP config are not native plugins |
 | Connect Goose or another non-Python agent | Native MCP client/extension | Does not require a Rust-language EnvarPay SDK |
 
@@ -22,27 +21,26 @@ language of a separate MCP service. MCP standardizes stdio and Streamable HTTP
 messages across processes. Goose's official tutorial even builds its extension
 in Python although Goose itself is written in Rust.
 
-## Install the current preview without manual cloning
+## Install from PyPI
 
 Install [uv](https://docs.astral.sh/uv/getting-started/installation/), then use a
-persistent tool environment pinned to the reviewed onboarding commit:
+persistent tool environment pinned to the published version:
 
 ```sh
-uv tool install --python 3.13 'git+https://github.com/EnvarAI/EnvarPay.git@f794729106d1c80543e179c395899c497c6e01f0'
+uv tool install --python 3.13 envarpay==0.1.0a6
 envarpay --version
 ```
 
-This is a **Git source install**, not a registry install. It gives the 0.1.0a5 CLI
-without manually cloning a checkout or activating a venv. Pinning avoids silently
-changing payment code on the next install. The installer may obtain a managed
-Python if that requested version is not already available.
+This installs from the public Python registry without cloning a checkout. Pinning
+avoids silently changing payment code on the next install. The installer may
+obtain a managed Python if that version is not already available.
 
 Use `uv tool install` or pipx for long-lived CLI installs. `uvx` uses a temporary
 cached environment; do not bind a persistent agent configuration to an interpreter
 path that can disappear when the tool cache is cleaned. After moving/reinstalling,
 regenerate connection snippets while keeping the original config/key/state paths.
 
-After a real PyPI publication, the intended commands become:
+For another Python version or a library environment:
 
 ```sh
 uv tool install envarpay==0.1.0a6
@@ -50,8 +48,7 @@ uv tool install envarpay==0.1.0a6
 python -m pip install envarpay==0.1.0a6
 ```
 
-These registry commands are **not available yet**. Do not substitute a different
-project or publish an empty npm launcher to make an installation badge look complete.
+The npm client does not install Python behind an `npx` command.
 
 ## Standalone service image
 
@@ -77,7 +74,7 @@ See [remote wallet isolation](directory-and-recovery.md#keep-signing-authority-o
 Native Windows key-file permission behavior is not validated. Use WSL or a
 properly permissioned Linux container for the current CLI/service preview.
 
-## PyPI release preparation
+## PyPI publishing
 
 The `Python distribution` workflow builds and checks wheel/sdist on relevant PRs.
 Manual runs require an existing version-matched release tag. **Publishing defaults
@@ -97,19 +94,40 @@ The PyPI project owner must configure a pending/existing Trusted Publisher:
 Protect the GitHub `pypi` environment with the intended release reviewers. This
 configuration is external account authority, not something a GitHub repo token
 can automatically grant. No wallet private key or long-lived PyPI token is needed.
-The workflow has not been dispatched to publish by this change.
+The initial 0.1.0a6 publication completed on 2026-10-01 through the
+[verified build/publish run](https://github.com/EnvarAI/EnvarPay/actions/runs/36804277559).
 
 PyPI uses `README.pypi.md` with absolute documentation links and no Mermaid/image
 rendering dependency. The repository README uses committed SVGs for its banner and
 diagram, and GitHub Actions/Shields.io for badges. Test both surfaces
 rather than assuming GitHub Markdown and PyPI render the same content.
 
-## TypeScript and native plugin direction
+## TypeScript client and npm publishing
 
-The next npm package should expose a real typed API over the existing wallet's
-standard MCP endpoint: discover allowed tools, call a paid capability, inspect
-status and recover the original operation. It should not install Python behind
-an `npx` command or claim to be an in-process signer/server when it is a client.
+The [TypeScript package](../packages/typescript) exposes `WalletClient.connect`,
+`listPaidTools`, `callPaidTool`, `paymentStatus`, `recoverPayment` and `close` over
+the existing wallet's authenticated Streamable HTTP MCP endpoint. It preserves
+original request IDs, does not retry paid calls, and rejects redirects. Tests use
+the actual Python wallet MCP adapter with a fake service, not blockchain payments.
+
+The `TypeScript distribution` workflow tests Node 22/24 and Bun, then installs the
+packed tarball into a separate consumer and checks its exported types. Publishing
+requires an explicit manual run with a matching `npm-v<version>` tag. No push or
+PR publishes. It uploads and publishes the same artifact, using npm provenance.
+
+The owner must authenticate the initial publication. npm currently permits 2FA
+or a granular access token with bypass 2FA for direct publishing. After the package
+exists, configure its GitHub Trusted Publisher as follows:
+
+| Field | Value |
+|---|---|
+| npm package | `@envarai/envarpay` |
+| GitHub organization | `EnvarAI` |
+| Repository | `EnvarPay` |
+| Workflow filename | `publish-npm.yml` |
+| Environment | `npm` |
+
+Subsequent releases use OIDC with no long-lived npm token in the repository.
 
 For fully native TS payment execution, use the official x402 TS SDKs and first
 prove policy/ledger/nonce/recovery parity with Python. That is a separate implementation
