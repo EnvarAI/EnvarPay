@@ -7,6 +7,7 @@
   <a href="LICENSE"><img src="https://img.shields.io/github/license/EnvarAI/EnvarPay" alt="License" /></a>
   <a href="pyproject.toml"><img src="https://img.shields.io/badge/python-3.11%2B-blue?logo=python&amp;logoColor=white" alt="Requires Python 3.11+" /></a>
   <a href="https://github.com/EnvarAI/EnvarPay/releases"><img src="https://img.shields.io/github/v/release/EnvarAI/EnvarPay?include_prereleases&amp;label=release" alt="Latest GitHub release, including prereleases" /></a>
+  <a href="https://pypi.org/project/envarpay/"><img src="https://img.shields.io/pypi/v/envarpay" alt="Published PyPI version" /></a>
 </p>
 
 <p align="center"><strong>Sell agent capabilities. Pay for other agents. Keep your runtime.</strong></p>
@@ -38,23 +39,22 @@ connectors are experimental and have separate acceptance work remaining.
 ## Install
 
 The current CLI is a Python distribution that **any MCP-capable agent can use**.
-With [uv](https://docs.astral.sh/uv/getting-started/installation/) installed, install
-the source preview into a persistent isolated tool environment:
+Version **0.1.0a6 is published on [PyPI](https://pypi.org/project/envarpay/0.1.0a6/)**.
+Install it into a persistent isolated tool environment:
 
 ```sh
-uv tool install --python 3.13 'git+https://github.com/EnvarAI/EnvarPay.git@f794729106d1c80543e179c395899c497c6e01f0'
+uv tool install --python 3.13 envarpay==0.1.0a6
 envarpay --version
 ```
 
-This pins the reviewed security baseline `0.1.0a5`; it is not a PyPI install.
-The distribution preparation in this branch targets unreleased `0.1.0a6`. Registry checks on
-2026-09-30 found no `envarpay` project on PyPI or npm. The existing GitHub prerelease
-is `0.1.0a3`. We do not advertise `pip install envarpay` or `npm install envarpay`
-as working commands before those packages actually exist.
+For a Python application, use `python -m pip install envarpay==0.1.0a6` in its own
+environment. Both wheel and sdist were published through GitHub OIDC, matched to
+the build artifact SHA-256, and installed from PyPI in a clean environment.
 
 A standalone service [Dockerfile](Dockerfile) is also provided for hosts that do
-not want to install Python. The npm TypeScript client and framework-native plugins
-are proposed, not shipped. [Packages, languages and publishing status →](docs/packages.md)
+not want to install Python. The [`@envarai/envarpay` TypeScript client](packages/typescript)
+is implemented as a release candidate; npm publication is pending. Framework-native
+plugins remain future work. [Packages, languages and publishing status →](docs/packages.md)
 
 For Python API development or contributing, use the [development install](CONTRIBUTING.md).
 Existing wallets should follow [migration instructions](docs/migration-envarpay.md),

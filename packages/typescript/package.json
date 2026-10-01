@@ -1,0 +1,15 @@
+{
+  "name": "@envarai/envarpay",
+  "version": "0.1.0-alpha.1",
+  "description": "Typed MCP client for an operator-configured EnvarPay wallet service",
+  "type": "module",
+  "license": "MIT",
+  "engines": { "node": ">=22.14.0" },
+  "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" } },
+  "files": ["dist", "README.md", "LICENSE"],
+  "repository": { "type": "git", "url": "git+https://github.com/EnvarAI/EnvarPay.git", "directory": "packages/typescript" },
+  "publishConfig": { "access": "public", "tag": "next" },
+  "scripts": { "build": "tsc", "test": "npm run build && node --test test/client.test.mjs", "prepack": "npm run build" },
+  "dependencies": { "@modelcontextprotocol/sdk": "^1.31.0" },
+  "devDependencies": { "typescript": "~5.9.3", "@types/node": "^22.0.0" }
+}

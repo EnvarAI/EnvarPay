@@ -1,0 +1,116 @@
+name: TypeScript distribution
+
+on:
+  pull_request:
+    paths: [packages/typescript/**, src/**, pyproject.toml, .github/workflows/publish-npm.yml]
+  push:
+    branches: [main]
+    paths: [packages/typescript/**, src/**, pyproject.toml, .github/workflows/publish-npm.yml]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing npm release tag (npm-v0.1.0-alpha.1)
+        type: string
+        required: true
+      publish:
+        description: Publish to npm using the configured Trusted Publisher
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: npm-distribution-${{ github.event_name }}-${{ inputs.tag || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Node ${{ matrix.node }} and Bun
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['22', '24']
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && format('refs/tags/{0}', inputs.tag) || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          registry-url: https://registry.npmjs.org
+          cache: npm
+          cache-dependency-path: packages/typescript/package-lock.json
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: python -m pip install .
+      - run: npm ci --ignore-scripts
+        working-directory: packages/typescript
+      - run: npm test
+        working-directory: packages/typescript
+      - uses: oven-sh/setup-bun@v2
+      - run: bun test test/client.test.mjs
+        working-directory: packages/typescript
+      - name: Verify release selection
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+          MANUAL: ${{ github.event_name == 'workflow_dispatch' }}
+        run: |
+          node --input-type=module <<'JS'
+          import { readFileSync } from 'node:fs';
+          import assert from 'node:assert/strict';
+          const pkg = JSON.parse(readFileSync('packages/typescript/package.json'));
+          assert.equal(pkg.name, '@envarai/envarpay');
+          if (process.env.MANUAL === 'true') {
+            assert.match(process.env.RELEASE_TAG, /^npm-v\d+\.\d+\.\d+(?:-(?:alpha|beta|rc)\.\d+)?$/);
+            assert.equal(process.env.RELEASE_TAG, 'npm-v' + pkg.version);
+          }
+          JS
+      - run: npm pack --pack-destination /tmp
+        working-directory: packages/typescript
+      - name: Install and type-check the packed artifact
+        run: |
+          mkdir /tmp/envarpay-consumer
+          cd /tmp/envarpay-consumer
+          npm init -y
+          npm install --ignore-scripts /tmp/envarai-envarpay-*.tgz typescript@5.9.3
+          printf '%s\n' 'import { WalletClient, type PaidCall } from "@envarai/envarpay";' 'const connect: typeof WalletClient.connect = WalletClient.connect;' 'const result: PaidCall | undefined = undefined;' 'void connect; void result;' > check.mts
+          npx --no-install tsc --noEmit --strict --skipLibCheck --module NodeNext --target ES2022 check.mts
+          node --input-type=module -e 'import { WalletClient } from "@envarai/envarpay"; if (typeof WalletClient.connect !== "function") throw new Error("Missing API");'
+          bun -e 'import { WalletClient } from "@envarai/envarpay"; if (typeof WalletClient.connect !== "function") throw new Error("Missing API");'
+          sha256sum /tmp/envarai-envarpay-*.tgz >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: npm-distribution-${{ matrix.node }}
+          path: /tmp/envarai-envarpay-*.tgz
+          if-no-files-found: error
+
+  publish:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish }}
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: npm
+      url: https://www.npmjs.com/package/@envarai/envarpay
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refs/tags/${{ inputs.tag }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          registry-url: https://registry.npmjs.org
+      - run: npm install --global npm@11
+      - uses: actions/download-artifact@v4
+        with:
+          name: npm-distribution-24
+          path: package-dist
+      - run: npm publish "$GITHUB_WORKSPACE"/package-dist/*.tgz --access public --tag next --provenance
+        working-directory: packages/typescript

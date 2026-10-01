@@ -1,5 +1,10 @@
 # EnvarPay 分发与多语言接入方案
 
+2026-10-01 进度更新：Python `envarpay==0.1.0a6` 已正式发布 PyPI，并核对 CI/索引文件哈希与干净安装。
+npm 名称确定为 **`@envarai/envarpay`**，组织 owner 已核对。
+`packages/typescript` 已实现认证钱包 MCP 客户端候选；发布仍待候选 PR 和首次认证。
+下方保留最初调研记录，早期的 registry 404 和“TS 未实现”只描述当时状态。
+
 核对时间：2026-09-30。这是分发与接入设计，不是“已经发布”的公告。
 
 ## 结论
@@ -55,7 +60,7 @@ MCP 规定 stdio 和 Streamable HTTP 消息传输，并不要求客户端和服�
 - 提供 amd64/arm64 镜像与不可变 digest，验证非 root、持久状态、重启恢复与授权边界。
 - 新 Dockerfile/CI build 不等于镜像已经进入 GHCR；实际匿名 pull 验证完成后才能展示可用的 `docker pull` 命令。
 
-### 3. npm：建议 `envarpay`（名称与发布所有权须确认）
+### 3. npm：`@envarai/envarpay`
 
 先实现真正的 TypeScript client SDK，而不是 Python 安装器外壳。
 

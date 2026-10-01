@@ -2,6 +2,6 @@
 
 | Plan | State |
 |---|---|
-| [Distribution and language adapters](distribution-and-adapters.zh-CN.md) | Research/recommendation; Python publishing preparation and README rendering fix in progress. npm SDK and native plugins are not implemented or published. |
+| [Distribution and language adapters](distribution-and-adapters.zh-CN.md) | Python 0.1.0a6 published and installed from PyPI; @envarai/envarpay TypeScript client implemented as a candidate, publication pending. OCI distribution and native plugins remain future work. |
 
 - [Task escrow candidate acceptance](task-escrow.md): separate asynchronous task mode and testnet release gates.
