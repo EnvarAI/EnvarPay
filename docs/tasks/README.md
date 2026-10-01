@@ -183,3 +183,6 @@ when a job has already advanced to delivery or settlement. On a lost response, c
 transactions and result; it does not sign a replacement or execute the seller again.
 If an original funding transaction record is missing, preserve the ledger for
 operator inspection. Never create another task to work around it.
+
+[Production-site Base Sepolia acceptance](site-acceptance.md) records real SSO,
+three terminal chain cases and the original funding receipt recovery fixed in 0.1.0a9.
