@@ -1,0 +1,8 @@
+{"event": "started", "at": 1790816621.877686, "question": "Compute 17 times 19 and return only JSON with answer 323 and marker ENVAR_SEPOLIA_HERMES_V1."}
+{"event": "finished", "at": 1790816635.5859358, "result": "{\"answer\":323,\"marker\":\"ENVAR_SEPOLIA_HERMES_V1\"}"}
+{"event": "started", "at": 1790816846.501148, "question": "For a rejection test, deliberately return only JSON with answer 999 and marker ENVAR_SEPOLIA_REJECT_V1."}
+{"event": "finished", "at": 1790816860.628843, "result": "{\"answer\":999,\"marker\":\"ENVAR_SEPOLIA_REJECT_V1\"}"}
+{"event": "started", "at": 1790817036.4321961, "question": "Return only JSON with answer equal to 23 times 29 and marker ENVAR_SEPOLIA_PYDANTIC_V1."}
+{"event": "finished", "at": 1790817059.671071, "result": "{\"answer\":667,\"marker\":\"ENVAR_SEPOLIA_PYDANTIC_V1\"}"}
+{"event": "started", "at": 1790817488.193355, "question": "Return exactly ENVAR_SEPOLIA_RECOVERY_OK"}
+{"event": "finished", "at": 1790817504.791847, "result": "ENVAR_SEPOLIA_RECOVERY_OK"}

@@ -143,3 +143,9 @@ EnvarPay 是独立的 Alpha 项目。MCP 和 x402 是标准协议；EnvarPay 提
 发生未知结果时保留原签名和账本，详见[付款与失败语义](docs/getting-started.md#payment-and-failure-semantics)。
 
 [贡献指南](CONTRIBUTING.md) · [MIT 许可证](LICENSE)
+
+## 实验性任务托管
+
+任务托管候选版本见[任务文档](docs/tasks/README.md)，与现有 x402 预付调用分开。
+当前不支持主网；[五个 Base Sepolia 托管用例](docs/tasks/testnet-acceptance.md)
+已通过，包括原生 Agent 交付、拒绝/超时退款及原交易恢复。

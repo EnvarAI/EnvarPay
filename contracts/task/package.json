@@ -1,0 +1,1 @@
+{"private":true,"scripts":{"build":"node compile.cjs"},"devDependencies":{"solc":"0.8.30","@openzeppelin/contracts":"5.4.0","ganache":"7.9.2"}}

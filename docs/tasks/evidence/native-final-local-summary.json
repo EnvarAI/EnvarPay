@@ -1,0 +1,94 @@
+{
+  "chain_id": 31337,
+  "public_testnet": false,
+  "wheel_sha256": "e5d0675c0f27bd4f104ee70ed5d8bfb65276ed14f0600ef06c64a604991d5f52",
+  "hermes_source": "fc042f1d67bc393bf43920e92d4eb5082eddedfb",
+  "pydantic_ai": "2.52.0",
+  "model": "gpt-4.1-mini",
+  "cases": [
+    {
+      "request_id": "native-hermes-final-v1",
+      "job_id": "0d87fc0733490afc3d29c1f5969215a8d2f1b943962dae5d6ddb5cceb8c58a3f",
+      "status": "completed",
+      "funding": {
+        "transaction": "0x363ca1d9e6e08ba8768e60afd3f290dac07c5f18fd33e49d240ecedeb3c47627",
+        "block": 3507,
+        "block_hash": "0xe2ea3cf168110346afec2f06f2fe69d9673b7a1fd4ad5f600f0ab30a74ea03fd",
+        "log_index": 0,
+        "payer": "0xBd393bd20471154975573fB9875e00070FE090a4",
+        "recipient": "0x3365B69c6EDb737C6c8d4594246776A07B841412",
+        "amount_atomic": 10000
+      },
+      "settlement": {
+        "transaction": "0xca589c1126f815920df9cabe4d9d93cb868bede048c289a9558380f44a05b9a8",
+        "block": 3541,
+        "block_hash": "0x3e87635569dbe6f4350f5056366850a8b8ff372dae7bdc8630cb2e50ab011b9d",
+        "log_index": 0,
+        "payer": "0x3365B69c6EDb737C6c8d4594246776A07B841412",
+        "recipient": "0xF5048E5d9e77036A90265760b99d7A3ED5C6e011",
+        "amount_atomic": 10000
+      },
+      "decision": {
+        "action": "accept",
+        "reason": "Verified answer and marker"
+      },
+      "result": {
+        "_meta": null,
+        "content": [
+          {
+            "type": "text",
+            "text": "{\"answer\":323,\"marker\":\"ENVAR_TASK_NATIVE_V1\"}",
+            "annotations": null,
+            "_meta": null
+          }
+        ],
+        "structuredContent": {
+          "result": "{\"answer\":323,\"marker\":\"ENVAR_TASK_NATIVE_V1\"}"
+        },
+        "isError": false
+      }
+    },
+    {
+      "request_id": "native-pydantic-final-v1",
+      "job_id": "721a52e02df159205a02c63bd0798fb92d3077430903802a04bc443597d92d13",
+      "status": "completed",
+      "funding": {
+        "transaction": "0x2e359ad506c273442bf4a41adca7d40495674adf726e6394ba50ac9eff6e98a5",
+        "block": 3645,
+        "block_hash": "0xbe531eef958b23ad160e1a6161db3f3c37ad8b9f40e54fca51bb8068ba815acc",
+        "log_index": 0,
+        "payer": "0xBd393bd20471154975573fB9875e00070FE090a4",
+        "recipient": "0x3365B69c6EDb737C6c8d4594246776A07B841412",
+        "amount_atomic": 10000
+      },
+      "settlement": {
+        "transaction": "0xf3d8474177243d3878842a7e256856252a4313dfe4bf02611767afe0a8ffbbf4",
+        "block": 3664,
+        "block_hash": "0xbae3c7408ecdb2a51abefc35ff50c009e759459bee3425075ec09496ee1161dd",
+        "log_index": 0,
+        "payer": "0x3365B69c6EDb737C6c8d4594246776A07B841412",
+        "recipient": "0xF5048E5d9e77036A90265760b99d7A3ED5C6e011",
+        "amount_atomic": 10000
+      },
+      "decision": {
+        "action": "accept",
+        "reason": "Verified answer and marker"
+      },
+      "result": {
+        "_meta": null,
+        "content": [
+          {
+            "type": "text",
+            "text": "{\"answer\":667,\"marker\":\"ENVAR_TASK_PYDANTIC_V1\"}",
+            "annotations": null,
+            "_meta": null
+          }
+        ],
+        "structuredContent": {
+          "result": "{\"answer\":667,\"marker\":\"ENVAR_TASK_PYDANTIC_V1\"}"
+        },
+        "isError": false
+      }
+    }
+  ]
+}

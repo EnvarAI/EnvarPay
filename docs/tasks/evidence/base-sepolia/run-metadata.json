@@ -1,0 +1,21 @@
+{
+  "network": "Base Sepolia",
+  "chain_id": 84532,
+  "official_usdc": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+  "core_commit": "ce9a42815cd43f3ea4d5b620d3e82eae926edbb8",
+  "wheel_sha256": "e5d0675c0f27bd4f104ee70ed5d8bfb65276ed14f0600ef06c64a604991d5f52",
+  "hermes_source": "fc042f1d67bc393bf43920e92d4eb5082eddedfb",
+  "pydantic_ai": "2.52.0",
+  "model": "gpt-4.1-mini",
+  "gas_source": "Google Ethereum Sepolia faucet -> official Base Sepolia L1StandardBridge",
+  "faucet_tx": "0x44c6a65a490e08f13b83a61fab85e42100ea472c2ede3fb02f0d44499134ed1c",
+  "seller_executions": 4,
+  "each_task_once": true,
+  "expiry_dispatched": false,
+  "fault_injections": [
+    "disconnect before expiry task dispatch",
+    "lost create receipt after real confirmation"
+  ],
+  "pydantic_continuation": "Original task resumed after model stopped while on-chain submit confirmation pending; no second purchase",
+  "mainnet_transactions": 0
+}

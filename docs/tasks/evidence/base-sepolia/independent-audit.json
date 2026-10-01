@@ -1,0 +1,143 @@
+{
+  "chain_id": 84532,
+  "rpc": "https://base-sepolia-rpc.publicnode.com",
+  "cases": [
+    {
+      "request_id": "sepolia-hermes-success-v1",
+      "job_id": "5c1fba3db79b857ce083a382d24d2a6248956e8b25abd2d3330dbdfd8ffb3b6a",
+      "status": 3,
+      "proofs": [
+        {
+          "kind": "funding_proof",
+          "transaction": "0x857340af7df6d6877aa755e36ad4ae9123e86cf12d6cd5553fb32d15cbe733f1",
+          "block": 47524154,
+          "block_hash": "0xdabf4a919d938e6046eff38f78c828bb73997146b2584209db2335662b54277c",
+          "confirmations": 531,
+          "transfer_log_index": 223,
+          "job_event_log_index": 224
+        },
+        {
+          "kind": "settlement_proof",
+          "transaction": "0x839476d8e6bd006d23c298a31bc22fae4b6aa79c95a7abfb0817091e0bec219a",
+          "block": 47524191,
+          "block_hash": "0x77c3e1b6115e33b5a8256328f8b4c5f82d7d2f166173c3a71104a763c847b2c7",
+          "confirmations": 494,
+          "transfer_log_index": 41,
+          "job_event_log_index": 42
+        }
+      ],
+      "result_commitment_verified": true
+    },
+    {
+      "request_id": "sepolia-hermes-reject-v1",
+      "job_id": "9bb8f848406ed35692897e3d1be358240813f0204d51047c8a8a9d870e47f400",
+      "status": 4,
+      "proofs": [
+        {
+          "kind": "funding_proof",
+          "transaction": "0x77f02e620785bef099229dc26e76d81677ba50a8510b2899f022f0ba56581923",
+          "block": 47524266,
+          "block_hash": "0x017c9efcb521a4939b6d9b9950cbd12709b59eb1594140d7017870c768e7d9a5",
+          "confirmations": 421,
+          "transfer_log_index": 16,
+          "job_event_log_index": 17
+        },
+        {
+          "kind": "settlement_proof",
+          "transaction": "0x91b15732bc7531866b01bdd6348acec386a69bda644e4db004b45076dd3cb62b",
+          "block": 47524304,
+          "block_hash": "0x28d9c5239d70e8ed33efed95e801cd8f7907f53370977ec2e604aa232292e7c9",
+          "confirmations": 383,
+          "transfer_log_index": 7,
+          "job_event_log_index": 8
+        }
+      ],
+      "result_commitment_verified": false
+    },
+    {
+      "request_id": "sepolia-pydantic-v1",
+      "job_id": "c415ce490da753928c500e22fdc3f862450c17f4a4b12bd4d044fd169fe16afc",
+      "status": 3,
+      "proofs": [
+        {
+          "kind": "funding_proof",
+          "transaction": "0xab1ac2cfc3336af879407e988dd101af23da0fb531a40a1ae7895ee5005ef7af",
+          "block": 47524355,
+          "block_hash": "0xa6879aad50ff6fc49def61a196e076498cb6171ec402d59faf17c1c7aaa7cb0a",
+          "confirmations": 333,
+          "transfer_log_index": 1,
+          "job_event_log_index": 2
+        },
+        {
+          "kind": "settlement_proof",
+          "transaction": "0x725fe8e5d70d2e2609b1f5d4c1f508a887eeb88daf660c99e13ecf6cc5eba08e",
+          "block": 47524424,
+          "block_hash": "0x6398c21bb2cd06ccea8f352511d6bfca12b5a581eb2ec797d33a11b3df22f5d9",
+          "confirmations": 265,
+          "transfer_log_index": 16,
+          "job_event_log_index": 17
+        }
+      ],
+      "result_commitment_verified": true
+    },
+    {
+      "request_id": "sepolia-expiry-v1",
+      "job_id": "e31fe0d479a7a9b71c8c2599e1b633ad3624257e2a42bbf9905fa28e6024765f",
+      "status": 5,
+      "proofs": [
+        {
+          "kind": "funding_proof",
+          "transaction": "0xd673cded44ce3d6ff0e5a540877c641b46f518b63846953afb56cc2c5cdab3cd",
+          "block": 47524489,
+          "block_hash": "0x887bd3c4957fd738926059be1a497677f6f4947e5bf10f591715f2485562e77b",
+          "confirmations": 201,
+          "transfer_log_index": 16,
+          "job_event_log_index": 17
+        },
+        {
+          "kind": "settlement_proof",
+          "transaction": "0x891c410f124fd1839ba179fc2089fba69f8b29198bb4e73336354a5bcd33a252",
+          "block": 47524661,
+          "block_hash": "0xeecd027ffff51c015f4b176894c1ff8764a2bbd32074894f3c73cc8c27fda3a1",
+          "confirmations": 29,
+          "transfer_log_index": 0,
+          "job_event_log_index": 1
+        }
+      ],
+      "result_commitment_verified": false
+    },
+    {
+      "request_id": "sepolia-recovery-v1",
+      "job_id": "d95d21da520ea03b4a6d4d6f10073b9297be662e13981def74f37e7c89602e9a",
+      "status": 3,
+      "proofs": [
+        {
+          "kind": "funding_proof",
+          "transaction": "0xd16d09732edc52252c213793267bcdcf31395484729dbdc08d1e7bdd89cd3cb3",
+          "block": 47524579,
+          "block_hash": "0xec956dbdfe7563c45388e0ba7d6d1d6d97709061f02a64df5182f1b795f25103",
+          "confirmations": 113,
+          "transfer_log_index": 17,
+          "job_event_log_index": 18
+        },
+        {
+          "kind": "settlement_proof",
+          "transaction": "0xef82825f2473e59b5d3c6684ba2ab90f3cae1439f6f4aada39c56ad22535adc7",
+          "block": 47524624,
+          "block_hash": "0x695c79a37cd540116a59f6316b3ef24d6b5f70dbbd0bd317c409f06d4a29cb82",
+          "confirmations": 68,
+          "transfer_log_index": 40,
+          "job_event_log_index": 41
+        }
+      ],
+      "result_commitment_verified": true
+    }
+  ],
+  "balances_atomic": {
+    "client": 19970000,
+    "provider": 30000,
+    "contract": 0
+  },
+  "all_passed": true,
+  "public_testnet": true
+}

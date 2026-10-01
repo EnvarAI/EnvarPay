@@ -1,0 +1,17 @@
+{
+  "independent_rpc": "https://base-sepolia-rpc.publicnode.com",
+  "chain_id": 84532,
+  "verified_transfers": [
+    {
+      "kind": "funding_proof",
+      "transaction": "0x77f02e620785bef099229dc26e76d81677ba50a8510b2899f022f0ba56581923",
+      "confirmations": 73
+    },
+    {
+      "kind": "settlement_proof",
+      "transaction": "0x91b15732bc7531866b01bdd6348acec386a69bda644e4db004b45076dd3cb62b",
+      "confirmations": 36
+    }
+  ],
+  "job_status": 4
+}

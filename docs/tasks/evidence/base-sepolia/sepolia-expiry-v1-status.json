@@ -1,0 +1,46 @@
+{
+  "request_id": "sepolia-expiry-v1",
+  "job_id": "e31fe0d479a7a9b71c8c2599e1b633ad3624257e2a42bbf9905fa28e6024765f",
+  "terms": {
+    "version": 1,
+    "request_id": "sepolia-expiry-v1",
+    "chain_id": 84532,
+    "contract": "0x7001B9f1C7d3f7ef288aBAa6642715619122384d",
+    "token": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+    "client": "0x1a98b778b60Acc15dFC50b0C33421f8759D71CfB",
+    "provider": "0x01d232944a07Fc35d83621bbB4D727D758d10598",
+    "evaluator": "0x1a98b778b60Acc15dFC50b0C33421f8759D71CfB",
+    "amount_atomic": 10000,
+    "deadline": 1790817358,
+    "tool": "ask_agent",
+    "arguments": {
+      "question": "Must never execute; timeout refund test"
+    },
+    "acceptance": "no delivery"
+  },
+  "local_status": "expired",
+  "payment": {
+    "status": "Expired",
+    "deliverable": "0000000000000000000000000000000000000000000000000000000000000000",
+    "timestamp": 1790817612,
+    "block": 47524662
+  },
+  "funding_proof": {
+    "transaction": "0xd673cded44ce3d6ff0e5a540877c641b46f518b63846953afb56cc2c5cdab3cd",
+    "block": 47524489,
+    "block_hash": "0x887bd3c4957fd738926059be1a497677f6f4947e5bf10f591715f2485562e77b",
+    "log_index": 16,
+    "payer": "0x1a98b778b60Acc15dFC50b0C33421f8759D71CfB",
+    "recipient": "0x7001B9f1C7d3f7ef288aBAa6642715619122384d",
+    "amount_atomic": 10000
+  },
+  "settlement_proof": {
+    "transaction": "0x891c410f124fd1839ba179fc2089fba69f8b29198bb4e73336354a5bcd33a252",
+    "block": 47524661,
+    "block_hash": "0xeecd027ffff51c015f4b176894c1ff8764a2bbd32074894f3c73cc8c27fda3a1",
+    "log_index": 0,
+    "payer": "0x7001B9f1C7d3f7ef288aBAa6642715619122384d",
+    "recipient": "0x1a98b778b60Acc15dFC50b0C33421f8759D71CfB",
+    "amount_atomic": 10000
+  }
+}

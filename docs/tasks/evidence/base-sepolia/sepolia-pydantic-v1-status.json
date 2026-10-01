@@ -1,0 +1,46 @@
+{
+  "request_id": "sepolia-pydantic-v1",
+  "job_id": "c415ce490da753928c500e22fdc3f862450c17f4a4b12bd4d044fd169fe16afc",
+  "terms": {
+    "version": 1,
+    "request_id": "sepolia-pydantic-v1",
+    "chain_id": 84532,
+    "contract": "0x7001B9f1C7d3f7ef288aBAa6642715619122384d",
+    "token": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+    "client": "0x1a98b778b60Acc15dFC50b0C33421f8759D71CfB",
+    "provider": "0x01d232944a07Fc35d83621bbB4D727D758d10598",
+    "evaluator": "0x1a98b778b60Acc15dFC50b0C33421f8759D71CfB",
+    "amount_atomic": 10000,
+    "deadline": 1790820566,
+    "tool": "ask_agent",
+    "arguments": {
+      "question": "Return only JSON with answer equal to 23 times 29 and marker ENVAR_SEPOLIA_PYDANTIC_V1."
+    },
+    "acceptance": "Exact JSON answer 667 and marker ENVAR_SEPOLIA_PYDANTIC_V1"
+  },
+  "local_status": "completed",
+  "payment": {
+    "status": "Completed",
+    "deliverable": "7bcc8f0cc87483828015efc6b1e19ecd38475b94011546a1948825d5a8ec3d69",
+    "timestamp": 1790817222,
+    "block": 47524467
+  },
+  "funding_proof": {
+    "transaction": "0xab1ac2cfc3336af879407e988dd101af23da0fb531a40a1ae7895ee5005ef7af",
+    "block": 47524355,
+    "block_hash": "0xa6879aad50ff6fc49def61a196e076498cb6171ec402d59faf17c1c7aaa7cb0a",
+    "log_index": 1,
+    "payer": "0x1a98b778b60Acc15dFC50b0C33421f8759D71CfB",
+    "recipient": "0x7001B9f1C7d3f7ef288aBAa6642715619122384d",
+    "amount_atomic": 10000
+  },
+  "settlement_proof": {
+    "transaction": "0x725fe8e5d70d2e2609b1f5d4c1f508a887eeb88daf660c99e13ecf6cc5eba08e",
+    "block": 47524424,
+    "block_hash": "0x6398c21bb2cd06ccea8f352511d6bfca12b5a581eb2ec797d33a11b3df22f5d9",
+    "log_index": 16,
+    "payer": "0x7001B9f1C7d3f7ef288aBAa6642715619122384d",
+    "recipient": "0x01d232944a07Fc35d83621bbB4D727D758d10598",
+    "amount_atomic": 10000
+  }
+}

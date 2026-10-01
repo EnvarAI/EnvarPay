@@ -1,0 +1,8 @@
+{
+  "stage": "bridge",
+  "chain_id": 11155111,
+  "transaction": "0x0ccb86f2c3838129efc1f6f693552cc58443c049622f14352ba30e10abde744a",
+  "block": 11818355,
+  "block_hash": "0x029b63574a71c892635fc9ef2774f054ea0dfe2371444ebd8848af2d5e814333",
+  "status": 1
+}

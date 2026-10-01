@@ -1,0 +1,46 @@
+{
+  "request_id": "sepolia-recovery-v1",
+  "job_id": "d95d21da520ea03b4a6d4d6f10073b9297be662e13981def74f37e7c89602e9a",
+  "terms": {
+    "version": 1,
+    "request_id": "sepolia-recovery-v1",
+    "chain_id": 84532,
+    "contract": "0x7001B9f1C7d3f7ef288aBAa6642715619122384d",
+    "token": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+    "client": "0x1a98b778b60Acc15dFC50b0C33421f8759D71CfB",
+    "provider": "0x01d232944a07Fc35d83621bbB4D727D758d10598",
+    "evaluator": "0x1a98b778b60Acc15dFC50b0C33421f8759D71CfB",
+    "amount_atomic": 10000,
+    "deadline": 1790819118,
+    "tool": "ask_agent",
+    "arguments": {
+      "question": "Return exactly ENVAR_SEPOLIA_RECOVERY_OK"
+    },
+    "acceptance": "Exact marker ENVAR_SEPOLIA_RECOVERY_OK"
+  },
+  "local_status": "completed",
+  "payment": {
+    "status": "Completed",
+    "deliverable": "a0c28604e46ef9b9a16eb02deae6576199de519f0dcdd3489c2f167347a27219",
+    "timestamp": 1790817538,
+    "block": 47524625
+  },
+  "funding_proof": {
+    "transaction": "0xd16d09732edc52252c213793267bcdcf31395484729dbdc08d1e7bdd89cd3cb3",
+    "block": 47524579,
+    "block_hash": "0xec956dbdfe7563c45388e0ba7d6d1d6d97709061f02a64df5182f1b795f25103",
+    "log_index": 17,
+    "payer": "0x1a98b778b60Acc15dFC50b0C33421f8759D71CfB",
+    "recipient": "0x7001B9f1C7d3f7ef288aBAa6642715619122384d",
+    "amount_atomic": 10000
+  },
+  "settlement_proof": {
+    "transaction": "0xef82825f2473e59b5d3c6684ba2ab90f3cae1439f6f4aada39c56ad22535adc7",
+    "block": 47524624,
+    "block_hash": "0x695c79a37cd540116a59f6316b3ef24d6b5f70dbbd0bd317c409f06d4a29cb82",
+    "log_index": 40,
+    "payer": "0x7001B9f1C7d3f7ef288aBAa6642715619122384d",
+    "recipient": "0x01d232944a07Fc35d83621bbB4D727D758d10598",
+    "amount_atomic": 10000
+  }
+}

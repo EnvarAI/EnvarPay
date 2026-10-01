@@ -1,0 +1,17 @@
+# Install source with the task extra. Replace placeholder addresses before validation.
+mode = "task"
+network = "base-sepolia"
+contract = "REPLACE_DEPLOYED_PINNED_ESCROW_ADDRESS"
+key_file = "./buyer.key"
+state_dir = "./buyer-task-state"
+signing_enabled = false
+evaluator_enabled = false
+max_per_task_atomic = 10000
+max_total_atomic = 100000
+
+[peers.seller]
+url = "https://seller.example"
+provider = "REPLACE_PROVIDER_ADDRESS"
+token_file = "./seller-access.token"
+[peers.seller.tools]
+ask_agent = 10000
