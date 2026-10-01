@@ -4,7 +4,9 @@ A TypeScript client for an existing **authenticated EnvarPay wallet MCP service*
 The client does not install Python, run a signer, hold wallet keys, or change wallet
 policy. Use the Python CLI or a separately operated service for those responsibilities.
 
-This is the first npm release candidate, `0.1.0-alpha.1`; registry publication is pending.
+This client uses the alpha release channel. See
+[installation channels](https://github.com/EnvarAI/EnvarPay/blob/main/docs/packages.md)
+for the current registry status and available distributions.
 
 ```ts
 import { WalletClient, OperationUnknownError } from '@envarai/envarpay';
