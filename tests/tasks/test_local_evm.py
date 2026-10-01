@@ -299,6 +299,59 @@ def test_lost_completion_receipt_recovers_without_second_payout(env, monkeypatch
     assert env["token"].functions.balanceOf(env["accounts"]["seller"].address).call() == 10000
 
 
+@pytest.mark.parametrize("settled", [False, True])
+def test_restart_recovers_lost_funding_receipts_after_delivery(env, monkeypatch, settled):
+    wallet = env["wallet"]
+    created = wallet.purchase("seller", "ask", {"question": "late receipt"}, "exact", "late")
+    assert wait_result(wallet, "late")["status"] == "submitted"
+    if settled:
+        wallet.decide("late", "accept", "verified")
+    row, spec = wallet.original("late")
+    original_proof = row["data"]["funding_proof"]
+    before_nonce = env["w"].eth.get_transaction_count(wallet.chain.address)
+    before_balance = env["token"].functions.balanceOf(env["accounts"]["seller"].address).call()
+    with wallet.store.connect() as db:
+        frozen = [
+            (r["id"], r["tx_hash"]) for r in db.execute("SELECT id,tx_hash FROM task_transactions")
+        ]
+        data = dict(row["data"])
+        del data["funding_proof"]
+        db.execute("UPDATE tasks SET data=? WHERE id=?", (json.dumps(data), row["id"]))
+        for action in ("create", "approve", "fund"):
+            db.execute(
+                "UPDATE task_transactions SET status='signed',receipt=NULL WHERE id=?",
+                (spec.job_id.hex() + ":" + action,),
+            )
+    # A fresh process must recover existing receipts even after the chain advanced.
+    restarted = TaskWallet(env["buyer_cfg"])
+
+    def no_new_signature(*args, **kwargs):
+        raise AssertionError("Recovery attempted a replacement signature")
+
+    monkeypatch.setattr(restarted.chain.account, "sign_transaction", no_new_signature)
+    recovered = restarted.recover("late")
+    assert recovered["job_id"] == created["job_id"]
+    assert recovered["funding_proof"] == original_proof
+    with restarted.store.connect() as db:
+        assert [
+            (r["id"], r["tx_hash"]) for r in db.execute("SELECT id,tx_hash FROM task_transactions")
+        ] == frozen
+        assert (
+            db.execute(
+                "SELECT COUNT(*) FROM task_transactions WHERE status!='confirmed'"
+            ).fetchone()[0]
+            == 0
+        )
+    assert env["w"].eth.get_transaction_count(wallet.chain.address) == before_nonce
+    assert (
+        env["token"].functions.balanceOf(env["accounts"]["seller"].address).call() == before_balance
+    )
+    assert env["backend"].calls == 1
+    if not settled:
+        monkeypatch.undo()  # The separately authorized verdict needs its own signature.
+        restarted.decide("late", "accept", "verified")
+
+
 def test_server_restart_preserves_result_and_running_unknown(env):
     wallet = env["wallet"]
     wallet.purchase("seller", "ask", {"question": "restart"}, "exact", "restart")

@@ -174,3 +174,12 @@ provides a quoted command on a published task profile. This preserves signing,
 evaluator authority and budgets, and refuses replacing different alias terms.
 The reviewed creation path also checks the provider's current read-only `/terms`
 before funding.
+
+## Recover earlier receipts after delivery
+
+Version 0.1.0a9 reconciles the original create, approval and funding receipts even
+when a job has already advanced to delivery or settlement. On a lost response, call
+`recover_task` with the original request ID. Recovery keeps the existing signed
+transactions and result; it does not sign a replacement or execute the seller again.
+If an original funding transaction record is missing, preserve the ledger for
+operator inspection. Never create another task to work around it.
