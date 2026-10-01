@@ -16,7 +16,7 @@ from pydantic import ValidationError
 from . import __version__
 from .chain import Chain
 from .config import load_config
-from .setup import AGENTS, describe_config, initialize, write_new
+from .setup import AGENTS, atomic_usdc, describe_config, initialize, write_new
 from .storage import PaymentError, Store
 
 
@@ -79,6 +79,27 @@ def parser() -> argparse.ArgumentParser:
         default="mcp",
         help="Seller adapter; defaults to private MCP. HTTP presets are experimental.",
     )
+    connect = sub.add_parser(
+        "connect", help="Apply endpoint ownership and optional Envar connection atomically"
+    )
+    connect.add_argument("--config", type=Path, required=True)
+    connect.add_argument("--agent-id", required=True)
+    connect.add_argument("--challenge", required=True)
+    connect.add_argument("--token-file", type=Path)
+    connect.add_argument("--platform-url", default="https://envar.ai")
+    connect.add_argument("--receiving", action="store_true")
+    connect.add_argument("--task", action="store_true")
+    approve = sub.add_parser(
+        "approve-peer",
+        help="Explicitly allow one reviewed Agent capability; retain existing limits",
+    )
+    approve.add_argument("--config", type=Path, required=True)
+    for name in ("name", "url", "pay-to", "tool", "agent-id", "endpoint-id"):
+        approve.add_argument("--" + name, required=True)
+    approve.add_argument("--recovery", action="store_true")
+    approve.add_argument("--task", action="store_true")
+    approve.add_argument("--amount", help="Exact task price in USDC")
+    approve.add_argument("--token-file", type=Path)
     keygen = sub.add_parser(
         "keygen", help="Create a new dedicated EVM key, displaying only its address"
     )
@@ -260,6 +281,34 @@ def main() -> None:
             from .host_config import host_config
 
             result = host_config(args.host, args.config)
+        elif args.command == "approve-peer":
+            from .onboarding import approve_peer
+
+            result = approve_peer(
+                args.config,
+                args.name,
+                args.url,
+                args.pay_to,
+                args.tool,
+                args.agent_id,
+                args.endpoint_id,
+                args.recovery,
+                args.task,
+                atomic_usdc(args.amount) if args.amount else None,
+                args.token_file,
+            )
+        elif args.command == "connect":
+            from .onboarding import connect_config
+
+            result = connect_config(
+                args.config,
+                args.agent_id,
+                args.challenge,
+                token_file=args.token_file,
+                platform_url=args.platform_url,
+                receiving=args.receiving,
+                task=args.task,
+            )
         elif args.command == "wallet":
             from .wallet import WalletService, wallet_mcp
 

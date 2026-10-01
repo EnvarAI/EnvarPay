@@ -8,6 +8,7 @@ import httpx
 
 from ..storage import PaymentError, secret_file
 from .chain import Escrow, exclusive
+from .config import TaskPeer
 from .models import TaskSpec, commitment
 from .store import TaskStore
 
@@ -37,7 +38,17 @@ class TaskWallet:
             raise PaymentError("Task peer not approved by operator")
         return self.config.peers[name]
 
-    def purchase(self, peer_name, tool, arguments, acceptance, request_id, duration=3600):
+    def purchase(
+        self,
+        peer_name,
+        tool,
+        arguments,
+        acceptance,
+        request_id,
+        duration=3600,
+        *,
+        verify_live_terms=False,
+    ):
         peer, cfg = self.peer(peer_name), self.config
         if tool not in peer.tools or peer.tools[tool] > cfg.max_per_task_atomic:
             raise PaymentError("Task capability or fixed price outside policy")
@@ -65,6 +76,21 @@ class TaskWallet:
             return self.status(request_id)
         if not cfg.signing_enabled:
             raise PaymentError("Task signing disabled")
+        if verify_live_terms:
+            live = self.request(peer_name, "GET", "/terms")
+            expected = {
+                "chain_id": cfg.chain_id,
+                "contract": cfg.contract,
+                "token": cfg.token,
+                "provider": peer.provider,
+                "experimental": True,
+            }
+            if (
+                not isinstance(live, dict)
+                or any(live.get(k) != v for k, v in expected.items())
+                or live.get("tools", {}).get(tool) != peer.tools[tool]
+            ):
+                raise PaymentError("Live task terms changed; inspect them before funding")
         self.chain.verify_contract()
         now = self.chain.web3.eth.get_block("latest").timestamp
         spec = TaskSpec(
@@ -112,7 +138,10 @@ class TaskWallet:
 
     def recover(self, request_id):
         row, spec = self.original(request_id)
-        if self.peer(row["data"]["peer"]).model_dump() != row["data"]["peer_snapshot"]:
+        if (
+            self.peer(row["data"]["peer"]).model_dump()
+            != TaskPeer.model_validate(row["data"]["peer_snapshot"]).model_dump()
+        ):
             raise PaymentError("Peer policy changed; inspect original task")
         if row["data"].get("decision"):
             decision = row["data"]["decision"]
@@ -147,7 +176,7 @@ class TaskWallet:
     def result(self, request_id):
         row, spec = self.original(request_id)
         peer = self.peer(row["data"]["peer"])
-        if peer.model_dump() != row["data"]["peer_snapshot"]:
+        if peer.model_dump() != TaskPeer.model_validate(row["data"]["peer_snapshot"]).model_dump():
             raise PaymentError("Peer policy changed; inspect original task")
         result = self.request(row["data"]["peer"], "GET", "/tasks/" + spec.job_id.hex())
         if (

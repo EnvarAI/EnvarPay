@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 from pathlib import Path
+from typing import Any
 
 
 def add_parser(sub):
@@ -13,6 +14,7 @@ def add_parser(sub):
     for name in (
         "serve",
         "wallet",
+        "wallet-serve",
         "create",
         "status",
         "result",
@@ -23,7 +25,7 @@ def add_parser(sub):
     ):
         p = commands.add_parser(name)
         p.add_argument("--config", type=Path, required=True)
-        if name not in ("serve", "wallet"):
+        if name not in ("serve", "wallet", "wallet-serve"):
             p.add_argument("--request-id", required=True)
         if name == "create":
             p.add_argument("--peer", required=True)
@@ -58,6 +60,21 @@ def run(args):
     if args.task_command == "wallet":
         wallet_mcp(wallet).run(transport="stdio")
         return
+    if args.task_command == "wallet-serve":
+        import uvicorn
+
+        from ..service import wallet_service_app
+
+        settings = cfg.wallet_server
+        if not settings or cfg.backend:
+            raise PaymentError("Configure a separate authenticated task wallet_server")
+        uvicorn.run(
+            wallet_service_app(wallet_mcp(wallet), settings, cfg.registration),
+            host=settings.host,
+            port=settings.port,
+            log_level="warning",
+        )
+        return
     if args.task_command == "create":
         value = wallet.purchase(
             args.peer,
@@ -76,8 +93,77 @@ def run(args):
 
 def wallet_mcp(wallet):
     from mcp.server.fastmcp import FastMCP
+    from mcp.server.transport_security import TransportSecuritySettings
 
-    server = FastMCP("envarpay task wallet")
+    settings = wallet.config.wallet_server
+    server = FastMCP(
+        "envarpay task wallet",
+        stateless_http=True,
+        json_response=True,
+        transport_security=TransportSecuritySettings(allowed_hosts=settings.allowed_hosts)
+        if settings
+        else None,
+    )
+
+    @server.tool()
+    def task_policy() -> dict[str, Any]:
+        """Inspect operator-approved task terms without signing or exposing credentials."""
+        cfg = wallet.config
+        return {
+            "chain_id": cfg.chain_id,
+            "contract": cfg.contract,
+            "token": cfg.token,
+            "signing_enabled": cfg.signing_enabled,
+            "evaluator_enabled": cfg.evaluator_enabled,
+            "max_per_task_atomic": cfg.max_per_task_atomic,
+            "max_total_atomic": cfg.max_total_atomic,
+            "peers": [
+                {
+                    "name": name,
+                    "provider": peer.provider,
+                    "tools": peer.tools,
+                    "agent_id": peer.agent_id,
+                    "endpoint_id": peer.endpoint_id,
+                }
+                for name, peer in cfg.peers.items()
+            ],
+        }
+
+    @server.tool()
+    async def create_reviewed_task(
+        peer: str,
+        tool: str,
+        arguments: dict,
+        acceptance: str,
+        request_id: str,
+        terms: dict,
+        duration: int = 3600,
+    ) -> dict[str, Any]:
+        """Fund only the task terms explicitly reviewed by the operator; testnet only."""
+        from ..storage import PaymentError
+
+        cfg, selected = wallet.config, wallet.peer(peer)
+        expected = {
+            "chain_id": cfg.chain_id,
+            "contract": cfg.contract,
+            "token": cfg.token,
+            "provider": selected.provider,
+            "amount_atomic": selected.tools.get(tool),
+        }
+        if selected.agent_id and selected.endpoint_id:
+            expected.update(agent_id=selected.agent_id, endpoint_id=selected.endpoint_id)
+        if terms != expected or tool not in selected.tools:
+            raise PaymentError("Task terms changed since review; inspect the current task policy")
+        return await asyncio.to_thread(
+            wallet.purchase,
+            peer,
+            tool,
+            arguments,
+            acceptance,
+            request_id,
+            duration,
+            verify_live_terms=True,
+        )
 
     @server.tool()
     async def create_task(
@@ -87,28 +173,28 @@ def wallet_mcp(wallet):
         acceptance: str,
         request_id: str,
         duration: int = 3600,
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Fund and submit a fixed-price task within operator policy. Reuse original request_id."""
         return await asyncio.to_thread(
             wallet.purchase, peer, tool, arguments, acceptance, request_id, duration
         )
 
     @server.tool()
-    async def task_status(request_id: str) -> dict:
+    async def task_status(request_id: str) -> dict[str, Any]:
         return await asyncio.to_thread(wallet.status, request_id)
 
     @server.tool()
-    async def task_result(request_id: str) -> dict:
+    async def task_result(request_id: str) -> dict[str, Any]:
         """Retrieve and verify original deliverable; does not accept its quality."""
         return await asyncio.to_thread(wallet.result, request_id)
 
     @server.tool()
-    async def recover_task(request_id: str) -> dict:
+    async def recover_task(request_id: str) -> dict[str, Any]:
         """Continue only the original task and signed transactions, never create a replacement."""
         return await asyncio.to_thread(wallet.recover, request_id)
 
     @server.tool()
-    async def decide_task(request_id: str, decision: str, reason: str) -> dict:
+    async def decide_task(request_id: str, decision: str, reason: str) -> dict[str, Any]:
         """Explicit evaluator decision: accept, reject or expired refund."""
         return await asyncio.to_thread(wallet.decide, request_id, decision, reason)
 

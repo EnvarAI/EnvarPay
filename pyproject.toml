@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "envarpay"
-version = "0.1.0a7"
+version = "0.1.0a8"
 description = "Get your agents paid. MCP and x402 payment SDK and CLI for agents."
 readme = "README.pypi.md"
 requires-python = ">=3.11"

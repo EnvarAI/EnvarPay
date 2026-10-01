@@ -133,3 +133,17 @@ isolated from them. Paid execution can fail; upfront payment has no automatic
 refund. [Failure and recovery semantics](https://github.com/EnvarAI/EnvarPay/blob/main/docs/directory-and-recovery.md).
 
 [Python API](https://github.com/EnvarAI/EnvarPay/blob/main/docs/python-sdk.md) · [Configuration](https://github.com/EnvarAI/EnvarPay/blob/main/docs/configuration.md) · [Security](https://github.com/EnvarAI/EnvarPay/blob/main/SECURITY.md) · [Contributing](https://github.com/EnvarAI/EnvarPay/blob/main/CONTRIBUTING.md)
+
+## Two modes and Envar onboarding
+
+Pay per call confirms USDC before one MCP capability executes. Pay per task locks
+funds and requires an explicit acceptance/rejection/expired refund; it remains
+experimental and Base Sepolia only. The task contract is unaudited.
+
+EnvarPay 0.1.0a8 provides `connect` for atomic endpoint proof/connection setup,
+`approve-peer` for explicit local capability authorization, reviewed `call_agent`
+through the private wallet, and authenticated `task wallet-serve`. One Envar Agent
+can retain private Agent, paid capability and wallet entries. Wallets never enter
+public discovery. Keys, funding, budgets and signing enablement stay local.
+
+[Complete onboarding](https://github.com/EnvarAI/EnvarPay/blob/main/docs/envar.md).

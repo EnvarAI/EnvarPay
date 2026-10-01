@@ -1,6 +1,6 @@
 """Standard-protocol payment adapters and read-only configuration/receipt utilities."""
 
-__version__ = "0.1.0a7"
+__version__ = "0.1.0a8"
 
 from .config import Config, load_config
 

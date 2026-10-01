@@ -95,6 +95,8 @@ async def test_cli_wallet_is_real_stdio_mcp_without_key(tmp_path: Path):
             tools = await session.list_tools()
             assert {t.name for t in tools.tools} == {
                 "list_paid_tools",
+                "wallet_policy",
+                "call_agent",
                 "call_paid_tool",
                 "payment_status",
                 "recover_payment",
@@ -170,6 +172,8 @@ async def test_wallet_http_requires_private_bearer_and_exposes_no_policy_mutatio
             tools = await session.list_tools()
             assert {t.name for t in tools.tools} == {
                 "list_paid_tools",
+                "wallet_policy",
+                "call_agent",
                 "call_paid_tool",
                 "payment_status",
                 "recover_payment",

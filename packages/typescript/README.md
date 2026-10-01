@@ -10,7 +10,7 @@ for the current registry status and available distributions.
 
 ## Install and start a wallet
 
-After the initial npm publication:
+Install the npm alpha client:
 
 ```sh
 npm install @envarai/envarpay@next
@@ -142,3 +142,17 @@ not to a seller or public directory; keep it in the application's private config
 Targets Node.js >=22.14 and Bun. Local tests use the actual Python wallet MCP
 adapter with a fake service and transfer no funds; they are not real payment evidence.
 This client has no task-escrow API or framework-native plugin manifest.
+
+## Reviewed purchases from Envar
+
+Run Python EnvarPay 0.1.0a8 or newer for these methods. `walletPolicy()` reads limits
+and already-approved peers. `callAgent()` selects only a peer bound to the reviewed
+Agent and endpoint IDs; it never adds a directory candidate to wallet policy. Supply
+`expectedNetwork`, `expectedPayTo` and `expectedAmountAtomic` from the terms you
+reviewed. A different live price is refused before signing. Keep `requestId` across
+uncertain outcomes and use the original status/recovery methods.
+
+The website can use the same authenticated wallet through its owner-only entry.
+For task creation, result verification and acceptance/refunds, connect the private
+`envarpay task wallet-serve` using a standard MCP client. The task signer and
+contract verification stay in Python; the task mode remains experimental/testnet.

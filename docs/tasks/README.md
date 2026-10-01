@@ -143,3 +143,34 @@ After a completed/refunded task, save `envarpay task status` JSON and run
 verify roles, committed terms and exact official-USDC transfer logs. Use a different
 RPC from the transaction sender. Public-chain acceptance requires both this audit
 and native runtime evidence for the same job and candidate build.
+
+## Website and remote MCP wallet
+
+EnvarPay 0.1.0a8 adds `envarpay task wallet-serve --config task-buyer.toml`.
+Configure `[wallet_server]` with a strong owner-only `bearer_token_file`, host, port
+and allowed hosts. Register it in Envar as a **private task wallet**, apply its
+ownership proof with `envarpay connect --config task-buyer.toml --task ...`, then
+verify. The wallet never appears in public discovery.
+
+The website Tasks page reads `task_policy`, sends `create_reviewed_task`, fetches
+`task_result` and explicitly calls `decide_task`; recovery preserves the original ID.
+Reviewed contract/token/provider/amount must still match the local policy.
+Accept/reject authority defaults off. Normal task MCP tools and CLI commands remain
+available. Configure distinct keys/state for concurrently operated wallets.
+
+Task sellers expose a public read-only `/mcp` with `task_terms` and an ownership
+proof when `[registration]` is configured. Register that entry as a task capability.
+Set the buyer peer's optional `agent_id` and `endpoint_id` to connect public discovery
+to that already-approved peer. Private task credentials and provider approval remain
+operator responsibilities. The browser does not obtain signing keys or automatically
+authorize a new provider. Task receipts in wallet responses are not platform-verified
+Transactions rows. This remains an experimental Base Sepolia feature.
+
+For explicit local task-provider approval, use `approve-peer --task --config
+task-buyer.toml --name PROVIDER_ALIAS --url https://provider.example --pay-to
+PROVIDER_ADDRESS --tool ask_agent --amount 0.01 --token-file ./seller-access.token
+--agent-id PROVIDER_AGENT_UUID --endpoint-id TASK_ENDPOINT_UUID`. The website
+provides a quoted command on a published task profile. This preserves signing,
+evaluator authority and budgets, and refuses replacing different alias terms.
+The reviewed creation path also checks the provider's current read-only `/terms`
+before funding.

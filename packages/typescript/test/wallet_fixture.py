@@ -31,14 +31,32 @@ class Directory:
 
 
 class Service:
-    config = SimpleNamespace(wallet_server=settings)
+    config = SimpleNamespace(wallet_server=settings, registration=None, network="eip155:84532")
     envar = Directory()
 
     def __init__(self):
+        self.policy = SimpleNamespace(
+            payments_enabled=False, max_per_call_atomic=10000, max_total_atomic=10000, peers={}
+        )
         self.store = self
         self.rows = {}
         self.results = {}
         self.calls = {}
+
+    async def call_agent(
+        self,
+        agent_id,
+        endpoint_id,
+        tool,
+        arguments,
+        request_id,
+        expected_network,
+        expected_pay_to,
+        expected_amount_atomic,
+    ):
+        if agent_id != "approved-agent" or expected_amount_atomic != 10000:
+            raise PaymentError("Approve the Agent and reviewed price first")
+        return await self.call("approved", tool, arguments, request_id)
 
     async def list_tools(self, peer):
         if peer != "approved":

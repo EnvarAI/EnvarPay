@@ -8,7 +8,7 @@ from typing import Literal
 
 from pydantic import Field, field_validator, model_validator
 
-from ..config import Backend, StrictModel, address, secure_url
+from ..config import Backend, Registration, StrictModel, WalletServer, address, secure_url
 
 USDC = "0x036CbD53842c5426634e7929541eC2318f3dCF7e"
 
@@ -18,6 +18,8 @@ class TaskPeer(StrictModel):
     provider: str
     token_file: str
     tools: dict[str, int] = Field(min_length=1, max_length=64)
+    agent_id: str | None = None
+    endpoint_id: str | None = None
 
     _url = field_validator("url")(secure_url)
     _provider = field_validator("provider")(address)
@@ -65,6 +67,8 @@ class TaskConfig(StrictModel):
     host: str = "127.0.0.1"
     port: int = Field(default=4030, ge=1, le=65535)
     allowed_hosts: list[str] = Field(default_factory=lambda: ["localhost", "127.0.0.1"])
+    registration: Registration | None = None
+    wallet_server: WalletServer | None = None
 
     _contract = field_validator("contract")(address)
     _token = field_validator("token")(address)
@@ -104,6 +108,8 @@ def load_task_config(path: Path) -> TaskConfig:
         setattr(config, name, resolve(getattr(config, name)))
     for entry in [*config.peers.values(), *config.clients.values()]:
         entry.token_file = resolve(entry.token_file)
+    if config.wallet_server:
+        config.wallet_server.bearer_token_file = resolve(config.wallet_server.bearer_token_file)
     if config.backend and config.backend.api_key_file:
         config.backend.api_key_file = resolve(config.backend.api_key_file)
     return config
