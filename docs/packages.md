@@ -132,7 +132,16 @@ exists, configure its GitHub Trusted Publisher as follows:
 | Workflow filename | `publish-npm.yml` |
 | Environment | `npm` |
 
-Subsequent releases use OIDC with no long-lived npm token in the repository.
+The manual workflow defaults to Trusted Publishing. For the first version only,
+set `publish=true` and `bootstrap=true` on `main`, with a short-lived,
+`@envarai`-scoped granular token saved as the GitHub Actions secret
+`NPM_BOOTSTRAP_TOKEN`. Organization management permissions are unnecessary.
+The bootstrap path accepts only `npm-v0.1.0-alpha.1` and verifies the tarball's
+recorded SHA256 before publishing. The token is supplied only to its publish step.
+
+After configuring the Trusted Publisher, remove the bootstrap secret and revoke
+the token. Subsequent releases use OIDC with `bootstrap=false`; no long-lived npm
+token is needed in the repository.
 
 For fully native TS payment execution, use the official x402 TS SDKs and first
 prove policy/ledger/nonce/recovery parity with Python. That is a separate implementation
