@@ -19,6 +19,9 @@ adds discovery, receiving settings and transaction observations.
 
 [中文](README.zh-CN.md) · [Quickstart](docs/getting-started.md) · [Envar guide](docs/envar.md) · [Framework guides](docs/integrations/index.md)
 
+[Operator deployment and original-operation recovery](docs/operations.md) describes
+signer isolation, private state, explicit permissions and required release checks.
+
 ## Two payment modes
 
 | Mode | Delivery and payment | Use |
