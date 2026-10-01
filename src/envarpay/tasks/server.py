@@ -6,6 +6,7 @@ import asyncio
 import secrets
 from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import Any
 
 from jsonschema.validators import validator_for
 from pydantic import ValidationError
@@ -209,23 +210,71 @@ class TaskServer:
                 await self.execute(row)
             await asyncio.sleep(1)
 
+    def public_terms(self):
+        return {
+            "chain_id": self.config.chain_id,
+            "contract": self.config.contract,
+            "token": self.config.token,
+            "provider": self.chain.address,
+            "tools": self.config.tools,
+            "experimental": True,
+        }
+
+    async def terms(self, request):
+        return JSONResponse(self.public_terms(), headers={"Cache-Control": "no-store"})
+
     def app(self):
+        from mcp.server.fastmcp import FastMCP
+        from mcp.server.transport_security import TransportSecuritySettings
+        from starlette.routing import Mount
+
+        discovery = FastMCP(
+            "envarpay task capabilities",
+            stateless_http=True,
+            json_response=True,
+            transport_security=TransportSecuritySettings(
+                allowed_hosts=[
+                    *self.config.allowed_hosts,
+                    *(host + ":*" for host in self.config.allowed_hosts if ":" not in host),
+                ]
+            ),
+        )
+
+        @discovery.tool()
+        def task_terms() -> dict[str, Any]:
+            """Read fixed task terms. Does not fund, submit or execute a task."""
+            return self.public_terms()
+
+        mcp_app = discovery.streamable_http_app()
+
+        async def proof(request):
+            registration = self.config.registration
+            if registration and request.path_params["agent_id"] == registration.agent_id:
+                return JSONResponse(
+                    registration.model_dump(), headers={"Cache-Control": "no-store"}
+                )
+            return JSONResponse({"error": "Not found"}, status_code=404)
+
         @asynccontextmanager
         async def lifespan(app):
             with exclusive(self.store.path.parent / "task-server.lock"):
                 await self.initialize()
                 # One signer owner; bounded runtime concurrency is deliberately one in v1.
                 worker = asyncio.create_task(self.worker())
-                try:
-                    yield
-                finally:
-                    worker.cancel()
-                    await asyncio.gather(worker, return_exceptions=True)
+                async with mcp_app.router.lifespan_context(mcp_app):
+                    try:
+                        yield
+                    finally:
+                        worker.cancel()
+                        await asyncio.gather(worker, return_exceptions=True)
 
         app = Starlette(
             routes=[
+                Route("/terms", self.terms),
                 Route("/tasks", self.create, methods=["POST"]),
                 Route("/tasks/{job_id}", self.get),
+                Route("/.well-known/envar/{agent_id}", proof),
+                Mount("/", app=mcp_app),
             ],
             lifespan=lifespan,
         )

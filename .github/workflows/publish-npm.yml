@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Existing npm release tag (npm-v0.1.0-alpha.1)
+        description: Existing npm release tag (npm-v0.1.0-alpha.2)
         type: string
         required: true
       publish:
@@ -121,8 +121,8 @@ jobs:
         env:
           RELEASE_TAG: ${{ inputs.tag }}
         run: |
-          test "$RELEASE_TAG" = npm-v0.1.0-alpha.1
-          echo '3550eb8097bd6b8311c4de58fbeac8bac91d1e44ddff8e51ca9b24636e332c74  package-dist/envarai-envarpay-0.1.0-alpha.1.tgz' | sha256sum --check
+          test "$RELEASE_TAG" = npm-v0.1.0-alpha.2
+          echo '2d71090679e15fc8eca7d682851672318417c97156fe945ab88c5bbc5f1b078d  package-dist/envarai-envarpay-0.1.0-alpha.2.tgz' | sha256sum --check
       - name: Publish using Trusted Publishing
         if: ${{ !inputs.bootstrap }}
         run: npm publish "$GITHUB_WORKSPACE"/package-dist/*.tgz --access public --tag next --provenance

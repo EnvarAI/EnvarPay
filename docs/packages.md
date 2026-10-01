@@ -3,7 +3,7 @@
 **Registry status checked 2026-10-01:** [PyPI `envarpay` 0.1.0a7](https://pypi.org/project/envarpay/0.1.0a7/)
 is published and its clean installation and artifact hashes have been verified.
 The npm package name is **`@envarai/envarpay`**. Its TypeScript client is implemented
-as candidate `0.1.0-alpha.1`; npm publication is pending.
+as candidate `0.1.0-alpha.2`; npm publication is pending.
 
 ## What to install
 
@@ -136,7 +136,7 @@ The manual workflow defaults to Trusted Publishing. For the first version only,
 set `publish=true` and `bootstrap=true` on `main`, with a short-lived,
 `@envarai`-scoped granular token saved as the GitHub Actions secret
 `NPM_BOOTSTRAP_TOKEN`. Organization management permissions are unnecessary.
-The bootstrap path accepts only `npm-v0.1.0-alpha.1` and verifies the tarball's
+The bootstrap path accepts only `npm-v0.1.0-alpha.2` and verifies the tarball's
 recorded SHA256 before publishing. The token is supplied only to its publish step.
 
 After configuring the Trusted Publisher, remove the bootstrap secret and revoke

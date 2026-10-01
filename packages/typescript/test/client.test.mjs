@@ -98,3 +98,16 @@ test('a redirect cannot forward wallet authentication to another endpoint', asyn
     await Promise.all([new Promise(resolve => redirect.close(resolve)), new Promise(resolve => target.close(resolve))]);
   }
 });
+
+
+test('reviewed Agent calls use the private wallet and retain the reviewed amount', async () => {
+  const wallet = await WalletClient.connect({url, token});
+  try {
+    assert.equal((await wallet.walletPolicy()).payments_enabled, false);
+    const input = {agentId:'approved-agent', endpointId:'approved-entry', tool:'ask_agent', arguments:{question:'reviewed'}, requestId:'reviewed-agent', expectedNetwork:'eip155:84532', expectedPayTo:'0x'+'3'.repeat(40), expectedAmountAtomic:10000};
+    assert.equal((await wallet.callAgent(input)).request_id, input.requestId);
+    await assert.rejects(wallet.callAgent({...input, requestId:'different-review', expectedAmountAtomic:9999}), WalletToolError);
+    await assert.rejects(wallet.callAgent({...input, expectedAmountAtomic:0}), TypeError);
+    assert.equal(JSON.parse(await readFile(join(directory,'calls.json'),'utf8'))[input.requestId],1);
+  } finally {await wallet.close();}
+});

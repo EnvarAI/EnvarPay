@@ -8,6 +8,14 @@ export interface AgentDiscovery {
   candidates: Record<string, unknown>[];
   payment_authorized: false;
 }
+export interface WalletPolicy {
+  network: string; payments_enabled: boolean; max_per_call_atomic: number; max_total_atomic: number;
+  peers: { name: string; agent_id: string | null; endpoint_id: string | null; pay_to: string; tools: string[] }[];
+}
+export interface ReviewedAgentCall {
+  agentId: string; endpointId: string; tool: string; arguments: Record<string, Json>; requestId: string;
+  expectedNetwork: string; expectedPayTo: string; expectedAmountAtomic: number;
+}
 export interface PaidCall {
   request_id: string;
   payment_made: boolean;
@@ -68,13 +76,13 @@ export class WalletClient {
   static async connect(options: WalletConnection): Promise<WalletClient> {
     const url = new URL(options.url);
     const local = ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
-    if ((url.protocol !== 'https:' && !(url.protocol === 'http:' && local)) || url.username || url.password || url.hash) {
+    if ((url.protocol !== 'https:' && !(url.protocol === 'http:' && local)) || url.username || url.password || url.hash || url.search) {
       throw new TypeError('Wallet URL must use HTTPS or loopback HTTP, without credentials or a fragment');
     }
     if (!options.token || /[\r\n]/.test(options.token)) throw new TypeError('A wallet bearer token is required');
     const timeoutMs = options.timeoutMs ?? 300_000;
     if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) throw new TypeError('timeoutMs must be positive');
-    const client = new Client({ name: '@envarai/envarpay', version: '0.1.0-alpha.1' });
+    const client = new Client({ name: '@envarai/envarpay', version: '0.1.0-alpha.2' });
     const transport = new StreamableHTTPClientTransport(url, {
       requestInit: { headers: { Authorization: `Bearer ${options.token}` }, redirect: 'error' },
     });
@@ -126,6 +134,31 @@ export class WalletClient {
       if (!object(value) || value.request_id !== input.requestId || typeof value.payment_made !== 'boolean' || !object(value.result)) {
         throw new TypeError('Invalid paid call response');
       }
+      return value as unknown as PaidCall;
+    } catch (error) {
+      if (error instanceof WalletToolError) throw error;
+      throw new OperationUnknownError(input.requestId, error);
+    }
+  }
+
+  async walletPolicy(): Promise<WalletPolicy> {
+    const value = await this.call('wallet_policy', {});
+    if (!object(value) || typeof value.network !== 'string' || typeof value.payments_enabled !== 'boolean' || !Array.isArray(value.peers)) {
+      throw new TypeError('Invalid wallet policy response');
+    }
+    return value as unknown as WalletPolicy;
+  }
+
+  async callAgent(input: ReviewedAgentCall): Promise<PaidCall> {
+    requestId(input.requestId);
+    if (!Number.isSafeInteger(input.expectedAmountAtomic) || input.expectedAmountAtomic <= 0) throw new TypeError('Review an integer USDC atomic amount');
+    try {
+      const value = await this.call('call_agent', {
+        agent_id: input.agentId, endpoint_id: input.endpointId, tool: input.tool, arguments: input.arguments,
+        request_id: input.requestId, expected_network: input.expectedNetwork, expected_pay_to: input.expectedPayTo,
+        expected_amount_atomic: input.expectedAmountAtomic,
+      });
+      if (!object(value) || value.request_id !== input.requestId || typeof value.payment_made !== 'boolean' || !object(value.result)) throw new TypeError('Invalid paid Agent response');
       return value as unknown as PaidCall;
     } catch (error) {
       if (error instanceof WalletToolError) throw error;

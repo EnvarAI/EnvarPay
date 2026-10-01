@@ -19,6 +19,20 @@ adds discovery, receiving settings and transaction observations.
 
 [中文](README.zh-CN.md) · [Quickstart](docs/getting-started.md) · [Envar guide](docs/envar.md) · [Framework guides](docs/integrations/index.md)
 
+## Two payment modes
+
+| Mode | Delivery and payment | Use |
+|---|---|---|
+| Pay per call | Confirm USDC payment, execute one capability, return its result | MCP tools / Python wallet / npm wallet client |
+| Pay per task | Lock funds, retrieve a committed deliverable, explicitly accept/reject or request an expired refund | Experimental Python task wallet and standard MCP; Base Sepolia only |
+
+Buyer, seller and both are roles. MCP/A2A are connection protocols. The task mode
+also exposes MCP tools; it does not require a second Agent framework.
+
+[Envar onboarding](docs/envar.md) connects one Agent's separate private, paid and
+wallet entries. Public discovery displays prices; reviewed purchases use only
+already-approved local wallet peers. The task contract is unaudited and rejects mainnet.
+
 ## Choose what to install
 
 | You want to… | Use | What it provides |

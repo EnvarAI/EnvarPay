@@ -6,6 +6,7 @@ import json
 import re
 import secrets
 from pathlib import Path
+from typing import Any
 
 import httpx
 from eth_account import Account
@@ -69,7 +70,7 @@ class WalletService:
             raise PaymentError("Unknown peer or tool; configure the operator allowlist first")
         return peer
 
-    async def list_tools(self, name: str) -> dict:
+    async def list_tools(self, name: str) -> dict[str, Any]:
         peer = self.peer(name)
         async with connect(peer, self.config.timeout_seconds) as session:
             page = await session.list_tools()
@@ -82,21 +83,63 @@ class WalletService:
             ],
         }
 
-    async def call(self, peer_name: str, tool: str, arguments: dict, request_id: str) -> dict:
+    async def call_agent(
+        self,
+        agent_id: str,
+        endpoint_id: str,
+        tool: str,
+        arguments: dict,
+        request_id: str,
+        expected_network: str,
+        expected_pay_to: str,
+        expected_amount_atomic: int,
+    ) -> dict[str, Any]:
+        matches = [
+            name
+            for name, peer in self.policy.peers.items()
+            if peer.agent_id == agent_id and peer.endpoint_id == endpoint_id and tool in peer.tools
+        ]
+        if len(matches) != 1:
+            raise PaymentError("Approve this Agent, endpoint and tool in the local wallet first")
+        peer = self.policy.peers[matches[0]]
+        if (
+            expected_network != self.config.network
+            or expected_pay_to.lower() != peer.pay_to.lower()
+        ):
+            raise PaymentError("Reviewed receiving terms do not match local wallet policy")
+        if (
+            type(expected_amount_atomic) is not int
+            or not 1 <= expected_amount_atomic <= self.policy.max_per_call_atomic
+        ):
+            raise PaymentError("Reviewed price is outside the per-call policy")
+        return await self.call(
+            matches[0], tool, arguments, request_id, expected_amount_atomic=expected_amount_atomic
+        )
+
+    async def call(
+        self,
+        peer_name: str,
+        tool: str,
+        arguments: dict,
+        request_id: str,
+        *,
+        expected_amount_atomic: int | None = None,
+    ) -> dict[str, Any]:
         if not re.fullmatch(r"[A-Za-z0-9_-]{1,100}", request_id):
             raise PaymentError("request_id must be 1-100 letters, digits, underscores or hyphens")
         if not isinstance(arguments, dict) or len(json.dumps(arguments).encode()) > 131072:
             raise PaymentError("Tool arguments must be a bounded JSON object")
         peer = self.peer(peer_name, tool)
         key = "buy:" + request_id
-        binding = digest(
-            {
-                "peer": peer.model_dump(),
-                "network": self.config.network,
-                "tool": tool,
-                "arguments": arguments,
-            }
-        )
+        terms = {
+            "peer": peer.model_dump(),
+            "network": self.config.network,
+            "tool": tool,
+            "arguments": arguments,
+        }
+        if expected_amount_atomic is not None:
+            terms["reviewed_amount"] = expected_amount_atomic
+        binding = digest(terms)
         existing = self.store.get(key)
         if existing:
             if existing["binding"] != binding:
@@ -134,6 +177,10 @@ class WalletService:
 
         async def before(ctx: PaymentCreationContext) -> None:
             amount = validate_quote(self.config, peer, tool, ctx)
+            if expected_amount_atomic is not None and amount != expected_amount_atomic:
+                raise PaymentError(
+                    "Price changed since review; review the current quote before purchasing"
+                )
             await self.chain.check_network()
             self.store.reserve_budget(key, amount, self.policy.max_total_atomic)
             self.store.update(
@@ -298,14 +345,59 @@ def wallet_mcp(service: WalletService) -> FastMCP:
     )
 
     @mcp.tool()
-    async def list_paid_tools(peer: str) -> dict:
+    async def list_paid_tools(peer: str) -> dict[str, Any]:
         """Discover allowed tools and their input schemas at a configured peer."""
         return await service.list_tools(peer)
 
     @mcp.tool()
-    async def call_paid_tool(peer: str, tool: str, arguments: dict, request_id: str) -> dict:
+    def wallet_policy() -> dict[str, Any]:
+        """Read configured public terms and limits; cannot change permissions or expose keys."""
+        return {
+            "network": service.config.network,
+            "payments_enabled": service.policy.payments_enabled,
+            "max_per_call_atomic": service.policy.max_per_call_atomic,
+            "max_total_atomic": service.policy.max_total_atomic,
+            "peers": [
+                {
+                    "name": name,
+                    "agent_id": peer.agent_id,
+                    "endpoint_id": peer.endpoint_id,
+                    "pay_to": peer.pay_to,
+                    "tools": peer.tools,
+                }
+                for name, peer in service.policy.peers.items()
+            ],
+        }
+
+    @mcp.tool()
+    async def call_paid_tool(
+        peer: str, tool: str, arguments: dict, request_id: str
+    ) -> dict[str, Any]:
         """Call a configured tool; pay only within operator policy. Reuse request_id on retries."""
         return await service.call(peer, tool, arguments, request_id)
+
+    @mcp.tool()
+    async def call_agent(
+        agent_id: str,
+        endpoint_id: str,
+        tool: str,
+        arguments: dict,
+        request_id: str,
+        expected_network: str,
+        expected_pay_to: str,
+        expected_amount_atomic: int,
+    ) -> dict[str, Any]:
+        """Purchase a reviewed Agent capability only through an existing operator-approved peer."""
+        return await service.call_agent(
+            agent_id,
+            endpoint_id,
+            tool,
+            arguments,
+            request_id,
+            expected_network,
+            expected_pay_to,
+            expected_amount_atomic,
+        )
 
     @mcp.tool()
     def payment_status(request_id: str) -> list[dict]:
@@ -313,19 +405,19 @@ def wallet_mcp(service: WalletService) -> FastMCP:
         return service.store.public_status("buy:" + request_id)
 
     @mcp.tool()
-    async def recover_payment(request_id: str) -> dict:
+    async def recover_payment(request_id: str) -> dict[str, Any]:
         """Query the original payment and saved result; never create another signature."""
         return await service.recover(request_id)
 
     if service.envar:
 
         @mcp.tool()
-        async def discover_agents(query: str) -> dict:
+        async def discover_agents(query: str) -> dict[str, Any]:
             """Find Envar candidates without authorizing payment or changing the allowlist."""
             return await service.envar.search(query)
 
         @mcp.tool()
-        async def get_agent(handle: str) -> dict:
+        async def get_agent(handle: str) -> dict[str, Any]:
             """Read a published Agent profile before selecting an already-approved peer."""
             return await service.envar.get(handle)
 
@@ -333,12 +425,9 @@ def wallet_mcp(service: WalletService) -> FastMCP:
 
 
 def wallet_app(service):
-    from .service import authenticated_app
+    from .service import wallet_service_app
 
     settings = service.config.wallet_server
     if not settings:
         raise PaymentError("Configure [wallet_server] before exposing the wallet service")
-    bearer = secret_file(Path(settings.bearer_token_file))
-    if len(bearer) < 32 or any(ord(c) < 33 or ord(c) > 126 for c in bearer):
-        raise PaymentError("Wallet service requires a strong printable bearer token")
-    return authenticated_app(wallet_mcp(service).streamable_http_app(), bearer)
+    return wallet_service_app(wallet_mcp(service), settings, service.config.registration)

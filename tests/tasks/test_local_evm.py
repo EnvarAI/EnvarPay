@@ -491,3 +491,93 @@ def test_unsigned_failed_accept_can_be_replaced_with_refund(env, monkeypatch):
         ]
         == "Rejected"
     )
+
+
+async def test_remote_task_wallet_requires_auth_and_preserves_reviewed_terms(
+    env, tmp_path, monkeypatch
+):
+    import uuid
+
+    from envarpay.config import Endpoint, Registration, WalletServer
+    from envarpay.service import wallet_service_app
+    from envarpay.tasks.cli import wallet_mcp
+    from envarpay.transport import connect
+
+    token = tmp_path / "wallet.token"
+    token.write_text("private-task-wallet-" + "x" * 40)
+    token.chmod(0o600)
+    config = env["buyer_cfg"]
+    config.wallet_server = WalletServer(bearer_token_file=str(token))
+    config.registration = Registration(agent_id=str(uuid.uuid4()), challenge="c" * 40)
+    wallet = env["wallet"]
+    with socket.socket() as sock:
+        sock.bind(("127.0.0.1", 0))
+        port = sock.getsockname()[1]
+    app = wallet_service_app(wallet_mcp(wallet), config.wallet_server, config.registration)
+    server = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=port, log_level="error"))
+    thread = threading.Thread(target=server.run, daemon=True)
+    thread.start()
+    try:
+        for _ in range(100):
+            if server.started:
+                break
+            await asyncio.sleep(0.02)
+        async with httpx.AsyncClient(trust_env=False) as client:
+            assert (await client.post(f"http://127.0.0.1:{port}/mcp", json={})).status_code == 401
+            proof = await client.get(
+                f"http://127.0.0.1:{port}/.well-known/envar/{config.registration.agent_id}"
+            )
+            assert proof.json() == config.registration.model_dump()
+        async with connect(Endpoint(url=f"http://127.0.0.1:{env['port']}/mcp"), 60) as discovery:
+            terms_result = await discovery.call_tool("task_terms", {})
+            assert not terms_result.isError
+            assert terms_result.structuredContent["provider"] == env["accounts"]["seller"].address
+            assert env["backend"].calls == 0
+        monkeypatch.setenv("ENVARPAY_TEST_TASK_TOKEN", token.read_text())
+        endpoint = Endpoint(
+            url=f"http://127.0.0.1:{port}/mcp", bearer_token_env="ENVARPAY_TEST_TASK_TOKEN"
+        )
+        async with connect(endpoint, 60) as session:
+            policy_result = await session.call_tool("task_policy", {})
+            assert not policy_result.isError, str(policy_result)
+            assert policy_result.structuredContent is not None, str(policy_result)
+            policy = policy_result.structuredContent
+            assert policy["chain_id"] == 31337 and str(token) not in str(policy)
+            peer = policy["peers"][0]
+            terms = {key: policy[key] for key in ("chain_id", "contract", "token")}
+            terms.update(provider=peer["provider"], amount_atomic=10000)
+            data = dict(
+                peer="seller",
+                tool="ask",
+                arguments={"question": "remote task"},
+                acceptance="Exact original result",
+                request_id="remote-task-1",
+                terms={**terms, "amount_atomic": 9999},
+                duration=3600,
+            )
+            assert (await session.call_tool("create_reviewed_task", data)).isError
+            assert env["backend"].calls == 0
+            data["terms"] = terms
+            created = await session.call_tool("create_reviewed_task", data)
+            assert not created.isError
+            for _ in range(100):
+                result = await session.call_tool("task_result", {"request_id": "remote-task-1"})
+                if result.structuredContent.get("status") == "submitted":
+                    break
+                await asyncio.sleep(0.1)
+            assert result.structuredContent["status"] == "submitted"
+            verdict = await session.call_tool(
+                "decide_task",
+                {
+                    "request_id": "remote-task-1",
+                    "decision": "accept",
+                    "reason": "Verified exact result",
+                },
+            )
+            assert verdict.structuredContent["payment"]["status"] == "Completed"
+            replay = await session.call_tool("create_reviewed_task", data)
+            assert replay.structuredContent["payment"]["status"] == "Completed"
+            assert env["backend"].calls == 1
+    finally:
+        server.should_exit = True
+        thread.join(5)

@@ -99,6 +99,22 @@ def authenticated_app(app, bearer):
     return AuthenticatedService()
 
 
+def wallet_service_app(mcp, settings, registration=None):
+    """Authenticated MCP wallet with a public ownership proof, never a public signer."""
+    bearer = secret_file(Path(settings.bearer_token_file))
+    if len(bearer) < 32 or any(ord(c) < 33 or ord(c) > 126 for c in bearer):
+        raise PaymentError("Wallet service requires a strong printable bearer token")
+    app = mcp.streamable_http_app()
+
+    async def proof(request):
+        if registration and request.path_params["agent_id"] == registration.agent_id:
+            return JSONResponse(registration.model_dump(), headers={"Cache-Control": "no-store"})
+        return Response(status_code=404)
+
+    app.routes.insert(0, Route("/.well-known/envar/{agent_id}", proof))
+    return authenticated_app(app, bearer)
+
+
 class AgentService:
     def __init__(self, config):
         if not config.service:
