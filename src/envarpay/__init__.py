@@ -1,6 +1,8 @@
 """Standard-protocol payment adapters and read-only configuration/receipt utilities."""
 
-__version__ = "0.1.0a8"
+from importlib.metadata import version
+
+__version__ = version("envarpay")
 
 from .config import Config, load_config
 
