@@ -5,15 +5,19 @@ the provider executes and commits its deliverable, and the buyer explicitly acce
 or rejects it. Acceptance releases escrow; rejection or expiry refunds the buyer.
 Existing `call`, x402 wire formats and `init --mode private/seller` keep their meaning.
 
-This branch is an experimental candidate. [Base Sepolia acceptance](testnet-acceptance.md)
+This optional mode remains experimental. [Base Sepolia acceptance](testnet-acceptance.md)
 passed five real escrow cases, including native-agent delivery and refunds. The bundled immutable contract is
 experimental, not audited or a claim of full ERC-8183 compatibility. Mainnet is rejected.
 
 ## Installation and roles
 
-Install the candidate source with `pip install -e '.[task]'`, or install a built wheel
-with its `task` extra. Web3 is an optional dependency. This does not imply the candidate
-has been published to PyPI. Python 3.11+ on Linux/macOS is supported; signing uses
+Install the published Python distribution with its task extra:
+
+```sh
+python -m pip install --pre 'envarpay[task]'
+```
+
+Web3 is an optional dependency. Python 3.11+ on Linux/macOS is supported; signing uses
 process locks and requires a dedicated wallet/state directory per instance.
 
 Review [buyer configuration](../../examples/tasks/buyer.toml) and
@@ -22,6 +26,10 @@ role addresses. Keys and access tokens are private files with mode 600; state fo
 must have mode 700. The two access-token files contain the same high-entropy token.
 Every authorized buyer has its own token and wallet address. Buyer credentials never
 grant seller signing rights. Seller runtime credentials stay in the existing backend.
+
+JS/TS, Rust and other hosts can connect the task wallet's standard stdio MCP tools
+without embedding a Python library. The npm `WalletClient` provides the separate
+upfront-payment wallet API; it does not provide an in-process task signer.
 
 Use separate wallet and seller processes. Task mode uses `mode = "task"` in its own
 config and `envarpay task ...` commands. It deliberately does not overload the old

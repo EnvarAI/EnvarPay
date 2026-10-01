@@ -4,6 +4,12 @@ EnvarPay has two independent components: a **buyer wallet MCP server** and a
 **seller payment gate** in front of a private capability. The same package works
 across frameworks; each agent keeps its native execution/tool loop.
 
+Use the Python CLI to operate these components. JS/TS applications can use the
+[npm wallet client](../../packages/typescript/README.md), while native MCP agents
+connect directly. [Envar integration](../envar.md) adds optional marketplace
+discovery, receiving settings and transaction observations. [Other languages and
+callable HTTP/CLI agents](other-runtimes.md) use a separate service or a thin adapter.
+
 | Agent | Guide | Buyer connection | Seller capability |
 |---|---|---|---|
 | OpenClaw | [Step by step](openclaw.md) | `mcp.servers.envarpay` | Native CLI/MCP wrapper |

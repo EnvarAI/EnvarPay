@@ -19,9 +19,20 @@ token_file.chmod(0o600)
 settings = SimpleNamespace(bearer_token_file=str(token_file), allowed_hosts=["127.0.0.1:*"])
 
 
+class Directory:
+    async def search(self, query):
+        return {
+            "candidates": [{"handle": "researcher", "description": query}],
+            "payment_authorized": False,
+        }
+
+    async def get(self, handle):
+        return {"handle": handle, "display_name": "Research agent"}
+
+
 class Service:
     config = SimpleNamespace(wallet_server=settings)
-    envar = None
+    envar = Directory()
 
     def __init__(self):
         self.store = self

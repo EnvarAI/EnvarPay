@@ -110,6 +110,11 @@ the existing wallet's authenticated Streamable HTTP MCP endpoint. It preserves
 original request IDs, does not retry paid calls, and rejects redirects. Tests use
 the actual Python wallet MCP adapter with a fake service, not blockchain payments.
 
+With a wallet `[connection]`, `discoverAgents` and `getAgent` read Envar's catalog.
+They do not add a seller to wallet policy. The wallet handles Envar reports and
+the platform independently verifies payments. See the [Envar guide](envar.md) and
+the [npm wallet setup](../packages/typescript/README.md).
+
 The `TypeScript distribution` workflow tests Node 22/24 and Bun, then installs the
 packed tarball into a separate consumer and checks its exported types. Publishing
 requires an explicit manual run with a matching `npm-v<version>` tag. No push or

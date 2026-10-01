@@ -1,11 +1,19 @@
 # Changelog
 
-## 0.1.0a6 — unreleased distribution candidate
+## 0.1.0a7 — onboarding and Envar integration
+
+- Explain Python, npm and separate-service installation paths for existing agents.
+- Provide receiving, payment, wallet HTTP access and Envar registration/reporting walkthroughs.
+- Update PyPI, migration and task-extra instructions to use the published distribution.
+- Add npm catalog-reading methods over the existing optional wallet tools; discovery grants no payment authority.
+
+## 0.1.0a6 — published on PyPI 2026-10-01
 
 - Replace fragile README diagram/badge rendering with repository-owned SVG assets.
 - Add a PyPI-specific long description, manual Trusted Publishing preparation and an agent-independent non-root container build.
 - Document actual registry availability and the distinct roles of Python/TypeScript SDKs, MCP services and native plugins.
-- Include the 0.1.0a5 security baseline; no registry upload or new payment is implied.
+- Include the 0.1.0a5 security baseline and experimental testnet task escrow.
+- Publish wheel/sdist through GitHub OIDC; validate exact artifact hashes and clean index installation. Publication is not new payment evidence.
 
 ## 0.1.0a5
 
