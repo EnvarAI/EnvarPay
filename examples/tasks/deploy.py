@@ -4,15 +4,36 @@ from __future__ import annotations
 
 import argparse
 import json
+import time
 from pathlib import Path
 
 from eth_account import Account
 from web3 import Web3
-from web3.exceptions import TransactionNotFound
+from web3.exceptions import BlockNotFound, TransactionNotFound
 
 from envarpay.storage import PaymentError, Store, secret_file
 from envarpay.tasks.chain import artifact, exclusive
 from envarpay.tasks.config import USDC
+
+
+def wait_canonical_deployment(w, tx_hash, timeout=180):
+    """Receipt and numbered block can reach different public RPC nodes at different times."""
+    receipt = w.eth.wait_for_transaction_receipt(tx_hash, timeout=timeout)
+    if receipt.status != 1:
+        raise PaymentError("Deployment transaction reverted; preserve original hash")
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        try:
+            block = w.eth.get_block(receipt.blockNumber)
+        except BlockNotFound:
+            time.sleep(1)
+            continue
+        if block.hash != receipt.blockHash:
+            raise PaymentError("Deployment receipt is not canonical")
+        if w.eth.block_number - receipt.blockNumber + 1 >= 2:
+            return receipt
+        time.sleep(1)
+    raise PaymentError("Deployment confirmation unresolved; recover original transaction")
 
 
 def main():
@@ -78,9 +99,8 @@ def main():
                 record.chmod(0o600)
                 json.dump(d, f)
             w.eth.send_raw_transaction(signed.raw_transaction)
-        receipt = w.eth.wait_for_transaction_receipt(d["hash"], timeout=180)
-        if receipt.status != 1 or w.eth.get_block(receipt.blockNumber).hash != receipt.blockHash:
-            raise PaymentError("Deployment receipt failed/canonical check failed")
+        receipt = wait_canonical_deployment(w, d["hash"])
+
         public = {
             "chain_id": 84532,
             "deployer": account.address,
