@@ -1,0 +1,182 @@
+{
+  "network": "base-sepolia",
+  "sdk": "0.1.0a9",
+  "cases": {
+    "success": {
+      "request_id": "fa60c17a-22a7-47e9-800d-97d798caf236",
+      "job_id": "889186ce64a47aa36e5159176e8e3994fb4e8a3875f430f96eeed47e5f373808",
+      "status": "Completed",
+      "native_executions": 1,
+      "transactions": [
+        {
+          "id": "889186ce64a47aa36e5159176e8e3994fb4e8a3875f430f96eeed47e5f373808:create",
+          "tx_hash": "0xe4c15ea9b44228aff7138c7cd1855bd6f34c863af7036436ae2bbac5b4494f36",
+          "status": "confirmed"
+        },
+        {
+          "id": "889186ce64a47aa36e5159176e8e3994fb4e8a3875f430f96eeed47e5f373808:approve",
+          "tx_hash": "0xa635267ff23d3b32a9ceacf60427ca82115ff5dc0df8b5efe678d67ef46c5953",
+          "status": "confirmed"
+        },
+        {
+          "id": "889186ce64a47aa36e5159176e8e3994fb4e8a3875f430f96eeed47e5f373808:fund",
+          "tx_hash": "0xef5b91c5dbd7346311b964f09a470611aadb428842a05475f1ba1bcc4cfb397d",
+          "status": "confirmed"
+        },
+        {
+          "id": "889186ce64a47aa36e5159176e8e3994fb4e8a3875f430f96eeed47e5f373808:complete",
+          "tx_hash": "0x426c1483f6f1585018deee29b17026d9364260761449759daa7146030092f47d",
+          "status": "confirmed"
+        }
+      ],
+      "settlement": {
+        "transaction": "0x426c1483f6f1585018deee29b17026d9364260761449759daa7146030092f47d",
+        "block": 47560758,
+        "block_hash": "0x9ebec4f8fb3d5816ab44ff50f6bb17990da97c3b98944b184a241e6317e00e22",
+        "log_index": 8,
+        "payer": "0x7001B9f1C7d3f7ef288aBAa6642715619122384d",
+        "recipient": "0x01d232944a07Fc35d83621bbB4D727D758d10598",
+        "amount_atomic": 10000
+      },
+      "budget_reserved": 10000
+    },
+    "reject": {
+      "request_id": "8907fcd0-a600-4c87-a91d-618f13b8f8f9",
+      "job_id": "c1128f6b35d0c7bdf24710e91c5e800504b52453b909133826d9925326275608",
+      "status": "Rejected",
+      "native_executions": 1,
+      "transactions": [
+        {
+          "id": "c1128f6b35d0c7bdf24710e91c5e800504b52453b909133826d9925326275608:create",
+          "tx_hash": "0xa65721ae31a4b21defb7e1fad9d506c6ba09d6290f7d6bb3e9ecbcc0cf91130f",
+          "status": "confirmed"
+        },
+        {
+          "id": "c1128f6b35d0c7bdf24710e91c5e800504b52453b909133826d9925326275608:approve",
+          "tx_hash": "0x4facab598ffb83e6fe9217c84173736f634d209cbfa0695e3954e923a25c64d5",
+          "status": "confirmed"
+        },
+        {
+          "id": "c1128f6b35d0c7bdf24710e91c5e800504b52453b909133826d9925326275608:fund",
+          "tx_hash": "0x754bead0b01f8ca419c9b0077bd46fa10b3026002e5f17b68b468674f788e61d",
+          "status": "confirmed"
+        },
+        {
+          "id": "c1128f6b35d0c7bdf24710e91c5e800504b52453b909133826d9925326275608:reject",
+          "tx_hash": "0x7fc8b85718bc209eff384d1bc181d3f7646148a33aa3122db08f10a290948942",
+          "status": "confirmed"
+        }
+      ],
+      "settlement": {
+        "transaction": "0x7fc8b85718bc209eff384d1bc181d3f7646148a33aa3122db08f10a290948942",
+        "block": 47560898,
+        "block_hash": "0xef6ea16802771b108a8a334cf3a7721e36aaad5c168349c0eac6685ec5e47f82",
+        "log_index": 7,
+        "payer": "0x7001B9f1C7d3f7ef288aBAa6642715619122384d",
+        "recipient": "0x1a98b778b60Acc15dFC50b0C33421f8759D71CfB",
+        "amount_atomic": 10000
+      },
+      "budget_reserved": 0
+    },
+    "expiry-disconnect": {
+      "request_id": "91287914-d5d6-4a64-9347-0af27f71f3b5",
+      "job_id": "4655a236973d68ba19aa425e52e8a3783b0cbce04fbb50e5272645dff2451e5e",
+      "status": "Expired",
+      "native_executions": 0,
+      "transactions": [
+        {
+          "id": "4655a236973d68ba19aa425e52e8a3783b0cbce04fbb50e5272645dff2451e5e:create",
+          "tx_hash": "0x2fb351ec5ee9be03113bfeccbe86e5cfddd8ae3797ce0930fa7740ed06bcb9f8",
+          "status": "confirmed"
+        },
+        {
+          "id": "4655a236973d68ba19aa425e52e8a3783b0cbce04fbb50e5272645dff2451e5e:approve",
+          "tx_hash": "0x5d0047ce09535c76ff19919976067bb9ea5fda330b9ebd4060d31a7f8484f04c",
+          "status": "confirmed"
+        },
+        {
+          "id": "4655a236973d68ba19aa425e52e8a3783b0cbce04fbb50e5272645dff2451e5e:fund",
+          "tx_hash": "0xa3b07272fd6460ef786afaa0706e3bb0d07bb9a8d6732f53f8cbafe0226001c0",
+          "status": "confirmed"
+        },
+        {
+          "id": "4655a236973d68ba19aa425e52e8a3783b0cbce04fbb50e5272645dff2451e5e:refundExpired",
+          "tx_hash": "0xfccc80b564b68c248f85e82c1e554af867b2547a7ce4b8ec0caa839bce2440ec",
+          "status": "confirmed"
+        }
+      ],
+      "settlement": {
+        "transaction": "0xfccc80b564b68c248f85e82c1e554af867b2547a7ce4b8ec0caa839bce2440ec",
+        "block": 47560939,
+        "block_hash": "0x361169155a96df489915dd2158fa73438ac3ef49053fc9c4a9fd7dd345d05a25",
+        "log_index": 118,
+        "payer": "0x7001B9f1C7d3f7ef288aBAa6642715619122384d",
+        "recipient": "0x1a98b778b60Acc15dFC50b0C33421f8759D71CfB",
+        "amount_atomic": 10000
+      },
+      "budget_reserved": 0
+    }
+  },
+  "balances": {
+    "buyer": 19960000,
+    "seller": 40000,
+    "escrow": 0
+  },
+  "dispatch_fault_removed": true,
+  "native_sandbox": "kernel denial and real inference passed",
+  "mainnet_new_payment": false,
+  "independent_audits": {
+    "success": {
+      "independent_rpc": "https://base-sepolia-rpc.publicnode.com",
+      "chain_id": 84532,
+      "verified_transfers": [
+        {
+          "kind": "funding_proof",
+          "transaction": "0xef5b91c5dbd7346311b964f09a470611aadb428842a05475f1ba1bcc4cfb397d",
+          "confirmations": 422
+        },
+        {
+          "kind": "settlement_proof",
+          "transaction": "0x426c1483f6f1585018deee29b17026d9364260761449759daa7146030092f47d",
+          "confirmations": 54
+        }
+      ],
+      "job_status": 3
+    },
+    "reject": {
+      "independent_rpc": "https://base-sepolia-rpc.publicnode.com",
+      "chain_id": 84532,
+      "verified_transfers": [
+        {
+          "kind": "funding_proof",
+          "transaction": "0x754bead0b01f8ca419c9b0077bd46fa10b3026002e5f17b68b468674f788e61d",
+          "confirmations": 132
+        },
+        {
+          "kind": "settlement_proof",
+          "transaction": "0x7fc8b85718bc209eff384d1bc181d3f7646148a33aa3122db08f10a290948942",
+          "confirmations": 47
+        }
+      ],
+      "job_status": 4
+    },
+    "expiry": {
+      "independent_rpc": "https://base-sepolia-rpc.publicnode.com",
+      "chain_id": 84532,
+      "verified_transfers": [
+        {
+          "kind": "funding_proof",
+          "transaction": "0xa3b07272fd6460ef786afaa0706e3bb0d07bb9a8d6732f53f8cbafe0226001c0",
+          "confirmations": 162
+        },
+        {
+          "kind": "settlement_proof",
+          "transaction": "0xfccc80b564b68c248f85e82c1e554af867b2547a7ce4b8ec0caa839bce2440ec",
+          "confirmations": 77
+        }
+      ],
+      "job_status": 5
+    }
+  },
+  "publication": "https://pypi.org/project/envarpay/0.1.0a9/"
+}
