@@ -7,7 +7,9 @@ runtime and CLI report the same version.
 The npm package name is **`@envarai/envarpay`**, published in the `next` alpha channel.
 The [initial 0.1.0-alpha.2 release](https://github.com/EnvarAI/EnvarPay/actions/runs/36956588838)
 published the reviewed immutable tarball; its registry SHA256 matches the pinned
-first-release artifact. Later versions use the same reviewed release workflow.
+first-release artifact. The [0.1.0-alpha.3 release](https://github.com/EnvarAI/EnvarPay/actions/runs/36967265580)
+used GitHub OIDC Trusted Publishing with the bootstrap step skipped. Its public
+registry tarball matches the exact CI artifact.
 
 ## What to install
 
@@ -125,9 +127,7 @@ packed tarball into a separate consumer and checks its exported types. Publishin
 requires an explicit manual run with a matching `npm-v<version>` tag. No push or
 PR publishes. It uploads and publishes the same artifact, using npm provenance.
 
-The owner must authenticate the initial publication. npm currently permits 2FA
-or a granular access token with bypass 2FA for direct publishing. After the package
-exists, configure its GitHub Trusted Publisher as follows:
+This package has the following GitHub Trusted Publisher connection:
 
 | Field | Value |
 |---|---|
@@ -136,17 +136,26 @@ exists, configure its GitHub Trusted Publisher as follows:
 | Repository | `EnvarPay` |
 | Workflow filename | `publish-npm.yml` |
 | Environment | `npm` |
+| Allowed actions | Staged and direct publication; separate dist-tag management disabled |
 
-The manual workflow defaults to Trusted Publishing. For the first version only,
-set `publish=true` and `bootstrap=true` on `main`, with a short-lived,
-`@envarai`-scoped granular token saved as the GitHub Actions secret
-`NPM_BOOTSTRAP_TOKEN`. Organization management permissions are unnecessary.
-The bootstrap path accepts only `npm-v0.1.0-alpha.2` and verifies the tarball's
-recorded SHA256 before publishing. The token is supplied only to its publish step.
+The GitHub `npm` environment permits only branch `main`. To publish an existing
+matching immutable release tag, run the workflow on `main` with `publish=true`
+and `bootstrap=false`:
 
-After configuring the Trusted Publisher, remove the bootstrap secret and revoke
-the token. Subsequent releases use OIDC with `bootstrap=false`; no long-lived npm
-token is needed in the repository.
+```sh
+gh workflow run publish-npm.yml --repo EnvarAI/EnvarPay --ref main \
+  -f 'tag=npm-v<VERSION>' -f publish=true -f bootstrap=false
+```
+
+The bootstrap path is reserved for the already-published first version
+`npm-v0.1.0-alpha.2`, with its pinned tarball SHA256. It is not the release path
+for subsequent versions. Its temporary token has been revoked and
+`NPM_BOOTSTRAP_TOKEN` removed from GitHub Secrets. The package requires 2FA and
+disallows bypass-2FA tokens; the configured OIDC publisher remains available.
+OIDC releases need no npm token in GitHub Secrets.
+After a successful workflow, verify the version and `next` tag in the public
+registry and compare the tarball with the workflow artifact. npm may take several
+minutes to make an accepted publication available.
 
 For fully native TS payment execution, use the official x402 TS SDKs and first
 prove policy/ledger/nonce/recovery parity with Python. That is a separate implementation
