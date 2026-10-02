@@ -1,0 +1,112 @@
+{
+  "checked_at": "2026-10-02T16:12:29.345738+00:00",
+  "historical_passed": 28,
+  "historical_evidence_sha256": "bd10a896b208d5c8c97263da407eec189b6a1345ef9e59dcb0cbf38017371c63",
+  "historical_evidence_rechecked_in_this_run": true,
+  "new_independently_verified": 2,
+  "coverage_union": 30,
+  "expected_total": 30,
+  "not_a_simultaneous_full_matrix_rerun": true,
+  "completed_additional_cases": [
+    {
+      "case": "hermes-to-langgraph",
+      "request_id": "matrix-gap-20261003-hermes-to-langgraph-v2",
+      "status": "passed",
+      "package": "0.1.0a11",
+      "network": "eip155:84532",
+      "native_wallet_tool": "mcp__envarpay__call_paid_tool",
+      "proofs": [
+        {
+          "transaction": "0x22057313301ff99d42d0c12f141b60be1cf7c0a3731a2c4523d941b2d1945d89",
+          "block_number": 47594480,
+          "block_hash": "0x09ce2cdb5788c407c152c16e860490d199a224ed7d932684460aa6798a61170c",
+          "confirmations_at_audit": 147,
+          "transfer_log_index": 44,
+          "authorization_log_index": 43,
+          "payer": "0x1799BC22317F840F1c394fD5E1622858e35e590c",
+          "recipient": "0xA6fb6Ef40d523F6EfA88d0328324Af86cd9E0bE0",
+          "amount_atomic": 100,
+          "nonce": "0xe071539577af84eee731bb30f2f35651c90a5236610cfdddfeec3595cd1937d5",
+          "rpc": "https://sepolia.base.org"
+        },
+        {
+          "transaction": "0x22057313301ff99d42d0c12f141b60be1cf7c0a3731a2c4523d941b2d1945d89",
+          "block_number": 47594480,
+          "block_hash": "0x09ce2cdb5788c407c152c16e860490d199a224ed7d932684460aa6798a61170c",
+          "confirmations_at_audit": 148,
+          "transfer_log_index": 44,
+          "authorization_log_index": 43,
+          "payer": "0x1799BC22317F840F1c394fD5E1622858e35e590c",
+          "recipient": "0xA6fb6Ef40d523F6EfA88d0328324Af86cd9E0bE0",
+          "amount_atomic": 100,
+          "nonce": "0xe071539577af84eee731bb30f2f35651c90a5236610cfdddfeec3595cd1937d5",
+          "rpc": "https://base-sepolia-rpc.publicnode.com"
+        }
+      ],
+      "expected_marker": "ENVAR_GAP_HERMES_LANGGRAPH_43",
+      "seller_result": "ENVAR_GAP_HERMES_LANGGRAPH_43",
+      "buyer_result": "Returned answer: ENVAR_GAP_HERMES_LANGGRAPH_43\n\nTransaction hash: 0x22057313301ff99d42d0c12f141b60be1cf7c0a3731a2c4523d941b2d1945d89",
+      "seller_proof_verified_at": 1790957256.473363,
+      "seller_started_at": 1790957256.5496068,
+      "seller_delivered_at": 1790957261.0749857,
+      "buyer_delivered_at": 1790957271.864428,
+      "completed_id_replay_no_new_payment_or_execution": true,
+      "wallet_total_atomic": 500,
+      "max_total_atomic": 500,
+      "wallet_private_key_excluded_from_native_runtime": true,
+      "wallet_service_uid": 10001
+    },
+    {
+      "case": "openclaw-to-pydantic-ai",
+      "request_id": "matrix-gap-20261003-openclaw-to-pydantic-ai-v2",
+      "status": "passed",
+      "package": "0.1.0a11",
+      "network": "eip155:84532",
+      "native_wallet_tool": "mcp:envarpay:envarpay__call_paid_tool",
+      "proofs": [
+        {
+          "transaction": "0x73f27270c8355424cfc9ec77a93986ee57ba1cea5c79fa9b7bc6f2c7548ad5ce",
+          "block_number": 47594485,
+          "block_hash": "0xa511cd78b91a3b9efed90822993a7ec77087a208092b3b796f93dda4074cfc4b",
+          "confirmations_at_audit": 144,
+          "transfer_log_index": 26,
+          "authorization_log_index": 25,
+          "payer": "0xbd0c522C61E14413E43F5BaAf6a016b77a0f4dfD",
+          "recipient": "0x52C1e952fC4Da93Fe93e3004c9C405b3Be2d61F5",
+          "amount_atomic": 100,
+          "nonce": "0xfa778d45b66a6fb6c5a2da3b089cff023d163cc1b4e377fb41fdd6fc0f3e81df",
+          "rpc": "https://sepolia.base.org"
+        },
+        {
+          "transaction": "0x73f27270c8355424cfc9ec77a93986ee57ba1cea5c79fa9b7bc6f2c7548ad5ce",
+          "block_number": 47594485,
+          "block_hash": "0xa511cd78b91a3b9efed90822993a7ec77087a208092b3b796f93dda4074cfc4b",
+          "confirmations_at_audit": 146,
+          "transfer_log_index": 26,
+          "authorization_log_index": 25,
+          "payer": "0xbd0c522C61E14413E43F5BaAf6a016b77a0f4dfD",
+          "recipient": "0x52C1e952fC4Da93Fe93e3004c9C405b3Be2d61F5",
+          "amount_atomic": 100,
+          "nonce": "0xfa778d45b66a6fb6c5a2da3b089cff023d163cc1b4e377fb41fdd6fc0f3e81df",
+          "rpc": "https://base-sepolia-rpc.publicnode.com"
+        }
+      ],
+      "expected_marker": "ENVAR_GAP_OPENCLAW_PYDANTIC_AI_43",
+      "seller_result": "ENVAR_GAP_OPENCLAW_PYDANTIC_AI_43",
+      "buyer_result": "Paid call succeeded on Base Sepolia.\n\n- Returned answer: `ENVAR_GAP_OPENCLAW_PYDANTIC_AI_43`\n- Transaction hash: `0x73f27270c8355424cfc9ec77a93986ee57ba1cea5c79fa9b7bc6f2c7548ad5ce`\n- Amount: 100 atomic test-USDC\n- Request ID: `matrix-gap-20261003-openclaw-to-pydantic-ai-v2`\n\nI\u2019m your new assistant\u2014what would you like to call me?",
+      "seller_proof_verified_at": 1790957261.5850945,
+      "seller_started_at": 1790957261.636846,
+      "seller_delivered_at": 1790957265.8612866,
+      "buyer_delivered_at": 1790957282.266381,
+      "completed_id_replay_no_new_payment_or_execution": true,
+      "wallet_total_atomic": 500,
+      "max_total_atomic": 500,
+      "wallet_private_key_excluded_from_native_runtime": true,
+      "wallet_service_uid": 10001
+    }
+  ],
+  "original_unpaid_requests_preserved": true,
+  "nonpayment_reconciliation": "2026-10-02-matrix-nonpayment.json",
+  "historical_chain_receipts_rechecked_in_this_run": true,
+  "historical_chain_recheck": "2026-10-02-matrix-chain-recheck.json"
+}

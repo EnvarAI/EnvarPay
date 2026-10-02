@@ -2,6 +2,6 @@
 
 | Plan | State |
 |---|---|
-| [Distribution and language adapters](distribution-and-adapters.zh-CN.md) | Python 0.1.0a7 published and installed from PyPI; @envarai/envarpay TypeScript client implemented as a candidate, publication pending. OCI distribution and native plugins remain future work. |
+| [Distribution and language adapters](distribution-and-adapters.zh-CN.md) | Python 0.1.0a11 and npm 0.1.0-alpha.3 are published and registry artifacts verified. OCI a11 is published privately; organization Public policy and anonymous-pull acceptance remain pending. Native plugins remain optional future adapters. |
 
 - [Task escrow candidate acceptance](task-escrow.md): separate asynchronous task mode and testnet release gates.

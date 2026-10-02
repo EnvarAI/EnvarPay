@@ -11,6 +11,17 @@ not a wallet key or long-lived registry secret. SBOM/provenance accompany the im
 First publication is private by GitHub default until the package owner enables
 public visibility; an anonymous pull is the public-release acceptance gate.
 
+## Published image status
+
+Checked **2026-10-02 UTC**: `ghcr.io/envarai/envarpay:0.1.0a11` was published by
+[the successful workflow](https://github.com/EnvarAI/EnvarPay/actions/runs/37025598866).
+The multi-platform manifest digest is
+`sha256:4751e6cf1d55f9e949578c14236299cb71b17ed732a9eb86beb6417e635cadbb`.
+The pulled arm64 image reports EnvarPay a11, Web3 7.16.0 and UID 10001 in an
+offline check. **It is not public yet:** GitHub organization policy disables Public
+visibility, and anonymous access has not passed. An authorized account can pull
+this digest; other users can build the source below or install the public PyPI wheel.
+
 ## Run a reviewed image
 
 After verifying the published version/digest, pin the digest in deployment. You

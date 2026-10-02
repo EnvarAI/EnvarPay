@@ -47,7 +47,7 @@ already-approved local wallet peers. The task contract is unaudited and rejects 
 | Host language cannot embed either package | **Separate MCP service** | Run the Python service separately or build its Docker image; connect the agent's native MCP client |
 | Use an agent that exposes only HTTP or a CLI | **A small private adapter** | Wrap one bounded operation as MCP; keep the runtime private behind the payment gate |
 
-**Availability:** Python [0.1.0a10 is published on PyPI](https://pypi.org/project/envarpay/0.1.0a10/).
+**Availability:** Python [0.1.0a11 is published on PyPI](https://pypi.org/project/envarpay/0.1.0a11/).
 The [`@envarai/envarpay` client is published on npm](https://www.npmjs.com/package/@envarai/envarpay)
 in the `next` alpha channel.
 [Exact channels and versions](docs/packages.md). [Container release and usage](docs/container.md).
@@ -61,11 +61,11 @@ every possible agent/version has passed payment acceptance.
 Install [uv](https://docs.astral.sh/uv/getting-started/installation/), then:
 
 ```sh
-uv tool install --python 3.13 envarpay==0.1.0a10
+uv tool install --python 3.13 envarpay==0.1.0a11
 envarpay --version
 ```
 
-For a Python application's own environment, use `python -m pip install envarpay==0.1.0a10`.
+For a Python application's own environment, use `python -m pip install envarpay==0.1.0a11`.
 These are alpha releases. Pin the version you validated before upgrading an existing
 wallet, and preserve its config, keys and ledger: [upgrade guide](docs/migration-envarpay.md).
 

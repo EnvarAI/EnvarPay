@@ -38,6 +38,40 @@ Merge **`mcp.servers.envarpay`** from `host-config.json` into **`~/.openclaw/ope
 Keep all existing model/tool settings and other MCP entries. JSON also works as YAML.
 Do not replace the entire host config with the snippet.
 
+### Use a separate wallet for Docker and isolated signing
+
+For a long-lived Agent, run `envarpay wallet-serve` in its own private service,
+with `[wallet_server]` access authentication and the same persistent buyer policy,
+key and ledger. Publish the wallet through authenticated HTTPS. Put this remote
+MCP entry in the existing Agent profile instead of launching a local stdio signer:
+
+```json
+{
+  "mcp": {
+    "servers": {
+      "envarpay": {
+        "transport": "streamable-http",
+        "url": "https://YOUR_PRIVATE_WALLET/mcp",
+        "headers": {"Authorization": "Bearer YOUR_PRIVATE_WALLET_ACCESS_TOKEN"},
+        "enabled": true,
+        "connectionTimeoutMs": 30000,
+        "requestTimeoutMs": 750000,
+        "toolFilter": {"include": ["list_paid_tools", "call_paid_tool", "payment_status", "recover_payment"]}
+      }
+    }
+  }
+}
+```
+
+The access token is private wallet control, so keep the profile owner-only. The
+Agent does not receive the wallet key or ledger. In a private Docker network,
+use the wallet's service name and explicit HTTP allowance; expose no public
+unauthenticated signer. Mount private files with the wallet UID's ownership
+(UID 10001 in the released image), including the parent directories. Do not make
+secret files world-readable to solve bind-mount permissions. Retain the original
+ledger when changing transport. [Connection guide](../envar.md) ·
+[Container ownership](../container.md) · [a11 native payment evidence](validation.md).
+
 ## 3. Check the connection before enabling payment
 
 ```sh
