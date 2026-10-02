@@ -17,7 +17,7 @@ registry tarball matches the exact CI artifact.
 |---|---|---|
 | Run a wallet/payment gate with any MCP-capable agent | Python CLI, installed persistently with uv/pipx | Published on PyPI as 0.1.0a10 |
 | Embed calls in a Python application | Python `envarpay` API | Implemented; install in a compatible isolated environment |
-| Run the service without installing Python on the agent host | Standalone OCI container | Dockerfile and build checks added; no published GHCR image claimed |
+| Run the service without installing Python on the agent host | Standalone OCI container | Multi-platform build and explicit GHCR publication workflow; see [container release status](container.md) |
 | Use typed API calls from JS/TS | `@envarai/envarpay` wallet MCP client | Published on npm in the `next` alpha channel |
 | Add OpenClaw/OpenCode-specific UI/hooks | Native npm plugin with its own manifest | Optional future adapter; ordinary SDK and MCP config are not native plugins |
 | Connect Goose or another non-Python agent | Native MCP client/extension | Does not require a Rust-language EnvarPay SDK |

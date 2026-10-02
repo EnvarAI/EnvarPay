@@ -10,9 +10,22 @@ on:
       - README.pypi.md
       - src/**
   workflow_dispatch:
+    inputs:
+      tag:
+        description: Immutable oci-v<VERSION> tag to build (required to publish)
+        type: string
+        default: ''
+      publish:
+        description: Publish the validated image to GHCR
+        type: boolean
+        default: false
 
 permissions:
   contents: read
+
+concurrency:
+  group: service-container-${{ github.event_name }}-${{ inputs.tag || github.ref }}
+  cancel-in-progress: false
 
 jobs:
   build:
@@ -24,16 +37,93 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ inputs.tag || github.ref }}
           persist-credentials: false
       - run: docker build -t envarpay:check .
       - run: docker run --rm --network none envarpay:check --version
-      - name: Check non-root setup without signing
+      - name: Check non-root setup and task dependencies without signing
         run: |
           docker run --rm --network none --entrypoint sh envarpay:check -ec '
             test "$(id -u)" = 10001
             envarpay init --role buyer --pay-to 0x3333333333333333333333333333333333333333 --directory /data/check --json
             envarpay doctor --config /data/check/buyer.toml
             test ! -e /data/check/buyer.key
+            python -c "import web3; import envarpay.tasks"
+            envarpay task --help
           '
 
-# Builds only. No registry credentials, image push, model call or blockchain payment.
+  publish:
+    if: github.event_name == 'workflow_dispatch' && inputs.publish && github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag }}
+          persist-credentials: false
+      - name: Verify immutable release tag and package version
+        id: release
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          python - <<'PYTHON'
+          import os, re, subprocess, tomllib
+          from pathlib import Path
+          tag = os.environ["RELEASE_TAG"]
+          if not re.fullmatch(r"oci-v[0-9]+\.[0-9]+\.[0-9]+(?:a[0-9]+)?", tag):
+              raise SystemExit("Use an immutable oci-v<VERSION> release tag")
+          version = tomllib.loads(Path("pyproject.toml").read_text())["project"]["version"]
+          if tag != f"oci-v{version}":
+              raise SystemExit("Release tag differs from package version")
+          head = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
+          tagged = subprocess.check_output(["git", "rev-parse", f"refs/tags/{tag}^{{commit}}"], text=True).strip()
+          if head != tagged:
+              raise SystemExit("Checkout differs from tagged source")
+          with open(os.environ["GITHUB_OUTPUT"], "a") as out:
+              out.write(f"version={version}\nrevision={head}\n")
+          PYTHON
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Refuse an existing image version (fail closed on registry errors)
+        env:
+          REGISTRY_USER: ${{ github.actor }}
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          python - <<'PYTHON'
+          import base64, json, os, urllib.error, urllib.request
+          auth = base64.b64encode(f"{os.environ['REGISTRY_USER']}:{os.environ['REGISTRY_TOKEN']}".encode()).decode()
+          req = urllib.request.Request("https://ghcr.io/token?service=ghcr.io&scope=repository:envarai/envarpay:pull", headers={"Authorization": "Basic " + auth})
+          with urllib.request.urlopen(req, timeout=30) as response:
+              token = json.load(response)["token"]
+          url = "https://ghcr.io/v2/envarai/envarpay/manifests/" + os.environ["RELEASE_VERSION"]
+          req = urllib.request.Request(url, headers={"Authorization": "Bearer " + token, "Accept": "application/vnd.oci.image.index.v1+json, application/vnd.docker.distribution.manifest.list.v2+json"})
+          try:
+              with urllib.request.urlopen(req, timeout=30):
+                  raise SystemExit("Image version already exists; never overwrite a released image")
+          except urllib.error.HTTPError as error:
+              if error.code != 404:
+                  raise SystemExit(f"Registry check failed with HTTP {error.code}; publication refused")
+          PYTHON
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: ghcr.io/envarai/envarpay:${{ steps.release.outputs.version }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/EnvarAI/EnvarPay
+            org.opencontainers.image.version=${{ steps.release.outputs.version }}
+            org.opencontainers.image.revision=${{ steps.release.outputs.revision }}
+            org.opencontainers.image.licenses=MIT
+          sbom: true
+          provenance: mode=max
+# No push/PR publishes. No wallet/model/provider credentials are used by this workflow.
