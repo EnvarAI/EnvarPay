@@ -1,6 +1,9 @@
+import { createRequire } from 'node:module';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import type { CallToolResult, Tool } from '@modelcontextprotocol/sdk/types.js';
+
+const packageIdentity = createRequire(import.meta.url)('../package.json') as { name: string; version: string };
 
 export type Json = null | boolean | number | string | Json[] | { [key: string]: Json };
 export interface PaidTools { peer: string; tools: Tool[] }
@@ -82,7 +85,7 @@ export class WalletClient {
     if (!options.token || /[\r\n]/.test(options.token)) throw new TypeError('A wallet bearer token is required');
     const timeoutMs = options.timeoutMs ?? 300_000;
     if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) throw new TypeError('timeoutMs must be positive');
-    const client = new Client({ name: '@envarai/envarpay', version: '0.1.0-alpha.2' });
+    const client = new Client({ name: packageIdentity.name, version: packageIdentity.version });
     const transport = new StreamableHTTPClientTransport(url, {
       requestInit: { headers: { Authorization: `Bearer ${options.token}` }, redirect: 'error' },
     });
