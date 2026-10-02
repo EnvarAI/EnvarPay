@@ -1,0 +1,80 @@
+{
+  "schema_version": 1,
+  "status": "review-package-prepared-no-external-security-audit",
+  "source_repository": "https://github.com/EnvarAI/EnvarPay",
+  "source_commit": "a12dac13608f4350d9b9c6738cd75af969e26a6e",
+  "package_version": "0.1.0a11",
+  "mainnet_enabled": false,
+  "compiler": "0.8.30+commit.73712a01.Emscripten.clang",
+  "optimizer": {
+    "enabled": true,
+    "runs": 200
+  },
+  "evm_version": "shanghai",
+  "evidence_network": {
+    "chain_id": 84532,
+    "scope": "testnet only"
+  },
+  "files": [
+    {
+      "path": "contracts/task/TaskEscrow.sol",
+      "sha256": "51932f27843f134b410316f3c4e6e53d7e449e98a30517d82acc1792993c4192"
+    },
+    {
+      "path": "contracts/task/compile.cjs",
+      "sha256": "197824c2aa8420bc1784cfd807036d92e9686654eddef973233cb10ffc05e913"
+    },
+    {
+      "path": "contracts/task/package.json",
+      "sha256": "fc3567db93b034e041735f21a8d2f4febd9cf4b35df01a4eb2917b5ede131399"
+    },
+    {
+      "path": "contracts/task/package-lock.json",
+      "sha256": "506e60e1adee0d184eec8e3596e926bff905af5126a1b7d94f426be791bbf3d9"
+    },
+    {
+      "path": "src/envarpay/tasks/escrow.json",
+      "sha256": "de22436edecfb7d842f31ead52a2877174da06f9bd1bb1d14871febd5eebd3e3"
+    },
+    {
+      "path": "src/envarpay/tasks/config.py",
+      "sha256": "2c7dc60c72331d560ef797f88fe099fd870e36d70fe39904b1fd8754209fca1d"
+    },
+    {
+      "path": "src/envarpay/tasks/chain.py",
+      "sha256": "4573d0a5dccead9564c747a4119ec1eb045900f3d63e106b3c902f43b4be77a5"
+    },
+    {
+      "path": "src/envarpay/tasks/client.py",
+      "sha256": "99d0cc02305fe2bacb82b29cf3cff904712eeadce849ede8ac24fe3d2cd891db"
+    },
+    {
+      "path": "src/envarpay/tasks/store.py",
+      "sha256": "0b2d145e800e022d5e3aa4d9cf86ea3d47ffa6ddab19c861a75d74729f137f5c"
+    },
+    {
+      "path": "src/envarpay/tasks/server.py",
+      "sha256": "7d79e7d9b9802285f5eabbba4c08860b3f1c300d9a076ee391f400fece0656af"
+    },
+    {
+      "path": "src/envarpay/tasks/models.py",
+      "sha256": "076f9991c949ce61dfd3c5fab6c15f288545570bd639edddab188463d86d6513"
+    },
+    {
+      "path": "tests/tasks/test_local_evm.py",
+      "sha256": "ec3c764c8d0b33c1e1b9ef42f0b61ff96137e12ba644f4aac18789e88a6ecdea"
+    },
+    {
+      "path": "tests/tasks/test_task_policy.py",
+      "sha256": "ce29835bd2dce20ad12b484abb057a6650349db4df17e7ea1ace9420eba08553"
+    },
+    {
+      "path": "tests/tasks/test_deployment_wait.py",
+      "sha256": "63e23b3f4b3e3dc73c808312049da67f683394d7ecf14b6832db7b0cad1a9799"
+    },
+    {
+      "path": ".github/workflows/task-escrow.yml",
+      "sha256": "ef4a51a49708991ed992bbb2ab738a4c1668a83fa49d070141823507bc99de90"
+    }
+  ]
+}

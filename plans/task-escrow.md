@@ -18,3 +18,6 @@ Keep mainnet rejected and signing/evaluator authority off by default. The immuta
 prototype is version-pinned, not a declaration of ERC-8183 conformance or an audited
 escrow product. Choosing a standards-compatible audited deployment is a separate
 release gate before production funds, not something unit tests can establish.
+
+The [independent security review handoff](task-escrow-security-review.md) pins the
+candidate inputs and defines the separate mainnet release gates.
