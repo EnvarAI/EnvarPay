@@ -29,22 +29,26 @@ Agent 保留自己的框架、模型、工具和记忆。使用标准 MCP 与 x4
 | 宿主不适合嵌入任一种包 | 独立 MCP 服务 | 在单独进程、机器或自建容器中运行服务，Agent 使用自己的 MCP 客户端连接 |
 | Agent 只有 HTTP API 或 CLI | 私有薄适配器 | 把一个明确的能力包装成 MCP，再放到收费入口后面 |
 
-Python [0.1.0a8 已上架 PyPI](https://pypi.org/project/envarpay/)。npm 客户端已实现，首次发布待完成。
-[分发渠道与版本](docs/packages.md)。目前不宣称有可直接拉取的公开容器镜像。
+Python [0.1.0a11 已上架 PyPI](https://pypi.org/project/envarpay/0.1.0a11/)，
+npm [@envarai/envarpay](https://www.npmjs.com/package/@envarai/envarpay) 已发布到 `next` alpha 渠道。
+[分发渠道与版本](docs/packages.md)。OCI a11 镜像已发布但仍为私有；组织策略与匿名拉取验收完成前，
+使用公开 Python 包或[从源码构建容器](docs/container.md)。
 
 “任意 Agent”需要它能调用 MCP，或者有可被包装的 API/CLI；只有界面的应用需要另做接入。
 协议可以兼容，不等于所有 Agent 的所有版本都做过实际付款验收。
+当前六个框架的 30 个有向收付款组合都有测试网付款与交付证据：原 28 笔加 a11 的 2 笔补测；
+这不是一次重新执行全部 30 个任务。见[真实验收范围](docs/integrations/validation.md)。
 
 ## 安装 Python 包
 
 安装 [uv](https://docs.astral.sh/uv/getting-started/installation/)，然后：
 
 ```sh
-uv tool install --python 3.13 --prerelease allow envarpay
+uv tool install --python 3.13 envarpay==0.1.0a11
 envarpay --version
 ```
 
-Python 应用自己的环境执行 `python -m pip install --pre envarpay`。
+Python 应用自己的环境执行 `python -m pip install envarpay==0.1.0a11`。
 当前是 alpha 版本。已有钱包升级时固定已验证版本，保留配置、密钥和账本，
 不要重新初始化：[升级说明](docs/migration-envarpay.md)。
 
