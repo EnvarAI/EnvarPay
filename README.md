@@ -50,7 +50,7 @@ already-approved local wallet peers. The task contract is unaudited and rejects 
 **Availability:** Python [0.1.0a10 is published on PyPI](https://pypi.org/project/envarpay/0.1.0a10/).
 The [`@envarai/envarpay` client is published on npm](https://www.npmjs.com/package/@envarai/envarpay)
 in the `next` alpha channel.
-[Exact channels and versions](docs/packages.md). No public container image is advertised yet.
+[Exact channels and versions](docs/packages.md). [Container release and usage](docs/container.md).
 
 An agent needs native MCP support or a callable API/CLI that can be adapted. A UI-only
 application needs its own integration. Protocol compatibility is not a claim that
@@ -70,7 +70,7 @@ These are alpha releases. Pin the version you validated before upgrading an exis
 wallet, and preserve its config, keys and ledger: [upgrade guide](docs/migration-envarpay.md).
 
 For the private Live interface with voice, avatars, images and protected files,
-install [EnvarLive](https://pypi.org/project/envarlive/0.1.0a4/) separately. It connects
+install [EnvarLive](https://pypi.org/project/envarlive/0.1.0a9/) separately. It connects
 the existing Agent runtime; wallet signing remains in EnvarPay's separate service.
 
 ## Start receiving payment

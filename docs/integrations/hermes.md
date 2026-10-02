@@ -150,3 +150,5 @@ The embedded `hermes` backend was removed. Existing `kind = "hermes"` configs ar
 [All agents](index.md) · [Configuration reference](../configuration.md) · [Payment evidence](validation.md)
 
 Optional: [original-operation recovery, directory discovery and remote wallet isolation](../directory-and-recovery.md). Recovery can resume an already-paid task that never started; it does not create a fresh signature.
+
+For the complete same-Agent path with Docker, registration, both payment modes, LiveAvatar and discovery, use the [Envar Docker Hermes walkthrough](https://github.com/EnvarAI/EnvarAI/blob/main/docs/docker-hermes.md).
