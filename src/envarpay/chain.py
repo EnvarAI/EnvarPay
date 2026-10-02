@@ -71,6 +71,50 @@ class Chain:
             "verified_at": time.time(),
         }
 
+    async def prove_unused_expired(self, authorization: dict) -> dict:
+        """Read a finalized USDC authorization; never sign, submit or cancel it."""
+        await self.check_network()
+        payer = address(authorization["from"])
+        nonce = authorization["nonce"]
+        if not isinstance(nonce, str) or len(nonce) != 66 or not nonce.startswith("0x"):
+            raise PaymentError("Invalid original authorization nonce")
+        try:
+            bytes.fromhex(nonce[2:])
+            expiry = int(authorization["validBefore"])
+        except (ValueError, TypeError) as error:
+            raise PaymentError("Invalid original authorization") from error
+        if not 0 < expiry < 2**256:
+            raise PaymentError("Invalid original authorization expiry")
+        block = await self.rpc("eth_getBlockByNumber", ["finalized", False])
+        if not block or int(block["timestamp"], 16) <= expiry:
+            raise PaymentError("Finalized chain has not passed authorization expiry")
+        data = (
+            "0x"
+            + keccak(text="authorizationState(address,bytes32)")[:4].hex()
+            + payer[2:].lower().zfill(64)
+            + nonce[2:]
+        )
+        state = await self.rpc(
+            "eth_call", [{"to": self.config.asset, "data": data}, block["number"]]
+        )
+        if state != "0x" + "0" * 64:
+            raise PaymentError("Authorization is used, cancelled or unproven; retain reservation")
+        current = await self.rpc("eth_getBlockByNumber", [block["number"], False])
+        if not current or current["hash"].lower() != block["hash"].lower():
+            raise PaymentError("Finalized block changed; retain reservation")
+        return {
+            "network": self.config.network,
+            "asset": self.config.asset,
+            "payer": payer,
+            "nonce": nonce,
+            "valid_before": expiry,
+            "block_number": int(block["number"], 16),
+            "block_hash": block["hash"],
+            "block_timestamp": int(block["timestamp"], 16),
+            "used_or_cancelled": False,
+            "verified_at": time.time(),
+        }
+
     async def find_authorization(self, authorization: dict, from_block: int) -> str | None:
         await self.check_network()
         latest = int(await self.rpc("eth_blockNumber", []), 16)

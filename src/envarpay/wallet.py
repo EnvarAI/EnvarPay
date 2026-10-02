@@ -280,6 +280,13 @@ class WalletService:
         data = row["data"]
         if row["status"] == "completed":
             return data["result"]
+        if row["status"] == "refused" and data.get("nonpayment_proof"):
+            return {
+                "request_id": request_id,
+                "status": "refused",
+                "payment_made": False,
+                "recovery": "Original authorization expired unused; no task or payment replayed",
+            }
         if not data.get("payload"):
             return {
                 "request_id": request_id,

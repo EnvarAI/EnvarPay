@@ -46,3 +46,31 @@ acceptance, read canonical blocks and official-token Transfer plus the matching
 authorization/job event from an independent RPC. Confirm signing/evaluator switches
 are off at acceptance closure. Local EVM and mocked transport tests are separate
 evidence from a public-chain payment and real native Agent delivery.
+
+## Expired authorization without a transaction hash
+
+Version 0.1.0a11 adds an explicit operator-only reconciliation command. For an
+unknown original buyer attempt, first retain the private ledger and inspect its
+status. Do not create another ID to bypass an unresolved reservation.
+
+```sh
+envarpay reconcile --config ./buyer/buyer.toml \
+  --operation-id buy:ORIGINAL_REQUEST_ID --release-unpaid \
+  --independent-rpc https://YOUR_INDEPENDENT_RPC_HOST
+```
+
+Both the configured RPC and a different independently operated RPC must report
+that the original official-USDC nonce is unused at a finalized block whose timestamp
+is strictly later than the authorization expiry. The network, asset, payee and amount
+must match the saved original terms. A used/cancelled nonce, older block, unavailable
+RPC, missing terms, confirmed payment or concurrent journal change refuses release.
+Changing a URL on the same RPC host does not qualify as an independent check.
+
+Success marks the original attempt refused and removes only that unpaid reservation
+from the cumulative budget. The original signature/payload, reserved amount and both
+chain proofs remain in the private journal. Original-ID recovery is terminal; it
+contacts no seller and signs nothing. A later separately approved purchase uses a
+new ID. This command is absent from model-facing MCP tools; an agent cannot release
+its own budget or change wallet policy. Confirmed payments are never refunded by this
+operation. Normal `reconcile` continues to verify a recorded transaction without
+altering its reservation.
