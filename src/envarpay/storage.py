@@ -119,6 +119,33 @@ class Store:
             )
             return True
 
+    def release_unpaid(self, key: str, expected: dict, proof: dict) -> None:
+        """CAS the audited operation while retaining its original payload and amount."""
+        with self.connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            row = db.execute("SELECT * FROM operations WHERE id=?", (key,)).fetchone()
+            if not row:
+                raise PaymentError("Missing original operation")
+            data = json.loads(row["data"])
+            if (
+                row["status"] != "unknown"
+                or row["status"] != expected["status"]
+                or row["binding"] != expected["binding"]
+                or row["amount"] != expected["amount"]
+                or data != expected["data"]
+            ):
+                raise PaymentError("Operation changed during audit; retain reservation and recheck")
+            data.update(
+                original_reserved_atomic=row["amount"],
+                nonpayment_proof=proof,
+                payment_state="not_paid",
+                execution_state="not_started",
+            )
+            db.execute(
+                "UPDATE operations SET status='refused',amount=0,data=?,updated=? WHERE id=?",
+                (json.dumps(data), time.time(), key),
+            )
+
     def queue_event(self, key: str, kind: str, payload: dict) -> None:
         with self.connect() as db:
             db.execute("BEGIN IMMEDIATE")

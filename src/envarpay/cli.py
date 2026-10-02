@@ -135,6 +135,13 @@ def parser() -> argparse.ArgumentParser:
             item.add_argument("--watch", action="store_true")
         if command in ("status", "reconcile"):
             item.add_argument("--operation-id", required=command == "reconcile")
+        if command == "reconcile":
+            item.add_argument(
+                "--release-unpaid",
+                action="store_true",
+                help="Release only an expired, unused authorization after two finalized RPC proofs",
+            )
+            item.add_argument("--independent-rpc", help="Different independently operated RPC host")
         if command == "host-config":
             item.add_argument(
                 "--host", choices=["hermes", "openclaw", "opencode", "goose"], required=True
@@ -192,6 +199,14 @@ async def read_or_call(args: argparse.Namespace) -> dict | list:
         store = Store(config.state_dir)
         if args.command == "status":
             return store.public_status(args.operation_id)
+        if args.release_unpaid:
+            if not args.independent_rpc:
+                raise PaymentError("--release-unpaid requires --independent-rpc")
+            from .reconciliation import release_unpaid
+
+            return await release_unpaid(config, args.operation_id, args.independent_rpc)
+        if args.independent_rpc:
+            raise PaymentError("--independent-rpc requires --release-unpaid")
         row = store.get(args.operation_id)
         if not row or not row["data"].get("transaction") or not row["data"].get("payload"):
             raise PaymentError(
