@@ -21,7 +21,7 @@ registry tarball matches the exact CI artifact.
 | Use typed API calls from JS/TS | `@envarai/envarpay` wallet MCP client | Published on npm in the `next` alpha channel |
 | Add OpenClaw/OpenCode-specific UI/hooks | Native npm plugin with its own manifest | Optional future adapter; ordinary SDK and MCP config are not native plugins |
 | Connect Goose or another non-Python agent | Native MCP client/extension | Does not require a Rust-language EnvarPay SDK |
-| Open your Agent's private text/voice/avatar/image/file interface | Python `envarlive` service | Published separately on PyPI; requires Node 24 and an existing reviewed Agent runtime |
+| Open your Agent's private text/voice/avatar/image/file interface | Python `envarlive` service | Published separately on PyPI; requires Node >=24 with working node:sqlite and an existing reviewed Agent runtime |
 
 The host language determines an **in-process library's** language, not the
 language of a separate MCP service. MCP standardizes stdio and Streamable HTTP
