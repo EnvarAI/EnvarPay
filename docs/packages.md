@@ -4,8 +4,10 @@
 is published through the [verified release](https://github.com/EnvarAI/EnvarPay/actions/runs/36932006901).
 Its clean registry installation and artifact hashes have been verified; wheel metadata,
 runtime and CLI report the same version.
-The npm package name is **`@envarai/envarpay`**. Its TypeScript client is implemented
-as candidate `0.1.0-alpha.2`; npm publication is pending.
+The npm package name is **`@envarai/envarpay`**, published in the `next` alpha channel.
+The [initial 0.1.0-alpha.2 release](https://github.com/EnvarAI/EnvarPay/actions/runs/36956588838)
+published the reviewed immutable tarball; its registry SHA256 matches the pinned
+first-release artifact. Later versions use the same reviewed release workflow.
 
 ## What to install
 
@@ -14,9 +16,10 @@ as candidate `0.1.0-alpha.2`; npm publication is pending.
 | Run a wallet/payment gate with any MCP-capable agent | Python CLI, installed persistently with uv/pipx | Published on PyPI as 0.1.0a10 |
 | Embed calls in a Python application | Python `envarpay` API | Implemented; install in a compatible isolated environment |
 | Run the service without installing Python on the agent host | Standalone OCI container | Dockerfile and build checks added; no published GHCR image claimed |
-| Use typed API calls from JS/TS | `@envarai/envarpay` wallet MCP client | Implemented; npm publication pending |
+| Use typed API calls from JS/TS | `@envarai/envarpay` wallet MCP client | Published on npm in the `next` alpha channel |
 | Add OpenClaw/OpenCode-specific UI/hooks | Native npm plugin with its own manifest | Optional future adapter; ordinary SDK and MCP config are not native plugins |
 | Connect Goose or another non-Python agent | Native MCP client/extension | Does not require a Rust-language EnvarPay SDK |
+| Open your Agent's private text/voice/avatar/image/file interface | Python `envarlive` service | Published separately on PyPI; requires Node 24 and an existing reviewed Agent runtime |
 
 The host language determines an **in-process library's** language, not the
 language of a separate MCP service. MCP standardizes stdio and Streamable HTTP

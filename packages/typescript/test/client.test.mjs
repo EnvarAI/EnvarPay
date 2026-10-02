@@ -10,6 +10,28 @@ import { WalletClient, WalletToolError, OperationUnknownError } from '../dist/in
 const token = 'test-wallet-token-00000000000000000000';
 let processHandle, directory, url;
 
+test('MCP initialization reports the installed package identity and version', async () => {
+  const metadata = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
+  const originalFetch = globalThis.fetch;
+  let identity;
+  globalThis.fetch = async (input, init) => {
+    const request = new Request(input, init);
+    if (request.method === 'POST') {
+      const message = await request.clone().json();
+      if (message.method === 'initialize') identity = message.params.clientInfo;
+    }
+    return originalFetch(request);
+  };
+  let wallet;
+  try {
+    wallet = await WalletClient.connect({ url, token });
+    assert.deepEqual(identity, { name: metadata.name, version: metadata.version });
+  } finally {
+    if (wallet) await wallet.close();
+    globalThis.fetch = originalFetch;
+  }
+});
+
 before(async () => {
   directory = await mkdtemp(join(tmpdir(), 'envarpay-ts-'));
   processHandle = spawn(process.env.ENVARPAY_TEST_PYTHON || 'python3',
