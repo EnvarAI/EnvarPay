@@ -122,8 +122,9 @@ flow; it is not the upfront `call_paid_tool` path. [Task guide](https://github.c
 
 ## Evidence and operating limits
 
-The six-framework [testnet matrix](https://github.com/EnvarAI/EnvarPay/blob/main/docs/integrations/validation.md) records 28 paid
-deliveries in 30 attempts, including two failed settlements. Tests of installation,
+The six-framework [testnet matrix](https://github.com/EnvarAI/EnvarPay/blob/main/docs/integrations/validation.md) now has paid-delivery evidence
+for all 30 directions: the original 28 plus two a11 completions. The two original
+failures and their recovery records remain; this was not a new run of all 30 pairs. Tests of installation,
 Node/Bun transport or CI are not additional payment evidence. Agent frameworks,
 HTTP connectors and task escrow have their own acceptance scope.
 

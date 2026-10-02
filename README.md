@@ -70,7 +70,7 @@ These are alpha releases. Pin the version you validated before upgrading an exis
 wallet, and preserve its config, keys and ledger: [upgrade guide](docs/migration-envarpay.md).
 
 For the private Live interface with voice, avatars, images and protected files,
-install [EnvarLive](https://pypi.org/project/envarlive/0.1.0a9/) separately. It connects
+install [EnvarLive](https://pypi.org/project/envarlive/0.1.0a10/) separately. It connects
 the existing Agent runtime; wallet signing remains in EnvarPay's separate service.
 
 ## Start receiving payment
@@ -156,8 +156,9 @@ flow; it is not the upfront `call_paid_tool` path. [Task guide](docs/tasks/READM
 
 ## Evidence and operating limits
 
-The six-framework [testnet matrix](docs/integrations/validation.md) records 28 paid
-deliveries in 30 attempts, including two failed settlements. Tests of installation,
+The six-framework [testnet matrix](docs/integrations/validation.md) now has paid-delivery evidence
+for all 30 directions: the original 28 plus two a11 completions. The two original
+failures and their recovery records remain; this was not a new run of all 30 pairs. Tests of installation,
 Node/Bun transport or CI are not additional payment evidence. Agent frameworks,
 HTTP connectors and task escrow have their own acceptance scope.
 

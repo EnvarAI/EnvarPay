@@ -97,7 +97,7 @@ Agent 得到 `list_paid_tools`、`call_paid_tool`、`payment_status`、`recover_
 
 ## JS/TS、Bun 和其他语言
 
-npm 发布后安装 `@envarai/envarpay@next`，通过 `WalletClient.connect` 连接自己的认证钱包服务。
+安装已发布的 `@envarai/envarpay@0.1.0-alpha.3`，通过 `WalletClient.connect` 连接自己的认证钱包服务。
 [完整 npm README](packages/typescript/README.md) 包含服务启动、Envar 发现、付款、查状态和恢复。
 npm 包是钱包客户端；密钥、资金、预算仍在 Python 钱包服务中。
 
@@ -118,8 +118,9 @@ Rust、Go 等 Agent 直接用原生 MCP 客户端连接这个独立服务；不�
 
 ## 验收范围
 
-六类框架的[测试网矩阵](docs/integrations/validation.md)记录 30 次尝试、28 次真实付款交付成功、
-2 次结算失败。安装、Node/Bun 传输测试和 CI 不增加真实付款次数；HTTP 连接器和任务托管各有验收范围。
+六类框架的[测试网矩阵](docs/integrations/validation.md)现有 30 个方向的真实付款交付证据：
+原 28 笔加 a11 的 2 笔补测。原 2 次失败和恢复记录保留；这不是一次重新执行全部 30 个任务。
+安装、Node/Bun 传输测试和 CI 不增加真实付款次数；HTTP 连接器和任务托管各有验收范围。
 
 钱包密钥、策略和账本放在钱包自己的权限边界内；和可任意执行 shell 的 Agent 共用系统用户，
 不构成密钥隔离。预付后执行仍可能失败，普通调用不会自动退款；保留原始请求和状态：
