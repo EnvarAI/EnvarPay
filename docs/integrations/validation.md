@@ -1,10 +1,23 @@
 # Cross-framework payment validation
 
-**2026-09-29: 28/30 real paid deliveries passed; two settlements failed.**
+**2026-10-02 UTC: all 30 directed pairs have recorded paid delivery evidence.**
 
-All six frameworks acted as buyer and seller in local Docker, using official development-branch commits frozen at the start of this run. This is not a 30/30 pass or a production-release approval.
+The original 2026-09-29 run passed 28 pairs. EnvarPay a11 completed the two missing
+pairs through native Hermes/OpenClaw loops and separate authenticated HTTP wallets,
+after two independently operated finalized RPCs proved the old authorizations had
+expired unused. The original records/signatures were retained; their 100-atomic
+reservations were released by the explicit operator command. Both wallets then
+completed a new 100-atomic purchase within their original cumulative limit of 500.
+The 28 historical chain receipts were also rechecked on both RPCs. This is coverage
+across the two acceptance runs, not one fresh 30-pair run, nor approval for arbitrary
+Agent versions or mainnet task escrow.
 
-[Public audit JSON](../evidence/2026-09-29-matrix.json) · [Source commits](../../examples/cross-framework/sources.json) · [Docker recipes and native adapters](../../examples/cross-framework/README.md)
+[Closure audit](../evidence/2026-10-02-matrix-closure.json) ·
+[Finalized nonpayment proofs](../evidence/2026-10-02-matrix-nonpayment.json) ·
+[28 historical receipt rechecks](../evidence/2026-10-02-matrix-chain-recheck.json) ·
+[Original 28/30 snapshot](../evidence/2026-09-29-matrix.json) ·
+[Source commits](../../examples/cross-framework/sources.json) ·
+[Docker recipes and native adapters](../../examples/cross-framework/README.md)
 
 ## Directed payment matrix
 
@@ -12,8 +25,8 @@ Rows are buyers; columns are sellers. Each **paid** link is a distinct Base Sepo
 
 | Buyer → Seller | OpenClaw | Hermes | OpenCode | Goose | LangGraph | Pydantic AI |
 |---|---|---|---|---|---|---|
-| OpenClaw | — | [paid](https://sepolia.basescan.org/tx/0x7e091cd32470332ed61bbaf1fd953c282a6538bd4cf5711fb5f70b6834f8fb3f) | [paid](https://sepolia.basescan.org/tx/0x63c976e96ec1a91353e76c22bc862597264234d3f9394f7b386be70f2095eeed) | [paid](https://sepolia.basescan.org/tx/0xd79dd18efb0dcaa54c6df722a5e8998b0d5fe34f17ededc63b89f6f8684a5122) | [paid](https://sepolia.basescan.org/tx/0x6768f79b9ebe465acf20600bc61c63e0768680432aebb5307b64675e6e8c2f87) | **failed** |
-| Hermes | [paid](https://sepolia.basescan.org/tx/0x3dc94b9f71a4c2367d903f628c2e37f7605b9966bed466aadabc2eefb8af2241) | — | [paid](https://sepolia.basescan.org/tx/0x4228e908361ae558ba0f526699cf9b4c9cf8007f72afb21c3caa67c93bd9903e) | [paid](https://sepolia.basescan.org/tx/0x070898d037fc04a070633d5ad71bfee366d5c82ba278cd6f4c0416781b6cb940) | **failed** | [paid](https://sepolia.basescan.org/tx/0x06ae061df58e647560b8cf312a696dba5ecb59a6d48ef3625a27dd9962e1a01f) |
+| OpenClaw | — | [paid](https://sepolia.basescan.org/tx/0x7e091cd32470332ed61bbaf1fd953c282a6538bd4cf5711fb5f70b6834f8fb3f) | [paid](https://sepolia.basescan.org/tx/0x63c976e96ec1a91353e76c22bc862597264234d3f9394f7b386be70f2095eeed) | [paid](https://sepolia.basescan.org/tx/0xd79dd18efb0dcaa54c6df722a5e8998b0d5fe34f17ededc63b89f6f8684a5122) | [paid](https://sepolia.basescan.org/tx/0x6768f79b9ebe465acf20600bc61c63e0768680432aebb5307b64675e6e8c2f87) | [paid, a11](https://sepolia.basescan.org/tx/0x73f27270c8355424cfc9ec77a93986ee57ba1cea5c79fa9b7bc6f2c7548ad5ce) |
+| Hermes | [paid](https://sepolia.basescan.org/tx/0x3dc94b9f71a4c2367d903f628c2e37f7605b9966bed466aadabc2eefb8af2241) | — | [paid](https://sepolia.basescan.org/tx/0x4228e908361ae558ba0f526699cf9b4c9cf8007f72afb21c3caa67c93bd9903e) | [paid](https://sepolia.basescan.org/tx/0x070898d037fc04a070633d5ad71bfee366d5c82ba278cd6f4c0416781b6cb940) | [paid, a11](https://sepolia.basescan.org/tx/0x22057313301ff99d42d0c12f141b60be1cf7c0a3731a2c4523d941b2d1945d89) | [paid](https://sepolia.basescan.org/tx/0x06ae061df58e647560b8cf312a696dba5ecb59a6d48ef3625a27dd9962e1a01f) |
 | OpenCode | [paid](https://sepolia.basescan.org/tx/0x0f86e4423f1311a82c7f386c6cf176b8d6908d914e915f98fdc0a2310ab9740e) | [paid](https://sepolia.basescan.org/tx/0xbf95f5c391f29c7936c2433f841570952d754062a53bf455852e12d8946956f9) | — | [paid](https://sepolia.basescan.org/tx/0x2ca31cda1990177b1be783501172ba465280e839c72a40018b12ea27dcc0e5ae) | [paid](https://sepolia.basescan.org/tx/0x873847a9ddcd2c0d03a68d060e6e0ca48c16625b43186038690b6938da06f8ef) | [paid](https://sepolia.basescan.org/tx/0x0f6007923f7df5d8587d314b427b8d832df0af93ec9023c3fadc0911334ca9d4) |
 | Goose | [paid](https://sepolia.basescan.org/tx/0x56d7249ba7ca7ed56faf4a6b5bb988d271188ce0306f9b50f511bec789e24407) | [paid](https://sepolia.basescan.org/tx/0x523883c4f5fc6c76c72d2c38f116ecbd49724812a0ed2d7efaee43caa238ffa6) | [paid](https://sepolia.basescan.org/tx/0x0d32a1a25b8b6db585ec27216579c05c256e89dae6e66cc00e30f75e99005913) | — | [paid](https://sepolia.basescan.org/tx/0xcb1d916395da8e1d68e6af9399f4548296641ea8eced68c28d3a2e5335928684) | [paid](https://sepolia.basescan.org/tx/0xc9f4b0b94d649bbcd3b489c3cc2ba196105d94835238c530ab1ce9c582341aab) |
 | LangGraph | [paid](https://sepolia.basescan.org/tx/0x27c0c95efd164fd6afa4fb9983b5e17c51a057d1d82ce53fc0c79f52b76ff3b4) | [paid](https://sepolia.basescan.org/tx/0x2408ca30953f7be3b2e5934d280e0996ba0d5ae129c54a37253baa8b16e97ed2) | [paid](https://sepolia.basescan.org/tx/0x0f44d808f89aefdcba78b4d11fdff95faceb95eed38dc2fe45095fe9c11fd25a) | [paid](https://sepolia.basescan.org/tx/0xf8e20606b37fb183473360ee6cd1261eaa07578f66d5a2f0cd808dc7163b31e0) | — | [paid](https://sepolia.basescan.org/tx/0xe28539aec28eef0ad80ea6147ad9ca8880ee8e858f96dc3f47aba139e467a0d8) |
@@ -29,20 +42,34 @@ Each payment is **100 atomic = 0.0001 test USDC**, network `eip155:84532`, offic
 4. The native seller started once, after the payment gate verified the receipt. Its actual result reached the native buyer.
 5. Replaying the completed request ID returned the saved result without a second payment or seller execution. Each raw seller remains on its private Docker network, with no host port.
 
-The task was `17 × 19` with a unique result marker. JSON preserves the **actual seller and buyer text**, which can include extra prose, separately from `expected_marker`. This proves bounded paid execution, not the quality of arbitrary agent work. Each seller also returned standard PaymentRequired before payment without starting the task.
+The original tasks used `17 × 19`; the two a11 tasks used `16 + 27`, each with a unique result marker. JSON preserves the **actual seller and buyer text**, which can include extra prose, separately from `expected_marker`. This proves bounded paid execution, not the quality of arbitrary agent work. Each seller also returned standard PaymentRequired before payment without starting the task.
 
-## Two failed settlements
+## Original failed attempts and safe completion
 
-| Direction | Facilitator response | Seller executions | State |
-|---|---|---|---|
-| Hermes → LangGraph | `invalid_exact_evm_transaction_failed`, empty transaction hash | 0 | Original authorization and 100-atomic reservation retained |
-| OpenClaw → Pydantic AI | Same error and empty hash | 0 | Original authorization and 100-atomic reservation retained |
+Both original settlements reported `invalid_exact_evm_transaction_failed` with no
+transaction hash; neither started the seller. That error alone does not identify
+the facilitator's root cause. The original snapshot correctly retained `unknown`
+operations and their reserved budgets.
 
-The public facilitator reported failure, but supplied no transaction hash to diagnose its underlying transaction error. Do not infer a specific gas/nonce/provider root cause from that message alone. The SDK kept buyer operations `unknown` and prevented the sellers from executing.
+On 2026-10-02 UTC, Base and PublicNode finalized blocks were past each original
+authorization expiry and returned unused USDC authorization state. Published a11's
+`reconcile --release-unpaid --independent-rpc` recorded both proofs with an atomic
+ledger transition. It ran with payments disabled and no signing key available.
+Original payload hashes and bindings were unchanged. Both original IDs now return
+a terminal refusal without contacting a seller or signing.
 
-At the audit snapshot, both original nonces were unused at a latest block after their authorization expiry. The finalized block was still before expiry, so that snapshot is **not finalized proof of non-payment**. Original request IDs, signed payloads and cumulative budgets were preserved. No replacement signature, settlement retry or ledger clearing was performed.
+The two new purchases used the original native runtime images/model settings.
+Their separate wallet services ran as UID 10001; Agent containers received wallet
+access credentials, but no private key or signing ledger. Both peers returned a
+100-atomic Base Sepolia quote before purchase. Independent RPC checks verified
+each successful canonical receipt, exact Transfer and AuthorizationUsed nonce;
+ledger/event comparisons verified payment proof before one seller start, actual
+result delivery and a completed-ID replay with no new payment or execution.
 
-The current `reconcile` command checks an already recorded transaction; it does not recover a missing hash, release a failed budget or authorize a new purchase. Completing these two directions requires first conclusively reconciling the original nonces, then an explicitly authorized new test purchase. Changing IDs/budgets to bypass an unresolved attempt is not recovery.
+The original wallets each now contain 500 atomic of completed spending, still
+under the unchanged original cumulative maximum. This command is operator-only
+and cannot be called by an Agent to bypass an unresolved reservation. See
+[reconciliation and original-ID recovery](../operations.md).
 
 ## Source and environment
 
@@ -68,6 +95,6 @@ CI [built runtime artifacts](https://github.com/EnvarAI/EnvarPay/actions/runs/36
 - LangGraph/LangChain and Pydantic AI: separate FastMCP 4/MCP 2 environments, official legacy negotiation against the MCP 1 wallet.
 - Local SDK checks: **77 tests passed**, including real local TCP MCP transports; Ruff lint/format, sdist/wheel build, clean host wheel installation, dependency consistency and four host-config smoke checks passed. These checks make no payment and are not counted in the matrix.
 
-The paid acceptance path is **MCP gate + native CLI/framework adapter**. Existing OpenClaw/Hermes Gateway HTTP connectors remain experimental and need separate live acceptance. Dedicated test containers share the runtime/wallet OS identity; this is not a custody-isolation guarantee. There is no mainnet test, automatic refund, quality guarantee, multi-host state coordination or new PyPI publication.
+The paid acceptance path is **MCP gate + native CLI/framework adapter**. Existing OpenClaw/Hermes Gateway HTTP connectors remain experimental and need separate live acceptance. The original 28 pairs shared the runtime/wallet OS identity; the two a11 completions used separate HTTP wallet containers without private-key mounts in the Agent. Tool-mode testnet coverage does not verify task escrow, automatic refunds, arbitrary work quality or multi-host coordination. Published Python a11 was installed from PyPI and its wheel/sdist hashes matched the release artifacts. Independent contract security review remains a gate for mainnet task escrow.
 
 The older [two-Hermes POC](../proof-of-concept.md) is separate history and is not counted again.

@@ -1,0 +1,119 @@
+{
+  "checked_at": "2026-10-02T15:43:26.461263+00:00",
+  "package": "envarpay==0.1.0a11",
+  "network": "eip155:84532",
+  "cases": [
+    {
+      "framework": "hermes",
+      "original_request_id": "matrix-20260929-hermes-to-langgraph-v1",
+      "status": "refused",
+      "reserved_before": 100,
+      "reserved_after": 0,
+      "wallet_total_before": 500,
+      "wallet_total_after": 400,
+      "original_payload_sha256": "1074959e619426f63799c98f89a9a5a6eace92fa1f534fbccd25fc09b3023182",
+      "payload_preserved": true,
+      "binding_preserved": true,
+      "signing_key_unavailable": true,
+      "payments_enabled": false,
+      "cli": {
+        "operation_id": "buy:matrix-20260929-hermes-to-langgraph-v1",
+        "status": "refused",
+        "reservation_released": true,
+        "proof": {
+          "payload_sha256": "1074959e619426f63799c98f89a9a5a6eace92fa1f534fbccd25fc09b3023182",
+          "checks": [
+            {
+              "network": "eip155:84532",
+              "asset": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+              "payer": "0x1799BC22317F840F1c394fD5E1622858e35e590c",
+              "nonce": "0xc909f0c32a2350df9c02982c3f6e42f262342f385c370b4fb091d1b0186c2c12",
+              "valid_before": 1790692556,
+              "block_number": 47593129,
+              "block_hash": "0xda02d145d065aca1b4a4927fdd936433c1e34df7db6cca1b456a167e46f7fdff",
+              "block_timestamp": 1790954546,
+              "used_or_cancelled": false,
+              "verified_at": 1790955810.136024,
+              "rpc_origin": "https://sepolia.base.org"
+            },
+            {
+              "network": "eip155:84532",
+              "asset": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+              "payer": "0x1799BC22317F840F1c394fD5E1622858e35e590c",
+              "nonce": "0xc909f0c32a2350df9c02982c3f6e42f262342f385c370b4fb091d1b0186c2c12",
+              "valid_before": 1790692556,
+              "block_number": 47593129,
+              "block_hash": "0xda02d145d065aca1b4a4927fdd936433c1e34df7db6cca1b456a167e46f7fdff",
+              "block_timestamp": 1790954546,
+              "used_or_cancelled": false,
+              "verified_at": 1790955813.646645,
+              "rpc_origin": "https://base-sepolia-rpc.publicnode.com"
+            }
+          ]
+        }
+      },
+      "original_id_recovery": {
+        "request_id": "matrix-20260929-hermes-to-langgraph-v1",
+        "status": "refused",
+        "payment_made": false,
+        "recovery": "Original authorization expired unused; no task or payment replayed"
+      }
+    },
+    {
+      "framework": "openclaw",
+      "original_request_id": "matrix-20260929-openclaw-to-pydantic-ai-v1",
+      "status": "refused",
+      "reserved_before": 100,
+      "reserved_after": 0,
+      "wallet_total_before": 500,
+      "wallet_total_after": 400,
+      "original_payload_sha256": "99ef4358a86fbf1699e761cc5ee4f5ef0b221ff9f77de8326047ac1aab673b94",
+      "payload_preserved": true,
+      "binding_preserved": true,
+      "signing_key_unavailable": true,
+      "payments_enabled": false,
+      "cli": {
+        "operation_id": "buy:matrix-20260929-openclaw-to-pydantic-ai-v1",
+        "status": "refused",
+        "reservation_released": true,
+        "proof": {
+          "payload_sha256": "99ef4358a86fbf1699e761cc5ee4f5ef0b221ff9f77de8326047ac1aab673b94",
+          "checks": [
+            {
+              "network": "eip155:84532",
+              "asset": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+              "payer": "0xbd0c522C61E14413E43F5BaAf6a016b77a0f4dfD",
+              "nonce": "0x45510880e9cdccc0ca72f5c8736bb07e33f80f5f5c71cd4e2e8ecf32ce5b9edf",
+              "valid_before": 1790693225,
+              "block_number": 47593129,
+              "block_hash": "0xda02d145d065aca1b4a4927fdd936433c1e34df7db6cca1b456a167e46f7fdff",
+              "block_timestamp": 1790954546,
+              "used_or_cancelled": false,
+              "verified_at": 1790955817.4697778,
+              "rpc_origin": "https://sepolia.base.org"
+            },
+            {
+              "network": "eip155:84532",
+              "asset": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+              "payer": "0xbd0c522C61E14413E43F5BaAf6a016b77a0f4dfD",
+              "nonce": "0x45510880e9cdccc0ca72f5c8736bb07e33f80f5f5c71cd4e2e8ecf32ce5b9edf",
+              "valid_before": 1790693225,
+              "block_number": 47593129,
+              "block_hash": "0xda02d145d065aca1b4a4927fdd936433c1e34df7db6cca1b456a167e46f7fdff",
+              "block_timestamp": 1790954546,
+              "used_or_cancelled": false,
+              "verified_at": 1790955821.255219,
+              "rpc_origin": "https://base-sepolia-rpc.publicnode.com"
+            }
+          ]
+        }
+      },
+      "original_id_recovery": {
+        "request_id": "matrix-20260929-openclaw-to-pydantic-ai-v1",
+        "status": "refused",
+        "payment_made": false,
+        "recovery": "Original authorization expired unused; no task or payment replayed"
+      }
+    }
+  ]
+}

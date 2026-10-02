@@ -1,7 +1,7 @@
 # Packages, languages and installation channels
 
-**Registry status checked 2026-10-02:** [PyPI `envarpay` 0.1.0a10](https://pypi.org/project/envarpay/0.1.0a10/)
-is published through the [verified release](https://github.com/EnvarAI/EnvarPay/actions/runs/36932006901).
+**Registry status checked 2026-10-02:** [PyPI `envarpay` 0.1.0a11](https://pypi.org/project/envarpay/0.1.0a11/)
+is published through the [verified release](https://github.com/EnvarAI/EnvarPay/actions/runs/37025578570).
 Its clean registry installation and artifact hashes have been verified; wheel metadata,
 runtime and CLI report the same version.
 The npm package name is **`@envarai/envarpay`**, published in the `next` alpha channel.
@@ -15,7 +15,7 @@ registry tarball matches the exact CI artifact.
 
 | Need | Distribution | Current state |
 |---|---|---|
-| Run a wallet/payment gate with any MCP-capable agent | Python CLI, installed persistently with uv/pipx | Published on PyPI as 0.1.0a10 |
+| Run a wallet/payment gate with any MCP-capable agent | Python CLI, installed persistently with uv/pipx | Published on PyPI as 0.1.0a11 |
 | Embed calls in a Python application | Python `envarpay` API | Implemented; install in a compatible isolated environment |
 | Run the service without installing Python on the agent host | Standalone OCI container | Multi-platform build and explicit GHCR publication workflow; see [container release status](container.md) |
 | Use typed API calls from JS/TS | `@envarai/envarpay` wallet MCP client | Published on npm in the `next` alpha channel |
@@ -34,7 +34,7 @@ Install [uv](https://docs.astral.sh/uv/getting-started/installation/), then use 
 persistent tool environment pinned to the published version:
 
 ```sh
-uv tool install --python 3.13 envarpay==0.1.0a10
+uv tool install --python 3.13 envarpay==0.1.0a11
 envarpay --version
 ```
 
@@ -50,9 +50,9 @@ regenerate connection snippets while keeping the original config/key/state paths
 For another Python version or a library environment:
 
 ```sh
-uv tool install envarpay==0.1.0a10
+uv tool install envarpay==0.1.0a11
 # For a Python library environment:
-python -m pip install envarpay==0.1.0a10
+python -m pip install envarpay==0.1.0a11
 ```
 
 The npm client does not install Python behind an `npx` command.
@@ -67,9 +67,11 @@ docker build -t envarpay:local .
 docker run --rm --network none envarpay:local --version
 ```
 
-This is a local build, not `docker pull` from a published registry. The intended
-future image is `ghcr.io/envarai/envarpay`, subject to publication and anonymous-pull
-verification. CI builds on amd64 and arm64 without publishing.
+The reviewed 0.1.0a11 image has been published to `ghcr.io/envarai/envarpay`,
+and an authenticated pull passed an offline UID 10001 smoke check. It is still
+private: organization policy disables the package's Public option. Use the local
+build above or an authorized registry account until anonymous-pull verification
+passes. See [the exact released digest and workflow](container.md#published-image-status).
 
 The image defaults to UID/GID 10001 and a writable `/data` working directory.
 Persist configs and state outside the image. Match bind-mount ownership with the
