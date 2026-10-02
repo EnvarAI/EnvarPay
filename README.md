@@ -122,7 +122,7 @@ seller's in `--peer-pay-to`; buyer and seller retain separate config/state.
 
 ## JavaScript/TypeScript and Bun
 
-After the npm registry release, install `@envarai/envarpay@next`.
+Install the published npm package with `npm install @envarai/envarpay@next`.
 [Full npm guide](packages/typescript/README.md) includes authenticated wallet setup,
 Envar discovery, a paid call, status and original-result recovery.
 
