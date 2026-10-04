@@ -45,7 +45,8 @@ if args.action == "status":
 else:
     if not args.request_id or not args.input_file or args.action == "continue" and not args.task_id:
         parser.error(
-            "send/continue requires stable --request-id and --input-file; continue also requires --task-id"
+            "send/continue requires stable --request-id and --input-file; "
+            "continue also requires --task-id"
         )
     path = Path(args.input_file)
     if path.stat().st_size > 524288:
