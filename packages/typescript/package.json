@@ -15,6 +15,10 @@
     "./commerce": {
       "types": "./dist/commerce/index.d.ts",
       "import": "./dist/commerce/index.js"
+    },
+    "./commerce/server": {
+      "types": "./dist/commerce/runtime.d.ts",
+      "import": "./dist/commerce/runtime.js"
     }
   },
   "files": [
