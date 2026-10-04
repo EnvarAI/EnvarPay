@@ -303,7 +303,7 @@ export class A2APeerProxy {
     let raw: Record<string, unknown> = snapshot?.task
       ? structuredClone(snapshot.task)
       : {};
-    if (!code && ["failed", "unknown"].includes(String(row.phase))) {
+    if (!code && ["created", "attention", "failed", "unknown"].includes(String(row.phase))) {
       try {
         const previous = JSON.parse(String(row.task_json));
         if (typeof previous.metadata?.errorCode === "string")
@@ -329,7 +329,9 @@ export class A2APeerProxy {
         status: {
           state: needsApproval
             ? "TASK_STATE_AUTH_REQUIRED"
-            : failed
+            : phase === "attention"
+              ? "TASK_STATE_INPUT_REQUIRED"
+              : failed
               ? "TASK_STATE_FAILED"
               : "TASK_STATE_WORKING",
         },
@@ -612,11 +614,15 @@ export class A2APeerProxy {
             "peer_not_allowed",
             "invalid_input",
             "purchase_limit",
+            "paid_quote_required",
+            "offer_metadata_required",
+            "quote_mismatch",
+            "retired_revision",
           ].includes(error.code);
         this.phase(
           id,
           definitelyBlocked
-            ? "failed"
+            ? state === "previewing" ? "attention" : "failed"
             : state === "confirming"
               ? "unknown"
               : state === "previewing"

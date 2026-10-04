@@ -1,6 +1,6 @@
 import { findDefaultAsset } from '@x402/evm';
 import { randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
-import { AgentCard, SendMessageRequest, GetTaskRequest, Task, TaskState } from '@a2a-js/sdk';
+import { AgentCard, SendMessageRequest, GetTaskRequest, Task, TaskState, Message, Role } from '@a2a-js/sdk';
 import { ClientFactory, JsonRpcTransportFactory } from '@a2a-js/sdk/client';
 import { x402Client } from '@x402/core/client';
 import { decodePaymentRequiredHeader, decodePaymentResponseHeader, encodePaymentSignatureHeader } from '@x402/core/http';
@@ -10,7 +10,7 @@ import type { PaymentPayload, PaymentRequired, PaymentRequirements, SettleRespon
 import { Ajv2020 } from 'ajv/dist/2020.js';
 import addFormatsImport from 'ajv-formats';
 import { atomic, digest, loadBuyerPolicy, validateUrl } from './config.js';
-import { CommerceError, type BuyerPolicy, type Input, type Pricing } from './types.js';
+import { CommerceError, type BuyerPolicy, type Input, type Pricing, type StandardA2APeer } from './types.js';
 import { CredentialVault } from './vault.js';
 import { BuyerStore, type BuyerRecord, type BuyerQuote } from './buyer-store.js';
 import { Challenge, Receipt, PaymentRequest } from 'mppx';
@@ -72,6 +72,24 @@ function noExternalRefs(value: unknown): void {
   if (!value || typeof value !== 'object') return;
   for (const [key, child] of Object.entries(value)) { if (['$ref', '$dynamicRef'].includes(key) && (typeof child !== 'string' || !child.startsWith('#'))) throw new CommerceError('external_schema_ref', 'External service schema references are unsupported'); noExternalRefs(child); }
 }
+function standardPolicyDigest(peer: StandardA2APeer): string {
+  return digest({ mode: peer.mode, cardUrl: peer.cardUrl, endpoint: peer.endpoint, authentication: peer.authentication,
+    protocol: peer.protocol, currency: peer.currency, recipient: peer.recipient, localContract: peer.localContract });
+}
+function standardRequirements(peer: StandardA2APeer, required: PaymentRequired): PaymentRequirements {
+  let resource: URL;
+  try { resource = new URL(required.resource?.url ?? ''); } catch { throw new CommerceError('quote_mismatch', 'Standard payment resource must name the approved A2A endpoint'); }
+  const candidates = Array.isArray(required.accepts) ? required.accepts.filter(r => {
+    if (!r || r.scheme !== 'exact' || typeof r.asset !== 'string' || typeof r.payTo !== 'string' || `${r.network}/erc20:${r.asset.toLowerCase()}` !== peer.currency || r.payTo.toLowerCase() !== peer.recipient || r.amount !== peer.localContract.amount || !Number.isInteger(r.maxTimeoutSeconds) || r.maxTimeoutSeconds < 1 || r.maxTimeoutSeconds > 300) return false;
+    const asset = findDefaultAsset(r.asset, r.network), extra = r.extra;
+    return !!asset && !!extra && typeof extra === 'object' && !Array.isArray(extra)
+      && (extra.assetTransferMethod === undefined || extra.assetTransferMethod === 'eip3009')
+      && (extra.paymentFlow === undefined || extra.paymentFlow === 'upfront')
+      && extra.name === asset.name && extra.version === asset.version;
+  }) : [];
+  if (required.x402Version !== 2 || resource.href !== peer.endpoint || resource.username || resource.password || resource.hash || candidates.length !== 1) throw new CommerceError('quote_mismatch', 'Native challenge differs from the exact locally approved resource, price, asset, payee or timeout');
+  return candidates[0]!;
+}
 
 /** Independent x402 wallet; payment and execution state are deliberately separate. */
 export class CommerceBuyer {
@@ -85,7 +103,7 @@ export class CommerceBuyer {
     if(this.policy.peers.some(peer=>peer.protocol!=='free')&&!options.vault)throw new CommerceError('vault_required','Paid purchases need a private authorization vault'); this.fetchImpl = options.fetchImpl ?? fetch;
     if (this.policy.peers.some(p => p.protocol === 'x402') && (!options.signer || !/^0x[0-9a-fA-F]{40}$/.test(options.signer.address) || BigInt(options.signer.address) === 0n || !options.verifyReceipt)) throw new CommerceError('invalid_signer', 'x402 peers require an EVM wallet and independent receipt verifier');
     if (this.policy.peers.some(p => p.protocol === 'mpp') && (!options.mpp || !options.mpp.payer || !/^pm_[A-Za-z0-9]+$/.test(options.mpp.paymentMethod) || !['test','live'].includes(options.mpp.mode) || typeof options.mpp.createToken !== 'function' || typeof options.mpp.verifyReceipt !== 'function')) throw new CommerceError('mpp_provider_missing', 'MPP peers require explicit token creation and independent provider verification');
-    for (const peer of this.policy.peers) if (!options.peerTokens[peer.id] || options.peerTokens[peer.id]!.length < 16) throw new CommerceError('peer_credentials', 'Each allowed peer needs its own authentication token');
+    for (const peer of this.policy.peers) if (!(peer.mode === 'standard-a2a' && peer.authentication === 'none') && (!options.peerTokens[peer.id] || options.peerTokens[peer.id]!.length < 16)) throw new CommerceError('peer_credentials', 'Each authenticated peer needs its own authentication token');
   }
   /** Background observation only; never signs, replays credentials or changes reservations. */
   start(intervalMs = 2000): void {
@@ -110,6 +128,10 @@ export class CommerceBuyer {
   }
   private endpoint(peer: Peer): string {
     const explicit = this.options.peerEndpoints?.[peer.id];
+    if (peer.mode === 'standard-a2a') {
+      if (explicit && explicit !== peer.endpoint) throw new CommerceError('endpoint_policy', 'A standard peer endpoint must match its locally reviewed policy');
+      return peer.endpoint;
+    }
     const card = new URL(peer.cardUrl);
     if (!explicit && (!card.pathname.endsWith('/agent-card.json') || card.search)) throw new CommerceError('endpoint_policy', 'Configure an explicit peer endpoint for this Agent Card URL');
     const endpoint = validateUrl(explicit ?? new URL('./a2a', card).href);
@@ -121,7 +143,10 @@ export class CommerceBuyer {
       const request = new Request(input, init);
       if (![peer.cardUrl, endpoint].includes(request.url)) throw new CommerceError('peer_scope', 'Peer request escaped the locally approved endpoint');
       if ((request.url === peer.cardUrl && request.method !== 'GET') || (request.url === endpoint && request.method !== 'POST')) throw new CommerceError('peer_scope', 'Unsupported peer operation');
-      const headers = new Headers(request.headers); headers.set('Authorization', `Bearer ${this.options.peerTokens[peer.id]}`); headers.set('A2A-Version', '1.0');
+      const headers = new Headers(request.headers);
+      if (peer.mode === 'standard-a2a' && peer.authentication === 'none') headers.delete('Authorization');
+      else headers.set('Authorization', `Bearer ${this.options.peerTokens[peer.id]}`);
+      headers.set('A2A-Version', '1.0');
       const response = await this.fetchImpl(new Request(request, { headers, redirect: 'error', signal: AbortSignal.any([request.signal, AbortSignal.timeout(30000)]) }));
       if (response.status >= 300 && response.status < 400) throw new CommerceError('peer_redirect', 'Peer redirects are not allowed');
       return bounded(response, request.method === 'GET' ? 512 * 1024 : 4 * 1024 * 1024);
@@ -152,7 +177,9 @@ export class CommerceBuyer {
     const response = await scoped(peer.cardUrl);
     if (!response.ok) throw new CommerceError('peer_card', 'Unable to read allowed Agent Card');
     const card = AgentCard.fromJSON(await response.json());
-    if (!card.supportedInterfaces.some(i => i.protocolVersion === '1.0' && i.protocolBinding === 'JSONRPC' && i.url === endpoint) || card.supportedInterfaces.some(i => i.url !== endpoint)) throw new CommerceError('peer_interface', 'Agent Card must expose only the approved A2A 1.0 JSONRPC endpoint');
+    if (!card.supportedInterfaces.some(i => i.protocolVersion === '1.0' && i.protocolBinding === 'JSONRPC' && i.url === endpoint)) throw new CommerceError('peer_interface', 'Agent Card must expose the approved A2A 1.0 JSONRPC endpoint');
+    if (peer.mode === 'standard-a2a') return this.prepareStandard(caller, input, fingerprint, peer, card);
+    if (card.supportedInterfaces.some(i => i.url !== endpoint)) throw new CommerceError('peer_interface', 'Agent Card must expose only the approved A2A 1.0 JSONRPC endpoint');
     const advertised = card.capabilities?.extensions.find(e => e.uri === COMMERCE)?.params as unknown as AdvertisedOffer | undefined;
     if (!advertised || advertised.offerId !== input.offerId || !advertised.serviceId || !Number.isSafeInteger(advertised.serviceRevision) || advertised.serviceRevision < 1 || !/^[0-9a-f]{64}$/.test(advertised.termsDigest ?? '') || !advertised.contract?.inputSchema || (peer.protocol !== 'free' && (advertised.collection?.kind !== 'upfront' || advertised.payment?.adapter !== peer.protocol))) throw new CommerceError('offer_metadata_required', 'Informed preview requires explicit paid offer terms in the Agent Card');
     if (peer.protocol === 'free') return this.prepareFree(caller, input, fingerprint, peer, endpoint, advertised);
@@ -196,6 +223,46 @@ export class CommerceBuyer {
       inputDigest: quote.inputDigest, termsDigest: quote.termsDigest,
     };
     return this.snapshot(this.options.store.insert({ protocol: 'x402', caller, peerId: peer.id, cardUrl: peer.cardUrl, endpoint, messageId: input.messageId, fingerprint, input: structuredClone(input.input), inputSchema: structuredClone(advertised.contract.inputSchema), body: originalBody, quoteToken: randomBytes(32).toString('base64url'), quote: frozenQuote, required, requirements: candidates[0]! }));
+  }
+  private async prepareStandard(caller: string, input: BuyerPreviewInput, fingerprint: string, peer: StandardA2APeer, card: AgentCard): Promise<BuyerSnapshot> {
+    const contract = peer.localContract;
+    if (card.securityRequirements.length && !card.securityRequirements.some(requirement => {
+      const names = Object.keys(requirement.schemes);
+      if (!names.length) return true;
+      if (peer.authentication !== 'bearer' || names.length !== 1) return false;
+      const name = names[0]!, scheme = card.securitySchemes[name]?.scheme;
+      return scheme?.$case === 'httpAuthSecurityScheme' && scheme.value.scheme.toLowerCase() === 'bearer' && !requirement.schemes[name]!.list.length;
+    })) throw new CommerceError('peer_authentication', 'Agent Card authentication is not satisfied by the locally approved none/bearer mode');
+    if (input.offerId !== contract.offerId) throw new CommerceError('offer_not_allowed', 'Select the locally reviewed standard-peer offer');
+    const ajv = new Ajv2020({ strict: true }); addFormats(ajv);
+    if (!ajv.compile(contract.inputSchema)(input.input)) throw new CommerceError('invalid_input', 'Input does not satisfy the locally reviewed schema');
+    const amount = atomic(contract.amount).toString();
+    if (atomic(amount) > atomic(peer.maxPerPurchase)) throw new CommerceError('purchase_limit', 'Local price exceeds the per-purchase limit');
+    let body = '', required: PaymentRequired | undefined;
+    const capture: typeof fetch = async (value, init) => {
+      const request = new Request(value, init); body = await request.clone().text();
+      if (Buffer.byteLength(body) > 1024 * 1024) throw new CommerceError('request_too_large', 'Purchase input exceeds 1 MiB');
+      const response = await this.scopedFetch(peer, peer.endpoint)(request);
+      if (response.status !== 402) throw new CommerceError('paid_quote_required', 'The operator-approved paid-only endpoint must return 402 before any authorization');
+      const header = response.headers.get('PAYMENT-REQUIRED');
+      if (!header || header.length > 65536) throw new CommerceError('invalid_challenge', 'Missing or oversized native x402 challenge');
+      required = decodePaymentRequiredHeader(header);
+      throw new CommerceError('preview_captured', 'Native standard payment challenge captured');
+    };
+    // Ignore every advertised alternative; only the operator-selected interface may receive requests.
+    const selected = AgentCard.fromJSON({ ...(AgentCard.toJSON(card) as Record<string, unknown>), supportedInterfaces: [{ url: peer.endpoint, protocolBinding: 'JSONRPC', protocolVersion: '1.0' }] });
+    const client = await new ClientFactory({ transports: [new JsonRpcTransportFactory({ fetchImpl: capture })] }).createFromAgentCard(selected);
+    try { await client.sendMessage(SendMessageRequest.fromJSON({ message: { messageId: input.messageId, role: 'ROLE_USER', parts: [{ data: input.input }] }, configuration: { returnImmediately: true } })); }
+    catch (error) { if (!required) throw error; }
+    if (!required || !body) throw new CommerceError('invalid_challenge', 'The approved endpoint did not return a native payment challenge');
+    const requirements = standardRequirements(peer, required), policyDigest = standardPolicyDigest(peer);
+    const quote: BuyerQuote = { quoteId: randomUUID(), messageId: input.messageId, payer: this.options.signer!.address.toLowerCase(), amount,
+      currency: peer.currency, recipient: peer.recipient, expiresAt: new Date(Date.now() + requirements.maxTimeoutSeconds * 1000).toISOString(),
+      serviceId: peer.id, serviceRevision: contract.revision, offerId: contract.offerId, inputDigest: digest(input.input), termsDigest: policyDigest, termsSource: 'local-policy' };
+    return this.snapshot(this.options.store.insert({ protocol: 'x402', peerMode: 'standard-a2a', caller, peerId: peer.id, cardUrl: peer.cardUrl, endpoint: peer.endpoint,
+      messageId: input.messageId, fingerprint, input: structuredClone(input.input), inputSchema: structuredClone(contract.inputSchema), body,
+      quoteToken: randomBytes(32).toString('base64url'), quote, required, requirements,
+      standardBinding: { policyDigest, bodyDigest: digest(body), challengeDigest: digest(required) } }));
   }
   private prepareFree(caller: string, input: BuyerPreviewInput, fingerprint: string, peer: Peer, endpoint: string, advertised: AdvertisedOffer): BuyerSnapshot {
     if (advertised.pricing?.kind !== 'free' || advertised.collection?.kind !== 'none' || advertised.payment !== null) throw new CommerceError('free_offer_required', 'This peer permits explicit free offers only');
@@ -303,6 +370,13 @@ export class CommerceBuyer {
   private assertCurrentPolicy(record: BuyerRecord, signing: boolean): Peer {
     const peer = this.peer(record.cardUrl);
     if (peer.id !== record.peerId || this.endpoint(peer) !== record.endpoint || peer.currency !== record.quote.currency || peer.recipient !== record.quote.recipient || (peer.protocol !== 'free' && atomic(record.quote.amount) > atomic(peer.maxPerPurchase)) || record.quote.payer !== (peer.protocol === 'free' ? record.caller : peer.protocol === 'mpp' ? this.options.mpp?.payer : this.options.signer?.address.toLowerCase()) || (record.protocol === 'mpp' && record.mppMode !== this.options.mpp?.mode)) throw new CommerceError('policy_changed', 'Original purchase no longer matches local wallet policy');
+    if ((record.peerMode === 'standard-a2a') !== (peer.mode === 'standard-a2a')) throw new CommerceError('policy_changed', 'Original peer protocol profile changed');
+    if (record.peerMode === 'standard-a2a') {
+      if (peer.mode !== 'standard-a2a' || !record.standardBinding || record.standardBinding.policyDigest !== standardPolicyDigest(peer)) throw new CommerceError('policy_changed', 'Original local standard-peer contract or authentication changed');
+      const quote = record.quote, contract = peer.localContract;
+      if (quote.termsSource !== 'local-policy' || quote.termsDigest !== record.standardBinding.policyDigest || quote.inputDigest !== digest(record.input) || quote.messageId !== record.messageId || quote.amount !== contract.amount || quote.serviceId !== peer.id || quote.serviceRevision !== contract.revision || quote.offerId !== contract.offerId || digest(record.inputSchema) !== digest(contract.inputSchema)) throw new CommerceError('recovery_conflict', 'Local review quote no longer matches its frozen standard-peer contract and input');
+      if (record.standardBinding.bodyDigest !== digest(record.body) || record.standardBinding.challengeDigest !== digest(record.required) || digest(standardRequirements(peer, record.required!)) !== digest(record.requirements)) throw new CommerceError('recovery_conflict', 'Original standard request or native challenge changed');
+    }
     if (signing && peer.protocol !== 'free' && !this.policy.paymentsEnabled) throw new CommerceError('payments_disabled', 'Enable payments in local wallet policy before confirming');
     return peer;
   }
@@ -351,6 +425,7 @@ export class CommerceBuyer {
   }
   private async verify(record: BuyerRecord, saved: SavedAuthorization, receipt?: SettleResponse): Promise<BuyerRecord> {
     if (record.paymentState === 'confirmed') return record;
+    if (record.peerMode === 'standard-a2a' && receipt && (receipt.network !== saved.requirements.network || (receipt.payer && receipt.payer.toLowerCase() !== record.quote.payer))) throw new CommerceError('receipt_binding', 'Receipt differs from the original standard-peer chain or payer');
     if (receipt) record = this.options.store.update(record.id, { receipt });
     if (!receipt?.transaction && record.fromBlock && this.options.findOriginalReceipt) receipt = await this.options.findOriginalReceipt(saved.payload, saved.requirements, record.fromBlock);
     if (!receipt) return record;
@@ -376,8 +451,14 @@ export class CommerceBuyer {
     let receipt: SettleResponse | undefined;
     if (receiptHeader && receiptHeader.length <= 65536) receipt = decodePaymentResponseHeader(receiptHeader);
     try { record = await this.verify(record, saved, receipt); } catch { /* retain the original receipt and reservation for reconciliation */ }
-    const raw = await response.json() as { result?: { task?: unknown }; error?: unknown };
+    const raw = await response.json() as { jsonrpc?: unknown; id?: unknown; result?: { task?: unknown; message?: unknown }; error?: unknown };
+    if (record.peerMode === 'standard-a2a' && (raw.jsonrpc !== '2.0' || raw.id !== JSON.parse(record.body).id)) throw new CommerceError('rpc_response_binding', 'Peer response does not match the original standard JSON-RPC request');
     if (response.ok && raw.result?.task) record = this.task(record, raw.result.task);
+    else if (record.peerMode === 'standard-a2a' && response.ok && raw.result?.message) {
+      const message = Message.fromJSON(raw.result.message as Record<string, unknown>);
+      if (!message.messageId || message.role !== Role.ROLE_AGENT || !message.parts.length) throw new CommerceError('message_binding', 'Peer returned an invalid A2A response message');
+      record = this.options.store.update(record.id, { result: { message: Message.toJSON(message) }, executionState: 'completed', state: record.paymentState === 'confirmed' ? 'completed' : 'unknown' });
+    }
     else record = this.options.store.update(record.id, { state: 'unknown', errorCode: 'original_purchase_pending' });
     return this.snapshot(record);
   }
@@ -395,6 +476,7 @@ export class CommerceBuyer {
   }
   async continue(caller: string, id: string, input: { messageId: string; input: Input }): Promise<BuyerSnapshot> {
     const record = this.record(caller, id);
+    if (record.peerMode === 'standard-a2a') throw new CommerceError('standard_continuation_unavailable', 'A standard peer has not promised included clarification; inspect its original Task without a new submission');
     if (typeof input.messageId !== 'string' || !input.messageId || input.messageId.length > 128 || input.messageId === record.messageId || !input.input || typeof input.input !== 'object' || Array.isArray(input.input)) throw new CommerceError('invalid_continuation', 'A distinct stable message ID and full object input are required');
     const running = this.active.get(id);
     if (running) { await running; return this.continue(caller, id, input); }
@@ -458,6 +540,12 @@ export class CommerceBuyer {
         }
         if (original.task?.id) {
           return this.observe(original);
+        }
+        if (original.peerMode === 'standard-a2a') {
+          // A2A message IDs do not guarantee idempotent execution at an unrelated seller.
+          // Keep the exact original authorization, but never POST it again after an ambiguous outcome.
+          if (original.paymentState === 'confirmed' && original.executionState === 'completed' && original.result && typeof original.result === 'object' && 'message' in original.result) return this.snapshot(this.options.store.update(id, { state: 'completed', errorCode: undefined }));
+          return this.snapshot(this.options.store.update(id, { state: 'unknown', executionState: 'unknown', errorCode: 'standard_task_recovery_required' }));
         }
         return await this.replay(original);
       } catch (error) { return this.snapshot(this.options.store.update(id, { state: 'unknown', errorCode: error instanceof CommerceError ? error.code : 'reconciliation_pending' })); }

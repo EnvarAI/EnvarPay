@@ -34,11 +34,19 @@ export interface CommerceConfig {
   services: Service[];
 }
 
+/** A separately reviewed transport profile; local terms are never advertised as seller promises. */
+export interface StandardA2APeer {
+  id: string; cardUrl: string; mode: 'standard-a2a'; protocol: 'x402';
+  currency: string; recipient: string; maxPerPurchase: string;
+  endpoint: string; authentication: 'none' | 'bearer';
+  localContract: { revision: number; offerId: string; inputSchema: Record<string, unknown>; amount: string; paidOnly: true };
+}
+
 export interface BuyerPolicy {
   policyVersion: 1;
   paymentsEnabled: boolean;
   approval: 'per_purchase' | 'within_preapproved_limits';
-  peers: ({ id: string; cardUrl: string; protocol: 'x402' | 'mpp'; currency: string; recipient: string; maxPerPurchase: string } | { id: string; cardUrl: string; protocol: 'free'; currency: null; recipient: null; maxPerPurchase: '0' })[];
+  peers: (StandardA2APeer | { id: string; cardUrl: string; mode?: 'envarpay'; protocol: 'x402' | 'mpp'; currency: string; recipient: string; maxPerPurchase: string } | { id: string; cardUrl: string; mode?: 'envarpay'; protocol: 'free'; currency: null; recipient: null; maxPerPurchase: '0' })[];
   budgets: { currency: string; maxTotal: string; period: 'cumulative' }[];
 }
 

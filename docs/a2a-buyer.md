@@ -70,11 +70,13 @@ and responses are bounded. The management listener defaults to loopback; remote
 access requires an explicit HTTPS origin behind a controlled TLS proxy, exact Host
 validation and strong independent management credentials. It does not enable CORS.
 
-An informed payment preview requires the optional
-`urn:envarpay:commerce:1` Card metadata and `urn:envarpay:quote:1` challenge metadata.
+The default seller-advertised preview uses the optional
+`urn:envarpay:commerce:1` Card metadata and `urn:envarpay:quote:1.info` challenge metadata.
 These describe the selected business offer; A2A and x402 remain standard transports.
-A generic A2A Card without this pricing metadata remains usable by standard clients,
-but this buyer rejects it before an unpaid `SendMessage`. Paid-peer free-offer preview is
+To buy from an independent standard-only A2A/x402 seller, explicitly configure
+[standard-a2a local policy](a2a-standard-peers.md). Its reviewed terms are local policy,
+not a claim that the seller published EnvarPay metadata. Default peers do not
+automatically downgrade into that mode. Paid-peer free-offer preview is
 rejected because sending a free request could execute work immediately. Dedicated
 free peers instead preview the Card locally without sending a Message. A seller
 that falsely advertises a paid offer could still execute its own service; the buyer

@@ -1,156 +1,126 @@
-# A2A commerce implementation
+# A2A commerce runtime
 
-EnvarPay is adding an independent TypeScript A2A service commerce runtime. It can
-operate without an Envar account: sellers define services and receiving profiles;
-buyers retain their own authorization policy and budget.
+EnvarPay 0.2 is an independent TypeScript/Node service commerce runtime. Sellers
+publish services and prices; buyers retain signing keys, explicit recipient
+allowlists and cumulative budgets. The public task wire is official A2A 1.0,
+with native x402 v2 or MPP payment credentials. Envar is optional.
 
-The runtime now exposes authenticated A2A service entries with SQLite order and
-Task storage, a persistent dispatch queue and an official A2A upstream client.
-Free services execute directly. The seller can now collect exact x402 USDC before
-dispatching a paid task, with independent receipt verification. The buyer signer,
-MPP adapter and platform integration are later milestones. Automated fixtures
-use simulated settlement and do not prove a real transfer.
+Install the released alpha from npm with
+`npm install @envarai/envarpay@0.2.0-alpha.2`. Node22.14+ is required; Node24 is
+recommended. Review configuration before enabling payments. The `next` dist-tag
+tracks this new runtime; the older `latest` tag still identifies the previous
+wallet-client package.
 
-## Build and validate
+## Services, offers and tasks
+
+A service is a repeatable bounded capability; `research` is an example ID, not an
+Agent instance or a single purchase. Its immutable revision fixes the execution
+entry, input JSON Schema, deliverables, target duration and offers. One offer has
+one deterministic Card and A2A endpoint. USDC and card offers are alternatives,
+not two payments for one task.
+
+- `free` with `collection.kind: none`: validates input and executes without payment.
+- `fixed` with `upfront`: exact configured total in smallest currency units.
+- `quantity` with `upfront`: integer unit price times the count of a schema-bounded
+  input array. The buyer cannot supply a different price or count.
+
+MVP permits zero included revisions. A waiting nonterminal Task can accept
+clarification that preserves existing input and only adds declared optional
+fields, within ten rounds. Terminal Tasks cannot be appended. Arbitrary new work
+requires a new reviewed purchase. Input validation cannot turn an unrestricted
+upstream assistant into an isolated research capability; configure and describe
+the execution boundary honestly.
+
+## Seller setup
 
 ```sh
-cd packages/typescript
-npm ci --ignore-scripts
-npm run build
-node dist/commerce/cli.js validate --config examples/seller.json
-node dist/commerce/cli.js card --config examples/seller.json \
-  --service research --offer usdc-once --origin https://seller.example
+npx --package @envarai/envarpay@0.2.0-alpha.2 envarpay init --directory ./private
+npx --package @envarai/envarpay@0.2.0-alpha.2 envarpay validate --config ./private/seller.json
 ```
 
-The example addresses and hosts are placeholders; validation does not contact them.
-`validate` and `card` never create keys, change a wallet policy, call a model or pay.
+Replace placeholder upstreams, addresses and prices. Private credential files must
+be owner-only. Seller credentials contain `callers` (bearer token to buyer identity)
+and `upstreams` (service ID or service:revision to native bearer token). Explicit
+`upstreamInputEncoding` entries may select `json-text` for native runtimes that
+accept text, with `data` as default. There is no automatic fallback or second task.
 
-## Run a free A2A service
-
-`validate` and `card` remain read-only. `serve` starts the actual configured Agent
-executor, so configure a bounded service and the model credentials in that runtime.
+For x402, also configure `payers` (caller to EVM address), `vaultKeyFile` (32 random
+bytes) and `rpcUrls` keyed by CAIP-2 network. Sellers collect by address and do not
+need the receiving wallet's private key. MPP needs an eligible Stripe account,
+explicit test/live mode, private credentials and challenge key; see the buyer and
+provider guides before enabling it.
 
 ```sh
-node dist/commerce/cli.js serve --config seller.json \
-  --state ./private/commerce.sqlite3 --credentials ./private/runtime-auth.json \
-  --origin https://YOUR_PUBLIC_ORIGIN --host 127.0.0.1 --port 4020
+envarpay serve --config seller.json --credentials private/seller-auth.json \
+  --state private/seller.sqlite3 --origin https://seller.example --port 4020
 ```
 
-The owner-only credentials file has `callers` (strong bearer token to buyer ID)
-and `upstreams` (service ID to private runtime bearer token) maps. Never publish
-this file. The public reverse proxy must preserve the configured Host and use
-HTTPS. Card and JSON-RPC routes follow `/services/SERVICE/vREV/offers/OFFER/`.
+Keep the raw Agent private. The HTTPS reverse proxy must preserve the configured
+Host. A2A endpoints are `/services/SERVICE/vREV/offers/OFFER/a2a` and Cards end with
+`/agent-card.json`. The SDK exports seller APIs at `@envarai/envarpay/server`.
 
-The service accepts one structured JSON data part matching its input schema.
-Send `A2A-Version: 1.0`, `Authorization: Bearer ...`, and standard `SendMessage`.
-Set `configuration.returnImmediately=true` for asynchronous work and query the
-returned Task ID with `GetTask`. Replaying the same caller/message/offer/input
-returns the original Task. Changed input or offer conflicts. Read access is scoped
-to the authenticated buyer and service revision.
+## Native payment and Task wire
 
-This milestone supports initial tasks only. Runtime cancellation, nonterminal
-continuation and explicit remote reconciliation are subsequent work; unsupported
-operations are refused. A lost upstream outcome becomes durable `unknown` with
-`recoveryRequired` metadata, never a second automatic execution.
+Use `Authorization: Bearer ...` and `A2A-Version: 1.0` for A2A. `SendMessage`
+contains one user data part matching the service input schema, with a stable
+messageId. `configuration.returnImmediately: true` returns a Task shell. Reuse
+that Task ID with `GetTask`; reads never charge.
 
-SQLite uses an OS-released exclusive ownership transaction in a companion database;
-only one runtime instance may own a ledger. Restart preserves results and moves
-interrupted dispatches to unknown. This is single-instance storage, not a shared
-multi-replica database. The Node runtime entry is `@envarai/envarpay/commerce/server`;
-the configuration entry does not import `node:sqlite`.
+x402 uses HTTP402 + `PAYMENT-REQUIRED`, followed by the same A2A request and
+`PAYMENT-SIGNATURE`. The server persists the native challenge and quote, checks
+identity/amount/recipient, stores the original authorization encrypted and then
+settles. Work begins only after independent canonical receipt, exact official
+USDC Transfer, authorization nonce and confirmation-depth checks.
 
-## Services and prices
+MPP uses the official SDK's `WWW-Authenticate: Payment` challenge. With application
+authentication present, its standard `header` field selects `Payment-Authorization`,
+leaving Bearer identity untouched. The SDK creates native Stripe PaymentIntents
+using the original SPT and idempotency identity. PaymentIntent retrieval verifies
+amount, merchant binding, mode and original quote metadata before dispatch.
 
-`research` is a repeatable service, not an Agent or one execution. Each service has
-an immutable revision, bounded JSON input contract, deliverables and one or more
-offers. Each offer gets a deterministic A2A URL. Alternative USDC and USD offers
-are separate choices; they are not two charges for the same purchase.
+Cards optionally describe the application's service contract via
+`urn:envarpay:commerce:1`; x402 challenges include optional quote display metadata
+at `urn:envarpay:quote:1.info`. These are application descriptors, not a new A2A or
+payment standard. The settlement adapter removes its local display metadata from
+facilitator requests. Standard A2A clients can invoke offers and native x402
+clients can pay without Envar platform IDs. The default reviewed buyer path
+uses seller service metadata. An explicit [standard-only peer policy](a2a-standard-peers.md)
+supports independent A2A/x402 sellers without these descriptors; its terms are locally
+reviewed, and ambiguous paid requests are never reposted.
 
-- `free` + `none`: validated free task input, no payment profile.
-- `fixed` + `upfront`: known total in smallest currency units.
-- `quantity` + `upfront`: integer unit price multiplied by a validated input array.
+## Buyer, recovery and Envar
 
-All other modes are rejected. The current initial-task contract requires zero
-included revisions; a future revision entitlement must not make arbitrary Tasks
-free. Input schemas cannot resolve remote references. Maximum quantities must
-refer to declared, bounded arrays. Card purchases require at least USD 0.50 and
-a resolved merchant profile before quoting.
+The `/client` entry offers the persistent buyer and private management API.
+[Buyer guide](a2a-buyer.md) covers exact peer policy, preview/confirm, BigInt budgets,
+free offers and original-operation recovery. [Native Agent guide](a2a-agents.md)
+connects Hermes/OpenClaw through a private fixed-peer A2A proxy when their native
+clients cannot insert a payment transport.
 
-The schema files in `packages/typescript/schemas/` are the configuration authority.
-Envar's service editor must consume the published schema rather than maintain a
-different copy of its rules.
+Payment confirmed, Task completed and accepted delivery are separate states.
+Timeout is not a decline. Unknown payments retain their original authorization
+and reserved budget. Recovery uses the original nonce/transaction/SPT/Task; an
+expired EIP-3009 reservation releases only after a canonical finalized block
+proves it expired and unused. Upfront payment does not provide escrow or automatic
+refunds. [Runtime recovery](a2a-runtime-recovery.md).
 
-## TypeScript API
+Envar opt-in config sync applies only locally authorized service, upstream,
+recipient and protocol changes, records actual application, then acknowledges its
+digest. The platform verifies the public Card and unpaid challenge before
+publication. [Configuration integration](a2a-envar.md). No platform signer is added.
 
-```ts
-import {
-  loadCommerceConfig, buildQuote, assertQuoteRequest, createOfferCard,
-} from '@envarai/envarpay/commerce';
+SQLite supports one process per ledger. Preserve databases, vault, keys and
+immutable revisions together. Do not mount wallet state into an Agent's arbitrary
+shell. `/healthz` describes process liveness; `/readyz` also reads the ledger and rejects a
+fatal worker failure. These checks do not guarantee third-party provider availability.
+Use the local owner-only [inspection and recovery guide](commerce-operations.md)
+to find unknown operations and preserve a consistent offline backup.
 
-const config = loadCommerceConfig(sellerJson);
-const input = { topic: 'Agent directory', competitors: ['A', 'B'] };
-const quote = buildQuote(config, {
-  serviceId: 'research', offerId: 'usdc-once',
-  caller: authenticatedCaller, messageId: stableMessageId,
-  input,
-});
-assertQuoteRequest(quote, authenticatedCaller, stableMessageId, input);
-const card = createOfferCard(config, 'research', 'usdc-once', publicOrigin);
-```
+## Release evidence
 
-`quote.paymentProfile` is a copied/frozen settlement snapshot, not a live reference
-to editable seller settings. Runtime code must persist that quote before payment,
-then validate the official x402/MPP challenge and credential against it. PriceQuote
-is an internal object, not a new public payment protocol.
-
-## Dependencies and verification
-
-The pinned official `@a2a-js/sdk 1.2.1` exports the A2A 1.0 model and codecs;
-its version number is not the protocol version. This milestone checks actual
-serialization rather than relying on repository-main documentation. x402 core/EVM
-and the payment-identifier extension are pinned to 2.24.0. Seller tests exercise
-the unmodified official x402 client, concurrency, replay, lost responses, frozen
-challenges, encrypted credential restart/tamper checks and simulated RPC receipts.
-Real testnet delivery remains a separate release acceptance requirement.
-
-`npm test` discovers all Node test files. Existing MCP client checks remain while
-implementation work proceeds; they are not evidence for the new A2A payment path.
-The final release will replace the old public entry with the complete A2A SDK;
-there is no requirement to preserve the previous product API.
-
-## x402 seller configuration and recovery
-
-An x402 profile requires these additional **private** credential-file fields:
-
-```json
-{
-  "payers": {"authenticated-buyer-id": "0xBUYER_ADDRESS"},
-  "vaultKeyFile": "/private/vault.key",
-  "rpcUrls": {"eip155:84532": "https://YOUR_BASE_SEPOLIA_RPC"}
-}
-```
-
-Merge with `callers` and `upstreams`; placeholders are not usable values. The vault
-key is 32 random bytes in an owner-only file. Keep the ledger, companion ownership
-database, encrypted `authorizations/` and vault key together in a consistent private
-backup. Never mount them into the Agent's unrestricted execution environment.
-
-The public request is still standard A2A `SendMessage`. The unpaid response has
-HTTP 402 + `PAYMENT-REQUIRED`; retry the same request with the official x402
-`PAYMENT-SIGNATURE`. The frozen resource URL includes a quote identifier, copied
-by the official client. No private Envar payment payload is required. Optional
-standard `payment-identifier` values are deduplicated per caller; an economic nonce
-cannot buy two orders even when a client omits the extension.
-
-Before settle, the runtime persists the original signature encrypted and records
-its chain checkpoint. It confirms payment only after matching the official token,
-exact Transfer, AuthorizationUsed nonce, canonical block and confirmation depth.
-A lost or unverified result stays `unknown`: execution is blocked and the signature
-must not be replaced. `X402Gate.recover(orderId, caller)` reads the original receipt,
-or searches AuthorizationUsed logs from the saved checkpoint without settling
-again. More than 100,000 blocks requires an operator/archive lookup; absence of
-logs never becomes proof of non-payment. Public management recovery is added with
-the buyer-management milestone.
-
-Upfront payment does not promise escrow, automatic refunds or acceptance-based
-release. Payment success and task execution success are stored separately.
+The official SDK versions are pinned in the lockfile. Local/CI tests use explicit
+simulators where documented. Separate acceptance records demonstrate native
+model execution and USDC transfer; they do not prove every provider, every
+framework version or live card eligibility. MPP live collection remains disabled
+until the operator has an eligible merchant, supported SPT issuance/recovery and
+independent merchant identity proof. Configuration or mock success cannot supply
+those external capabilities.
