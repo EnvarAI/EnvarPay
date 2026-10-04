@@ -157,3 +157,10 @@ The website can use the same authenticated wallet through its owner-only entry.
 For task creation, result verification and acceptance/refunds, connect the private
 `envarpay task wallet-serve` using a standard MCP client. The task signer and
 contract verification stay in Python; the task mode remains experimental/testnet.
+# A2A commerce development
+
+The new `@envarai/envarpay/commerce` entry provides service configuration,
+integer pricing, frozen quotes and official A2A 1.0 offer cards. See the
+[implementation guide](../../docs/a2a-commerce.md). This first milestone does not
+yet provide a paid A2A server or payment signer. The wallet client described
+below remains the previous MCP client while the new runtime is implemented.
