@@ -1,170 +1,83 @@
-<p align="center">
-  <img src="assets/banner.svg" alt="EnvarPay — Get your agents paid" width="100%" />
-</p>
+<p align="center"><img src="assets/banner.svg" alt="EnvarPay — Get your agents paid" width="100%" /></p>
 
-<p align="center">
-  <a href="https://github.com/EnvarAI/EnvarPay/actions/workflows/ci.yml?query=branch%3Amain"><img src="https://github.com/EnvarAI/EnvarPay/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI status on main" /></a>
-  <a href="LICENSE"><img src="https://img.shields.io/github/license/EnvarAI/EnvarPay" alt="License" /></a>
-  <a href="pyproject.toml"><img src="https://img.shields.io/badge/python-3.11%2B-blue?logo=python&amp;logoColor=white" alt="Requires Python 3.11+" /></a>
-  <a href="https://github.com/EnvarAI/EnvarPay/releases"><img src="https://img.shields.io/github/v/release/EnvarAI/EnvarPay?include_prereleases&amp;label=release" alt="Latest GitHub release, including prereleases" /></a>
-  <a href="https://pypi.org/project/envarpay/"><img src="https://img.shields.io/pypi/v/envarpay" alt="Published PyPI version" /></a>
-</p>
+# Commerce for A2A agents
 
-# Add payments to any agent
+EnvarPay lets an Agent offer priced services and lets another Agent buy work with
+an explicit budget. It runs in the user's environment and works without an Envar
+account. Agents keep their own framework, model, tools and memory.
 
-EnvarPay gives an existing agent a **budgeted payment wallet**, a **paid capability**,
-or both. Your agent keeps its framework, model, tools and memory. Connect standard
-MCP tools; no Envar account is required. An optional [Envar connection](docs/envar.md)
-adds discovery, receiving settings and transaction observations.
+[中文](README.zh-CN.md) · [TypeScript SDK](packages/typescript/README.md) ·
+[Architecture and wire behavior](docs/a2a-commerce.md) · [Buyer setup](docs/a2a-buyer.md) · [Native Agent outbound](docs/a2a-agents.md)
 
-[中文](README.zh-CN.md) · [Quickstart](docs/getting-started.md) · [Envar guide](docs/envar.md) · [Framework guides](docs/integrations/index.md)
+- **Communication:** official A2A 1.0 Cards, messages, tasks and artifacts.
+- **Payments:** official x402 v2 exact USDC and native MPP Stripe charge adapters.
+- **Service configuration:** immutable capability/input/price revisions; free,
+  fixed task prices or validated input quantity prices.
+- **Reliability:** persistent orders, separately verified payments, dispatch queues,
+  cumulative budget reservation, owner isolation and original-operation recovery.
+- **Optional Envar integration:** service discovery, configuration publication,
+  quote confirmation, orders and read-only payment observation.
 
-[Operator deployment and original-operation recovery](docs/operations.md) describes
-signer isolation, private state, explicit permissions and required release checks.
+The new implementation is TypeScript on Node.js 22.14+; Node 24 is recommended.
+SQLite supports one runtime instance per ledger. A separate process/container is
+available when a host framework cannot embed the SDK. Native A2A exporters need no
+Hermes/OpenClaw-specific payment logic. Explicit input encoding bridges data-part
+and JSON-text runtimes; it never silently retries a task using another protocol.
 
-## Two payment modes
-
-| Mode | Delivery and payment | Use |
-|---|---|---|
-| Pay per call | Confirm USDC payment, execute one capability, return its result | MCP tools / Python wallet / npm wallet client |
-| Pay per task | Lock funds, retrieve a committed deliverable, explicitly accept/reject or request an expired refund | Experimental Python task wallet and standard MCP; Base Sepolia only |
-
-Buyer, seller and both are roles. MCP/A2A are connection protocols. The task mode
-also exposes MCP tools; it does not require a second Agent framework.
-
-[Envar onboarding](docs/envar.md) connects one Agent's separate private, paid and
-wallet entries. Public discovery displays prices; reviewed purchases use only
-already-approved local wallet peers. The task contract is unaudited and rejects mainnet.
-
-## Choose what to install
-
-| You want to… | Use | What it provides |
-|---|---|---|
-| Give any MCP-capable agent payment tools | **Python `envarpay` CLI/service** | Wallet signing, recipient/tool allowlists, budgets, durable state and recovery |
-| Sell an existing MCP capability, whatever its language | **Python `envarpay` payment gate** | Quote, collect and verify USDC before calling your private tool; no seller key needed |
-| Call from a Python application | **Python `envarpay` API** | `WalletService` / `PaidServer`; same policy and state as the CLI |
-| Call from JavaScript/TypeScript or Bun | **npm `@envarai/envarpay`** | Typed client to an authenticated wallet MCP service; no embedded signer or Python installer |
-| Host language cannot embed either package | **Separate MCP service** | Run the Python service separately or build its Docker image; connect the agent's native MCP client |
-| Use an agent that exposes only HTTP or a CLI | **A small private adapter** | Wrap one bounded operation as MCP; keep the runtime private behind the payment gate |
-
-**Availability:** Python [0.1.0a11 is published on PyPI](https://pypi.org/project/envarpay/0.1.0a11/).
-The [`@envarai/envarpay` client is published on npm](https://www.npmjs.com/package/@envarai/envarpay)
-in the `next` alpha channel.
-[Exact channels and versions](docs/packages.md). [Container release and usage](docs/container.md).
-
-An agent needs native MCP support or a callable API/CLI that can be adapted. A UI-only
-application needs its own integration. Protocol compatibility is not a claim that
-every possible agent/version has passed payment acceptance.
-
-## Install Python
-
-Install [uv](https://docs.astral.sh/uv/getting-started/installation/), then:
+## Build and configure
 
 ```sh
-uv tool install --python 3.13 envarpay==0.1.0a11
-envarpay --version
+cd packages/typescript
+npm ci --ignore-scripts
+npm run build
+node dist/commerce/cli.js init --directory ./private
 ```
 
-For a Python application's own environment, use `python -m pip install envarpay==0.1.0a11`.
-These are alpha releases. Pin the version you validated before upgrading an existing
-wallet, and preserve its config, keys and ledger: [upgrade guide](docs/migration-envarpay.md).
+Review generated examples and set actual runtime endpoints, input limits,
+receiving identities and locally approved buyer peers. Initialization does not
+make a purchase. Use owner-only credential files and keep wallet keys outside the
+Agent's unrestricted execution environment.
 
-For the private Live interface with voice, avatars, images and protected files,
-install [EnvarLive](https://pypi.org/project/envarlive/0.1.0a10/) separately. It connects
-the existing Agent runtime; wallet signing remains in EnvarPay's separate service.
+[Seller setup](docs/a2a-commerce.md) explains the private upstream, public paid
+entry, x402 challenge and receipt checks. [Buyer setup](docs/a2a-buyer.md) covers
+preview, confirmation, budget enforcement and recovery. [Envar integration](docs/a2a-envar.md)
+explains optional configuration pull and application acknowledgment.
 
-## Start receiving payment
-
-Your agent must already expose a private MCP tool, such as `ask_agent`:
-
-```sh
-envarpay init --agent mcp --role seller --directory ./seller \
-  --pay-to YOUR_FULL_RECEIVING_ADDRESS \
-  --upstream http://127.0.0.1:8000/mcp --tool ask_agent --price 0.01
-envarpay doctor --config ./seller/seller.toml
-envarpay serve --config ./seller/seller.toml
+```mermaid
+flowchart LR
+    A[Buyer Agent] --> W[Private EnvarPay buyer]
+    W -->|A2A + native x402 or MPP| S[EnvarPay seller]
+    S -->|Verified payment then dispatch| B[Seller Agent]
+    B -->|Task progress and artifacts| S
+    S --> W
+    E[Optional Envar directory and UI] -. discovery / reviewed purchase .-> W
+    E -. allowed configuration / observation .-> S
 ```
 
-The gate listens at `http://127.0.0.1:4020/mcp`. Expose **the gate** through your HTTPS
-service and configure its allowed host; keep the raw upstream private. The seller
-needs a receiving address, not its private key. Only after the exact payment is
-confirmed does the private tool run. [Seller recipes](docs/selling.md).
+## What a purchase means
 
-**The generated config uses Base Sepolia test USDC.** For real-money Base operation,
-explicitly review the mainnet network/RPC, official USDC, receiving address, price
-and supported facilitator. Initialization and `doctor` do not make a payment.
-[Configuration and network selection](docs/configuration.md).
+One purchase starts one task under a frozen service revision. Reading its status
+is free. A waiting task can accept bounded clarification within its original
+schema; terminal tasks cannot be appended. Price, recipient and budget checks run
+in code before payment and execution. A prompt cannot override them.
 
-## Give your agent a payment wallet
+Upfront payment does not promise satisfactory delivery, escrow or an automatic
+refund. Payment, task execution and customer acceptance remain different facts.
+Subscriptions, metering, milestones, outcome payments and credit terms are later
+extensions, not hidden behaviors of this release.
 
-Obtain the seller's paid MCP URL, receiving address and exact tool name:
+## Release and evidence
 
-```sh
-envarpay init --agent hermes --role buyer --directory ./buyer \
-  --peer-url https://seller.example/mcp --pay-to SELLER_FULL_RECEIVING_ADDRESS \
-  --tool ask_agent --max-per-call 0.01 --budget 0.05
-envarpay keygen --output ./buyer/buyer.key
-envarpay doctor --config ./buyer/buyer.toml
-```
+The 0.2 source line replaces the earlier Python/MCP product entry. Its coordinated
+MVP acceptance includes separate SDK/fixture, real Agent, chain/PSP and production
+UI evidence. Follow the release PR for published npm/OCI versions; a merged source
+PR or simulated payment is not proof of a deployed paid workflow.
 
-Fund the dedicated test wallet; review the network, recipient, allowed tool and
-limits in `buyer.toml`, then explicitly enable `payments_enabled`. Merge the generated
-`host-config.json` into the agent's existing config and reload it. For other MCP
-clients, use the command/args in `wallet-command.json`. `--agent` selects instructions,
-not a new agent or model. [Framework-specific steps](docs/integrations/index.md).
+MPP live collection requires an eligible merchant and authorized buyer funding.
+Test and live records remain distinguishable. The platform never holds the Agent's
+signing key or treats an unverified receipt as independently confirmed money.
 
-Your agent receives `list_paid_tools`, `call_paid_tool`, `payment_status` and
-`recover_payment`. Give each purchase a stable request ID. On timeout, inspect or
-recover that ID; do not create a second purchase. Budgets are cumulative, not daily.
-
-Use `--role both` for both functions, with your address in `--pay-to` and the other
-seller's in `--peer-pay-to`; buyer and seller retain separate config/state.
-
-## JavaScript/TypeScript and Bun
-
-Install the published npm package with `npm install @envarai/envarpay@next`.
-[Full npm guide](packages/typescript/README.md) includes authenticated wallet setup,
-Envar discovery, a paid call, status and original-result recovery.
-
-```ts
-import { WalletClient } from '@envarai/envarpay';
-const wallet = await WalletClient.connect({
-  url: 'https://YOUR_PRIVATE_WALLET/mcp',
-  token: process.env.ENVARPAY_WALLET_TOKEN!,
-});
-try {
-  const tools = await wallet.listPaidTools('seller');
-  console.log(tools.tools);
-} finally { await wallet.close(); }
-```
-
-The npm client talks to the **buyer's wallet**, not directly to a seller. Signing,
-funding, allowlists and budgets stay in that separately operated wallet. An agent
-with native MCP support can connect directly and does not need this npm library.
-
-## Use it with Envar
-
-[Envar onboarding](docs/envar.md) walks through registering an endpoint, ownership
-proof, publishing a seller, receiving configuration, connecting a buyer and viewing
-both sides of a transaction. `[connection]` enables catalog discovery and durable
-reports; `accept_receiving_updates` optionally applies the seller's Envar prices.
-Public discovery does not authorize a new receiving address or change wallet policy.
-
-For **asynchronous work with acceptance and refunds**, use Python `envarpay[task]`
-and its task wallet MCP tools. This is a separate experimental, Base Sepolia-only
-flow; it is not the upfront `call_paid_tool` path. [Task guide](docs/tasks/README.md).
-
-## Evidence and operating limits
-
-The six-framework [testnet matrix](docs/integrations/validation.md) now has paid-delivery evidence
-for all 30 directions: the original 28 plus two a11 completions. The two original
-failures and their recovery records remain; this was not a new run of all 30 pairs. Tests of installation,
-Node/Bun transport or CI are not additional payment evidence. Agent frameworks,
-HTTP connectors and task escrow have their own acceptance scope.
-
-Payments default off. Keep wallet keys, policy and state in the wallet's permission
-boundary; an agent with unrestricted shell access under the same OS user is not
-isolated from them. Paid execution can fail; upfront payment has no automatic
-refund. [Failure and recovery semantics](docs/directory-and-recovery.md).
-
-[Python API](docs/python-sdk.md) · [Configuration](docs/configuration.md) · [Security](SECURITY.md) · [Contributing](CONTRIBUTING.md)
+Existing experimental purchases must be recovered with their original version,
+ledger and authorization. Do not convert unresolved old MCP/escrow operations into
+new A2A purchases. [Runtime recovery](docs/a2a-runtime-recovery.md) explains the new
+runtime's restart and unknown-state behavior. [License](LICENSE).

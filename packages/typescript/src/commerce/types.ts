@@ -38,7 +38,7 @@ export interface BuyerPolicy {
   policyVersion: 1;
   paymentsEnabled: boolean;
   approval: 'per_purchase' | 'within_preapproved_limits';
-  peers: { id: string; cardUrl: string; protocol: 'x402' | 'mpp'; currency: string; recipient: string; maxPerPurchase: string }[];
+  peers: ({ id: string; cardUrl: string; protocol: 'x402' | 'mpp'; currency: string; recipient: string; maxPerPurchase: string } | { id: string; cardUrl: string; protocol: 'free'; currency: null; recipient: null; maxPerPurchase: '0' })[];
   budgets: { currency: string; maxTotal: string; period: 'cumulative' }[];
 }
 

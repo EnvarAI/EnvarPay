@@ -1,0 +1,10 @@
+# Merge into the existing Hermes config; enable its native a2a toolset separately.
+# This token authorizes the one local proxy, not the wallet management API.
+a2a_agents:
+  approved_research:
+    url: "http://host.docker.internal:4030"
+    auth:
+      type: bearer
+      token: "REPLACE_WITH_PRIVATE_PROXY_TOKEN"
+    timeout: 30
+    capabilities: [research]

@@ -1,0 +1,18 @@
+{
+  "enabled": true,
+  "platformOrigin": "https://envar.ai",
+  "agentId": "54fe760a-4580-4258-9002-80f34c0d757a",
+  "runtimeAgentId": "hermes-researcher",
+  "acceptUpdates": true,
+  "allowedServices": ["research"],
+  "allowedUpstreamOrigins": ["http://hermes:9000"],
+  "allowedX402": [
+    {
+      "network": "eip155:84532",
+      "asset": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+      "payTo": "0x2222222222222222222222222222222222222222",
+      "facilitatorOrigin": "https://facilitator.example"
+    }
+  ],
+  "allowedMppAccounts": ["seller-stripe"]
+}

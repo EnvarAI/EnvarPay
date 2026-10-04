@@ -5,6 +5,16 @@ import {validateUrl} from './config.js';
 
 const abi=parseAbi(['event Transfer(address indexed from, address indexed to, uint256 value)']);
 const authorizationAbi=parseAbi(['event AuthorizationUsed(address indexed authorizer, bytes32 indexed nonce)']);
+const authorizationStateAbi=parseAbi(['function authorizationState(address authorizer,bytes32 nonce) view returns (bool)']);
+const officialUsdc:Readonly<Record<string,string>>={
+  'eip155:84532':'0x036cbd53842c5426634e7929541ec2318f3dcf7e',
+  'eip155:8453':'0x833589fcd6edb6e08f4c7c32d4f71b54bda02913',
+};
+export interface ExpiredUnusedProof {
+  expiredUnused:true; network:string; asset:string; payer:string; nonce:string;
+  validAfter:string; validBefore:string; blockNumber:string; blockHash:string; blockTimestamp:string;
+  finality:'finalized'; authorizationUsed:false;
+}
 
 /** Checks the canonical chain receipt and exact official-token Transfer. */
 export function evmReceiptVerifier(rpcUrls:Readonly<Record<string,string>>,confirmations=2){
@@ -46,7 +56,39 @@ export function evmSettlementRecovery(rpcUrls:Readonly<Record<string,string>>) {
     if(await client.getChainId()!==Number(requirements.network.split(':')[1]))throw new CommerceError('rpc_network','RPC network does not match frozen requirements');
     return client;
   };
+  const expiredUnusedProof=async(payload:PaymentPayload,requirements:PaymentRequirements):Promise<ExpiredUnusedProof|undefined>=>{
+    try{
+      const asset=officialUsdc[requirements.network];
+      if(!asset||typeof requirements.asset!=='string'||requirements.asset.toLowerCase()!==asset)return undefined;
+      const auth=(payload.payload as {authorization?:{from?:string;to?:string;value?:string;nonce?:string;validAfter?:string;validBefore?:string}})?.authorization;
+      if(!auth||!/^0x[0-9a-fA-F]{40}$/.test(auth.from??'')||!/^0x[0-9a-fA-F]{64}$/.test(auth.nonce??'')||
+        auth.to?.toLowerCase()!==requirements.payTo.toLowerCase()||auth.value!==requirements.amount||
+        !/^(0|[1-9][0-9]{0,77})$/.test(auth.validAfter??'')||!/^(0|[1-9][0-9]{0,77})$/.test(auth.validBefore??''))return undefined;
+      const validAfter=BigInt(auth.validAfter!),validBefore=BigInt(auth.validBefore!);
+      if(validAfter>=validBefore||validBefore>=2n**256n)return undefined;
+      const client=await clientFor(requirements);
+      const finalized=await client.getBlock({blockTag:'finalized'});
+      if(finalized.number===null||!/^0x[0-9a-fA-F]{64}$/.test(finalized.hash??'')||
+        finalized.timestamp<validBefore||finalized.timestamp<validAfter)return undefined;
+      // A missing nonce log is not proof. Read the official token's state at
+      // the exact finalized block, after this authorization can no longer execute.
+      const used=await client.readContract({address:asset as Hex,abi:authorizationStateAbi,functionName:'authorizationState',
+        args:[auth.from as Hex,auth.nonce as Hex],blockNumber:finalized.number});
+      if(used!==false)return undefined;
+      const canonical=await client.getBlock({blockNumber:finalized.number});
+      if(canonical.hash!==finalized.hash||canonical.number!==finalized.number||canonical.timestamp!==finalized.timestamp)return undefined;
+      return {expiredUnused:true,network:requirements.network,asset,payer:auth.from!.toLowerCase(),nonce:auth.nonce!.toLowerCase(),
+        validAfter:auth.validAfter!,validBefore:auth.validBefore!,blockNumber:finalized.number.toString(),
+        blockHash:finalized.hash!,blockTimestamp:finalized.timestamp.toString(),finality:'finalized',authorizationUsed:false};
+    }catch{
+      // Unsupported finalized tags, archive state gaps, malformed return values
+      // and network errors retain the original unknown operation and its budget.
+      return undefined;
+    }
+  };
   return {
+    expiredUnusedProof,
+    proveExpiredUnused:async(payload:PaymentPayload,requirements:PaymentRequirements):Promise<boolean>=>!!await expiredUnusedProof(payload,requirements),
     checkpoint:async(requirements:PaymentRequirements):Promise<string>=>{
       const client=await clientFor(requirements);const block=await client.getBlockNumber();
       return (block>12n?block-12n:0n).toString();

@@ -51,26 +51,71 @@
           "protocol": {
             "enum": [
               "x402",
-              "mpp"
+              "mpp",
+              "free"
             ]
           },
           "currency": {
-            "type": "string",
-            "minLength": 1
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "recipient": {
-            "type": "string",
-            "minLength": 1
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "maxPerPurchase": {
-            "$ref": "#/$defs/amount"
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]{0,77})$"
           }
-        }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "protocol": {
+                  "const": "free"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "currency": {
+                  "const": null
+                },
+                "recipient": {
+                  "const": null
+                },
+                "maxPerPurchase": {
+                  "const": "0"
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "currency": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "recipient": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "maxPerPurchase": {
+                  "$ref": "#/$defs/amount"
+                }
+              }
+            }
+          }
+        ]
       }
     },
     "budgets": {
       "type": "array",
-      "minItems": 1,
+      "minItems": 0,
       "items": {
         "type": "object",
         "additionalProperties": false,
