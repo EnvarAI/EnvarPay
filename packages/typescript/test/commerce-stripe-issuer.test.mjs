@@ -13,6 +13,7 @@ import { BuyerStore } from '../dist/commerce/buyer-store.js';
 import { CommerceStore, CommerceServer, bearerAuthenticator } from '../dist/commerce/runtime.js';
 import { MppGate } from '../dist/commerce/mpp.js';
 import { loadCommerceConfig } from '../dist/commerce/config.js';
+import { BuyerManagement } from '../dist/commerce/management.js';
 
 const purchaseId = '6a013de9-935b-419b-8b2a-3b1f2e49c6f7';
 const sellerOrder = '9ca0d568-1dfd-4304-bab4-c41c40e29038';
@@ -210,6 +211,44 @@ test('unsupported SCA and consumed tokens cannot be treated as ready funding', a
   } finally { f.close(); }
 });
 
+test('purchase authentication binds original scope, reads only, and requires a matching publishable key only for action', async () => {
+  const settings = config(), f = fixture({ config: settings });
+  try {
+    const op = operation(f.at, settings); await f.adapter.createToken(op);
+    assert.equal(await f.adapter.getAuthentication(context(op)), undefined);
+    f.tokens.get('spt_original1').status = 'requires_action';
+    f.tokens.get('spt_original1').next_action = { type: 'use_stripe_sdk', use_stripe_sdk: { value: 'private-next-action' } };
+    await assert.rejects(f.adapter.getAuthentication(context(op)), { code: 'stripe_publishable_key_required' });
+    f.restart({ ...settings, publishableKey: 'pk_test_issuer' });
+    const before = f.calls.length;
+    for (const change of [c => c.purchaseId = sellerOrder, c => c.mode = 'live', c => c.quote.amount = '301', c => c.quote.recipient = 'profile_other']) {
+      const changed = structuredClone(context(op)); change(changed);
+      await assert.rejects(f.adapter.getAuthentication(changed), { code: 'stripe_spt_recovery_binding' });
+    }
+    assert.equal(f.calls.length, before);
+    assert.deepEqual(await f.adapter.getAuthentication(context(op)), { type: 'use_stripe_sdk', hashedValue: 'private-next-action', publishableKey: 'pk_test_issuer' });
+    assert.ok(f.calls.slice(before).every(c => c.init.method === 'GET')); assert.equal(f.posts().length, 1);
+    f.tokens.get('spt_original1').next_action = { type: 'redirect_to_url' };
+    await assert.rejects(f.adapter.getAuthentication(context(op)), { code: 'stripe_spt_action_unsupported' });
+  } finally { f.close(); }
+});
+
+test('official negative test aliases require explicit helper/test mode and are never a live or issued-token fallback', async () => {
+  for (const paymentMethod of ['pm_card_visa_chargeDeclined', 'pm_card_authenticationRequired']) {
+    const settings = { ...config(), paymentMethod, issuance: 'test-helper', issuerAccountId: 'acct_seller' };
+    const f = fixture({ config: settings });
+    try {
+      await f.adapter.createToken(operation(f.at, settings));
+      assert.equal(new URLSearchParams(f.posts()[0].init.body).get('payment_method'), paymentMethod);
+      assert.equal(f.posts()[0].path, '/v1/test_helpers/shared_payment/granted_tokens');
+      assert.equal(f.adapter.issuance, 'test-helper');
+      for (const patch of [{ issuance: 'issued-token' }, { mode: 'live' }, { paymentMethod: 'pm_card_invented' }, { paymentMethod: 'pm_card_chargeDeclined' }]) {
+        assert.throws(() => createStripeMppBuyer({ ...settings, ...patch }, f.runtime), error => error.code !== 'store_locked');
+      }
+    } finally { f.close(); }
+  }
+});
+
 test('real Stripe test helper is explicit, test-only and bound to the seller account', async () => {
   const settings = config(); settings.issuance = 'test-helper'; settings.issuerAccountId = 'acct_seller'; settings.paymentMethod = 'pm_card_visa';
   const f = fixture({ config: settings }); try {
@@ -237,7 +276,8 @@ test('live-configured adapter uses only the issued-token contract and matching l
 test('invalid mode, funding and test-helper configuration fails closed before opening a ledger', () => {
   const f = fixture(); try {
     for (const change of [c => c.mode = 'live', c => c.issuance = 'test-helper', c => c.paymentMethod = 'pm_card_visa', c => c.returnUrl = 'http://example.com',
-      c => c.sellers[profile].accountId = 'acct_bad/path', c => c.sellers = {}, c => c.secretKey = 'sk_test_secret\nleak']) {
+      c => c.sellers[profile].accountId = 'acct_bad/path', c => c.sellers = {}, c => c.secretKey = 'sk_test_secret\nleak',
+      c => c.publishableKey = 'pk_live_wrongmode', c => c.publishableKey = 'sk_test_secret', c => c.publishableKey = 'pk_test_bad\nvalue']) {
       const value = config(); change(value); assert.throws(() => createStripeMppBuyer(value, f.runtime), error => error.code !== 'store_locked');
     }
     assert.throws(() => createStripeMppBuyer(config(), { ...f.runtime, statePath: ':memory:' }), { code: 'stripe_issuer_state' });
@@ -289,14 +329,18 @@ test('simultaneous creation cannot race into a second token and ledger has one o
   } finally { f.close(); }
 });
 
-test('actual CommerceBuyer and native MPP gate complete only after original SPT action and independent receipt', async () => {
-  const f = fixture(), store = new BuyerStore(join(f.directory, 'buyer.sqlite3')), sellerStore = new CommerceStore(':memory:');
+for (const phase of ['before-seller', 'after-seller']) test(`owner management recovers original SPT authentication ${phase} only with independent payment proof`, async () => {
+  const f = fixture({ config: { ...config(), publishableKey: 'pk_test_issuer' } }), store = new BuyerStore(join(f.directory, 'buyer.sqlite3')), sellerStore = new CommerceStore(':memory:');
   const origin = 'https://seller.example', identity = 'a'.repeat(40), intents = new Map();
   let paidRequests = 0, executions = 0, paymentIntents = 0;
   const provider = { accountId: 'acct_seller', merchantProfile: profile, mode: 'test', async assertReady() {},
     async create(params) {
       paymentIntents++;
-      const intent = { id: 'pi_original', object: 'payment_intent', status: 'succeeded', amount: params.amount, amount_received: params.amount,
+      if (phase === 'after-seller') {
+        const spt = f.tokens.get('spt_original1'); spt.status = 'requires_action';
+        spt.next_action = { type: 'use_stripe_sdk', use_stripe_sdk: { value: 'private-next-action' } };
+      }
+      const intent = { id: 'pi_original', object: 'payment_intent', status: phase === 'after-seller' ? 'requires_action' : 'succeeded', amount: params.amount, amount_received: phase === 'after-seller' ? 0 : params.amount,
         currency: params.currency, livemode: false, metadata: params.metadata };
       intents.set(intent.id, intent); f.intent(intent); return intent;
     }, async retrieve(id) { return intents.get(id); }, async findOriginal(id) { return [...intents.values()].find(v => v.metadata.envarpay_order === id); } };
@@ -311,16 +355,38 @@ test('actual CommerceBuyer and native MPP gate complete only after original SPT 
     policy: { policyVersion: 1, paymentsEnabled: true, approval: 'per_purchase', peers: [{ id: 'seller', cardUrl, protocol: 'mpp', currency: 'usd', recipient: profile, maxPerPurchase: '300' }],
       budgets: [{ currency: 'usd', maxTotal: '300', period: 'cumulative' }] },
     fetchImpl: async (url, init) => { const request = new Request(url, init); if (request.headers.has('Payment-Authorization')) paidRequests++; return seller.handle(request); } });
+  const management = new BuyerManagement({ buyer, origin: 'http://127.0.0.1:4021', authenticate: bearerAuthenticator({ [identity]: 'owner', ['b'.repeat(40)]: 'other' }) });
+  const actionRequest = (id, token = identity) => new Request(`http://127.0.0.1:4021/management/v1/purchases/${id}/authentication`, { headers: { Authorization: 'Bearer ' + token } });
   try {
-    f.behavior('action');
+    if (phase === 'before-seller') f.behavior('action');
     const preview = await buyer.preview('owner', { cardUrl, messageId: 'action-integration', offerId: 'card-once', input: { topic: 'test', competitors: ['A'] } });
+    assert.deepEqual(await (await management.handle(actionRequest(preview.id))).json(), { purchaseId: preview.id, action: null });
     const waiting = await buyer.confirm('owner', { previewId: preview.id, quoteToken: preview.quoteToken, messageId: preview.messageId });
-    assert.equal(waiting.paymentState, 'unknown'); assert.equal(waiting.errorCode, 'stripe_spt_requires_action');
-    assert.equal(paidRequests, 0); assert.equal(executions, 0); assert.equal(paymentIntents, 0);
+    assert.equal(waiting.paymentState, 'unknown');
+    if (phase === 'before-seller') assert.equal(waiting.errorCode, 'stripe_spt_requires_action');
+    assert.equal(paidRequests, phase === 'after-seller' ? 1 : 0); assert.equal(executions, 0); assert.equal(paymentIntents, phase === 'after-seller' ? 1 : 0);
     assert.deepEqual(store.usage('usd'), { reserved: '300', spent: '0' });
-    const action = await f.adapter.authenticationAction('mpp-token-' + waiting.id); assert.equal(action.type, 'use_stripe_sdk');
+    const before = f.calls.length, snapshot = JSON.stringify(buyer.get('owner', waiting.id));
+    assert.equal((await management.handle(actionRequest(waiting.id, 'b'.repeat(40)))).status, 404);
+    assert.equal(f.calls.length, before);
+    const response = await management.handle(actionRequest(waiting.id));
+    assert.equal(response.status, 200); assert.equal(response.headers.get('Cache-Control'), 'no-store');
+    const auth = await response.json();
+    assert.deepEqual(auth, { purchaseId: waiting.id, action: { type: 'use_stripe_sdk', hashedValue: 'private-next-action', publishableKey: 'pk_test_issuer' } });
+    assert.ok(f.calls.slice(before).every(c => c.init.method === 'GET'));
+    assert.equal(JSON.stringify(buyer.get('owner', waiting.id)), snapshot);
+    for (const secret of ['private-next-action', 'pk_test_issuer', 'sk_test_issuer', 'spt_original1']) assert.equal(snapshot.includes(secret), false);
+    assert.equal(executions, 0); assert.equal(f.posts().length, 1);
+    const originalRecipient = buyer.policy.peers[0].recipient;
+    buyer.policy.peers[0].recipient = 'profile_other';
+    const policyCount = f.calls.length;
+    assert.equal((await management.handle(actionRequest(waiting.id))).status, 400); assert.equal(f.calls.length, policyCount);
+    buyer.policy.peers[0].recipient = originalRecipient;
     // Fixture simulates customer completion; no browser/SCA or real payment is claimed.
     f.tokens.get('spt_original1').status = 'active';
+    if (phase === 'after-seller') { intents.get('pi_original').status = 'succeeded'; intents.get('pi_original').amount_received = 300; }
+    assert.deepEqual(await (await management.handle(actionRequest(waiting.id))).json(), { purchaseId: waiting.id, action: null });
+    assert.equal(buyer.get('owner', waiting.id).paymentState, 'unknown'); assert.equal(executions, 0);
     await buyer.recover('owner', waiting.id);
     while (seller.isRunning) await new Promise(resolve => setTimeout(resolve, 1));
     const done = await buyer.recover('owner', waiting.id);
@@ -328,6 +394,9 @@ test('actual CommerceBuyer and native MPP gate complete only after original SPT 
     assert.equal(paymentIntents, 1); assert.equal(executions, 1); assert.equal(f.posts().length, 1);
     assert.deepEqual(store.usage('usd'), { reserved: '0', spent: '300' });
     assert.equal(JSON.stringify(done).includes('spt_original1'), false);
+    const doneCount = f.calls.length;
+    assert.deepEqual(await (await management.handle(actionRequest(waiting.id))).json(), { purchaseId: waiting.id, action: null });
+    assert.equal(f.calls.length, doneCount);
     assert.ok(f.calls.some(c => c.path === '/v1/payment_intents/pi_original' && c.key === 'Bearer rk_test_seller'));
   } finally { await buyer.stop(); seller.stop(); while (seller.isRunning) await new Promise(resolve => setTimeout(resolve, 1)); store.close(); sellerStore.close(); f.close(); }
 });

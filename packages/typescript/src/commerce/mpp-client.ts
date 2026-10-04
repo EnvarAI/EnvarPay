@@ -15,14 +15,25 @@ export interface MppTokenOperation {
 export interface MppVerificationContext {
   purchaseId: string; quote: BuyerQuote; mode: 'test' | 'live'; operationId: string;
 }
+export interface MppAuthenticationAction {
+  type: 'use_stripe_sdk'; hashedValue: string; publishableKey: string;
+}
+/** Explicit official sandbox aliases, never accepted for live funding. */
+export const STRIPE_TEST_PAYMENT_METHODS = ['pm_card_visa', 'pm_card_visa_chargeDeclined', 'pm_card_authenticationRequired'] as const;
+export function isStripeTestPaymentMethod(value: string): boolean {
+  return (STRIPE_TEST_PAYMENT_METHODS as readonly string[]).includes(value);
+}
 export interface MppBuyerOptions {
   /** Stable private buyer/PSP identity; never inferred from seller metadata. */
   payer: string; mode: 'test' | 'live'; paymentMethod: string;
+  issuance?: 'issued-token' | 'test-helper';
   createToken: (operation: MppTokenOperation) => Promise<string>;
   /** Read the original operation only; never create another SPT on absence. */
   recoverToken?: (operation: MppTokenOperation) => Promise<string | undefined>;
   /** Independently read provider state and match account/mode/merchant/amount/order. */
   verifyReceipt: (receipt: MppReceipt, context: MppVerificationContext) => Promise<boolean>;
+  /** Read only, for the owner of this exact original purchase. Never completes payment. */
+  getAuthentication?: (context: MppVerificationContext) => Promise<MppAuthenticationAction | undefined>;
 }
 export interface SavedMppAuthorization {
   protocol: 'mpp'; credential: string; challenge: Challenge.Challenge;

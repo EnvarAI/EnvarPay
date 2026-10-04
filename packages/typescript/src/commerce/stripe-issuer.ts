@@ -7,6 +7,7 @@ import { CommerceError } from './types.js';
 import { CredentialVault } from './vault.js';
 import { STRIPE_MPP_API_VERSION } from './stripe-provider.js';
 import type { MppBuyerOptions, MppReceipt, MppTokenOperation, MppVerificationContext } from './mpp-client.js';
+import { isStripeTestPaymentMethod } from './mpp-client.js';
 
 /** Buyer and seller use the same public preview, independently of mppx internals. */
 export const STRIPE_ISSUER_API_VERSION = STRIPE_MPP_API_VERSION;
@@ -26,6 +27,8 @@ export interface StripeMppBuyerConfig {
   mode: 'test' | 'live';
   issuerAccountId: string;
   secretKey: string;
+  /** Issuer's Stripe.js key; optional until customer authentication is needed. */
+  publishableKey?: string;
   /** Previously owner-authorized PaymentMethod; this adapter never collects card data. */
   paymentMethod: string;
   sellers: Readonly<Record<string, StripeSellerReadBinding>>;
@@ -104,14 +107,17 @@ export function createStripeMppBuyer(input: StripeMppBuyerConfig, runtime: Strip
   const keyValid = (key: unknown): key is string => typeof key === 'string' && new RegExp(`^(?:sk|rk)_${config.mode}_[A-Za-z0-9]{1,256}$`).test(key);
   if (!['test', 'live'].includes(config.mode) || !['issued-token', 'test-helper'].includes(issuance) || !ACCOUNT.test(config.issuerAccountId) || !keyValid(config.secretKey) ||
       typeof config.payer !== 'string' || !config.payer || config.payer.length > 200 || !config.sellers || !Object.keys(config.sellers).length ||
-      !(PAYMENT_METHOD.test(config.paymentMethod) || (issuance === 'test-helper' && config.paymentMethod === 'pm_card_visa'))) {
+      !(PAYMENT_METHOD.test(config.paymentMethod) || (issuance === 'test-helper' && isStripeTestPaymentMethod(config.paymentMethod)))) {
     throw new CommerceError('stripe_issuer_configuration', 'Explicit Stripe issuer, funding method, seller read bindings and mode are required');
   }
   for (const [profile, seller] of Object.entries(config.sellers)) {
     if (!isStripeProfileId(profile) || (config.mode === 'live' && profile.startsWith('profile_test_')) || !ACCOUNT.test(seller.accountId) || !keyValid(seller.secretKey)) throw new CommerceError('stripe_issuer_configuration', 'Seller profile, account and read credential must match the explicit mode');
   }
-  if (issuance === 'test-helper' && (config.mode !== 'test' || config.paymentMethod !== 'pm_card_visa' || Object.values(config.sellers).some(s => s.accountId !== config.issuerAccountId))) {
-    throw new CommerceError('stripe_test_helper_configuration', 'Test helper requires pm_card_visa and the same explicitly configured test seller account');
+  if (issuance === 'test-helper' && (config.mode !== 'test' || !isStripeTestPaymentMethod(config.paymentMethod) || Object.values(config.sellers).some(s => s.accountId !== config.issuerAccountId))) {
+    throw new CommerceError('stripe_test_helper_configuration', 'Test helper requires an explicitly supported test card and the same configured test seller account');
+  }
+  if (config.publishableKey !== undefined && (typeof config.publishableKey !== 'string' || !new RegExp(`^pk_${config.mode}_[A-Za-z0-9]{1,256}$`).test(config.publishableKey))) {
+    throw new CommerceError('stripe_publishable_key', 'Stripe.js requires an issuer publishable key matching the configured mode');
   }
   if (config.returnUrl !== undefined) {
     let url: URL;
@@ -228,7 +234,7 @@ export function createStripeMppBuyer(input: StripeMppBuyerConfig, runtime: Strip
     inFlight.add(id); try { return await fn(); } finally { inFlight.delete(id); }
   }
   const adapter: StripeMppBuyerAdapter = {
-    payer: config.payer, mode: config.mode, paymentMethod: config.paymentMethod,
+    payer: config.payer, mode: config.mode, paymentMethod: config.paymentMethod, issuance,
     async assertReady() {
       await account(config.secretKey, config.issuerAccountId);
       for (const profile of Object.keys(config.sellers)) await sellerReady(profile);
@@ -272,6 +278,19 @@ export function createStripeMppBuyer(input: StripeMppBuyerConfig, runtime: Strip
       const action = object(value.next_action), sdk = object(action.use_stripe_sdk);
       if (action.type !== 'use_stripe_sdk' || typeof sdk.value !== 'string' || !sdk.value || sdk.value.length > 16384) throw new CommerceError('stripe_spt_action_unsupported', 'Original SPT requires customer action not supported by this Stripe.js bridge');
       return { type: 'use_stripe_sdk', hashedValue: sdk.value };
+    },
+    async getAuthentication(context) {
+      if (!OPERATION.test(context.operationId)) throw new CommerceError('stripe_spt_recovery_required', 'Original issuer operation is required');
+      const row = ledger.get(context.operationId);
+      if (!row) throw new CommerceError('stripe_spt_recovery_required', 'Original issuer operation is absent');
+      const original = saved(row), op = original.operation;
+      if (context.purchaseId !== op.purchaseId || context.mode !== config.mode || digest(context.quote) !== digest(op.quote)) {
+        throw new CommerceError('stripe_spt_recovery_binding', 'Authentication differs from the original purchase');
+      }
+      const action = await adapter.authenticationAction(context.operationId);
+      if (!action) return undefined;
+      if (!config.publishableKey) throw new CommerceError('stripe_publishable_key_required', 'Configure the issuer publishable key to authenticate this original payment');
+      return { ...action, publishableKey: config.publishableKey };
     },
     async verifyReceipt(receipt: MppReceipt, context: MppVerificationContext) {
       const row = ledger.get(context.operationId);

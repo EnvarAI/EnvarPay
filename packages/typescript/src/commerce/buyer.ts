@@ -14,7 +14,7 @@ import { CommerceError, type BuyerPolicy, type Input, type Pricing, type Standar
 import { CredentialVault } from './vault.js';
 import { BuyerStore, type BuyerRecord, type BuyerQuote } from './buyer-store.js';
 import { Challenge, Receipt, PaymentRequest } from 'mppx';
-import { assertMppDigest, prepareMppCredential, publicMppReceipt, validateMppCredential, type MppBuyerOptions, type MppReceipt, type MppTokenOperation, type SavedMppAuthorization, type SavedMppToken } from './mpp-client.js';
+import { assertMppDigest, isStripeTestPaymentMethod, prepareMppCredential, publicMppReceipt, validateMppCredential, type MppAuthenticationAction, type MppBuyerOptions, type MppReceipt, type MppTokenOperation, type SavedMppAuthorization, type SavedMppToken } from './mpp-client.js';
 
 const COMMERCE = 'urn:envarpay:commerce:1', QUOTE = 'urn:envarpay:quote:1';
 const addFormats = addFormatsImport as unknown as (ajv: Ajv2020) => void;
@@ -28,6 +28,7 @@ interface AdvertisedOffer {
 interface SavedAuthorization { payload: PaymentPayload; requirements: PaymentRequirements; fingerprint: string; }
 export interface BuyerPreviewInput { cardUrl: string; messageId: string; input: Input; offerId: string; }
 export interface BuyerConfirmInput { previewId: string; quoteToken: string; messageId: string; }
+export interface BuyerAuthentication { purchaseId: string; action: MppAuthenticationAction | null; }
 export interface CommerceBuyerOptions {
   policy: BuyerPolicy; store: BuyerStore; vault?: CredentialVault; signer?: ClientEvmSigner; mpp?: MppBuyerOptions;
   peerTokens: Readonly<Record<string, string>>;
@@ -102,7 +103,7 @@ export class CommerceBuyer {
     this.policy = loadBuyerPolicy(options.policy);
     if(this.policy.peers.some(peer=>peer.protocol!=='free')&&!options.vault)throw new CommerceError('vault_required','Paid purchases need a private authorization vault'); this.fetchImpl = options.fetchImpl ?? fetch;
     if (this.policy.peers.some(p => p.protocol === 'x402') && (!options.signer || !/^0x[0-9a-fA-F]{40}$/.test(options.signer.address) || BigInt(options.signer.address) === 0n || !options.verifyReceipt)) throw new CommerceError('invalid_signer', 'x402 peers require an EVM wallet and independent receipt verifier');
-    if (this.policy.peers.some(p => p.protocol === 'mpp') && (!options.mpp || !options.mpp.payer || !(/^pm_[A-Za-z0-9]+$/.test(options.mpp.paymentMethod) || (options.mpp.mode==='test'&&options.mpp.paymentMethod==='pm_card_visa')) || !['test','live'].includes(options.mpp.mode) || typeof options.mpp.createToken !== 'function' || typeof options.mpp.verifyReceipt !== 'function')) throw new CommerceError('mpp_provider_missing', 'MPP peers require explicit token creation and independent provider verification');
+    if (this.policy.peers.some(p => p.protocol === 'mpp') && (!options.mpp || !options.mpp.payer || !(/^pm_[A-Za-z0-9]+$/.test(options.mpp.paymentMethod) || (options.mpp.mode==='test'&&options.mpp.issuance==='test-helper'&&isStripeTestPaymentMethod(options.mpp.paymentMethod))) || !['test','live'].includes(options.mpp.mode) || typeof options.mpp.createToken !== 'function' || typeof options.mpp.verifyReceipt !== 'function')) throw new CommerceError('mpp_provider_missing', 'MPP peers require explicit token creation and independent provider verification');
     for (const peer of this.policy.peers) if (!(peer.mode === 'standard-a2a' && peer.authentication === 'none') && (!options.peerTokens[peer.id] || options.peerTokens[peer.id]!.length < 16)) throw new CommerceError('peer_credentials', 'Each authenticated peer needs its own authentication token');
   }
   /** Background observation only; never signs, replays credentials or changes reservations. */
@@ -366,6 +367,22 @@ export class CommerceBuyer {
       if (record.task?.id) return this.observe(record);
       return await this.replayMpp(record);
     } catch (error) { return this.snapshot(this.options.store.update(record.id, { state: 'unknown', errorCode: error instanceof CommerceError ? error.code : 'mpp_reconciliation_pending' })); }
+  }
+  /** Owner-only provider read. No replay, token creation, reservation or payment transition. */
+  async authentication(caller: string, id: string): Promise<BuyerAuthentication> {
+    const record = this.record(caller, id);
+    if (record.protocol !== 'mpp') throw new CommerceError('mpp_authentication_unavailable', 'Original purchase does not use MPP');
+    this.assertCurrentPolicy(record, false);
+    if (!record.tokenOperationId || record.paymentState === 'confirmed') return { purchaseId: id, action: null };
+    const provider = this.options.mpp;
+    if (!provider?.getAuthentication) throw new CommerceError('mpp_authentication_unavailable', 'Configured provider does not support customer authentication');
+    const action = await provider.getAuthentication({ purchaseId: record.id, quote: structuredClone(record.quote), mode: record.mppMode!, operationId: record.tokenOperationId });
+    if (!action) return { purchaseId: id, action: null };
+    if (action.type !== 'use_stripe_sdk' || typeof action.hashedValue !== 'string' || !action.hashedValue || action.hashedValue.length > 16384 ||
+        typeof action.publishableKey !== 'string' || !new RegExp(`^pk_${record.mppMode}_[A-Za-z0-9]{1,256}$`).test(action.publishableKey)) {
+      throw new CommerceError('stripe_spt_action_unsupported', 'Provider returned an unsupported or mismatched customer action');
+    }
+    return { purchaseId: id, action: { type: 'use_stripe_sdk', hashedValue: action.hashedValue, publishableKey: action.publishableKey } };
   }
   private assertCurrentPolicy(record: BuyerRecord, signing: boolean): Peer {
     const peer = this.peer(record.cardUrl);

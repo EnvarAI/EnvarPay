@@ -85,7 +85,7 @@ async function run(): Promise<void> {
       callers: Record<string, string>; peerTokens: Record<string, string>; peerEndpoints?: Record<string, string>;
       privateKeyFile?: string; vaultKeyFile?: string; rpcUrls?: Record<string, string>; mppAdapterModule?:string;
       mppStripe?: {
-        payer:string; mode:'test'|'live'; issuerAccountId:string; secretKeyFile:string; paymentMethod:string;
+        payer:string; mode:'test'|'live'; issuerAccountId:string; secretKeyFile:string; paymentMethod:string; publishableKey?:string;
         sellers:Record<string,{accountId:string;secretKeyFile:string}>;
         issuance?:'issued-token'|'test-helper'; returnUrl?:string;
       };
@@ -111,6 +111,7 @@ async function run(): Promise<void> {
       const adapter=createStripeMppBuyer({
         payer:configured.payer, mode:configured.mode, issuerAccountId:configured.issuerAccountId,
         secretKey:privateFile(configured.secretKeyFile).toString('utf8').trim(), paymentMethod:configured.paymentMethod,
+        ...(configured.publishableKey !== undefined ? { publishableKey: configured.publishableKey } : {}),
         sellers:Object.fromEntries(Object.entries(configured.sellers).map(([id,seller])=>[id,{accountId:seller.accountId,secretKey:privateFile(seller.secretKeyFile).toString('utf8').trim()}])),
         ...(configured.issuance?{issuance:configured.issuance}:{}),...(configured.returnUrl?{returnUrl:configured.returnUrl}:{}),
       },{statePath:values.state+'.stripe-issuer.sqlite3',vault:buyerVault!});
