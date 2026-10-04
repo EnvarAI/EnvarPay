@@ -54,8 +54,9 @@ export class BuyerManagement {
         if (['previewId', 'quoteToken', 'messageId'].some(key => typeof body[key] !== 'string')) throw new CommerceError('invalid_request', 'Confirmation identifiers must be strings');
         return Response.json(await this.options.buyer.confirm(caller, body as unknown as BuyerConfirmInput), { headers });
       }
-      const match = /^\/management\/v1\/purchases\/([0-9a-f-]{36})(\/(?:recover|continue))?$/.exec(url.pathname);
+      const match = /^\/management\/v1\/purchases\/([0-9a-f-]{36})(\/(?:recover|continue|authentication))?$/.exec(url.pathname);
       if (match && request.method === 'GET' && !match[2]) return Response.json(this.options.buyer.get(caller, match[1]!), { headers });
+      if (match && request.method === 'GET' && match[2] === '/authentication') return Response.json(await this.options.buyer.authentication(caller, match[1]!), { headers });
       if (match && request.method === 'POST' && match[2] === '/continue') {
         const body = await jsonBody(request); exactKeys(body, ['messageId', 'input']);
         if (typeof body.messageId !== 'string') throw new CommerceError('invalid_request', 'Continuation message ID must be a string');

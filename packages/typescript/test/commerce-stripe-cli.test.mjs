@@ -14,22 +14,23 @@ const ownerToken = 'test-owner-credential-only-for-cli-fixture';
 const profile = 'profile_test_seller';
 const issuerKey = 'sk_test_issuer', sellerKey = 'rk_test_seller';
 
-async function fixture(scenario = 'ready') {
+async function fixture(scenario = 'ready', paymentMethod = 'pm_card_visa') {
   const directory = mkdtempSync(join(tmpdir(), 'envar-stripe-cli-'));
   const reserve = createServer(); reserve.listen(0, '127.0.0.1'); await once(reserve, 'listening');
   const port = reserve.address().port; await new Promise(resolve => reserve.close(resolve));
   const state = join(directory, 'buyer.sqlite3');
   const config = { policyVersion: 1, paymentsEnabled: false, approval: 'per_purchase', peers: [{ id: 'seller', cardUrl: 'https://seller.example/card.json', protocol: 'mpp', currency: 'usd', recipient: profile, maxPerPurchase: '50' }], budgets: [{ currency: 'usd', maxTotal: '50', period: 'cumulative' }] };
   const credentials = { callers: { [ownerToken]: 'owner' }, peerTokens: { seller: 'test-seller-token-not-for-provider' }, vaultKeyFile: join(directory, 'vault.key'), mppStripe: {
-    payer: 'owner', mode: 'test', issuerAccountId: 'acct_issuer', secretKeyFile: join(directory, 'issuer.key'), paymentMethod: 'pm_authorized',
+    payer: 'owner', mode: 'test', issuerAccountId: 'acct_issuer', secretKeyFile: join(directory, 'issuer.key'), paymentMethod: 'pm_authorized', publishableKey: 'pk_test_issuer',
     sellers: { [profile]: { accountId: 'acct_seller', secretKeyFile: join(directory, 'seller.key') } },
   } };
   if (scenario === 'helper') {
     credentials.mppStripe.issuance = 'test-helper';
-    credentials.mppStripe.paymentMethod = 'pm_card_visa';
+    credentials.mppStripe.paymentMethod = paymentMethod;
     credentials.mppStripe.sellers[profile] = { accountId: 'acct_issuer', secretKeyFile: join(directory, 'issuer.key') };
   }
   if (scenario === 'dual') credentials.mppAdapterModule = join(directory, 'unused-module.mjs');
+  if (scenario === 'wrong-key') credentials.mppStripe.publishableKey = 'pk_live_wrongmode';
   for (const [name, contents] of [['policy.json', JSON.stringify(config)], ['credentials.json', JSON.stringify(credentials)], ['issuer.key', issuerKey], ['seller.key', sellerKey]]) writeFileSync(join(directory, name), contents, { mode: 0o600 });
   writeFileSync(credentials.vaultKeyFile, Buffer.alloc(32, 7), { mode: 0o600 });
   const preloader = join(directory, 'provider-fixture.mjs');
@@ -73,22 +74,22 @@ test('built-in Stripe CLI starts with private key files and GET-only readiness, 
   } finally { await f.close(); }
 });
 
-test('built-in Stripe CLI refuses competing adapters and profile mismatch before exposing management', async () => {
-  for (const scenario of ['dual', 'mismatch']) {
+test('built-in Stripe CLI refuses competing adapters, publishable key mode and profile mismatch before exposing management', async () => {
+  for (const scenario of ['dual', 'mismatch', 'wrong-key']) {
     const f = await fixture(scenario);
     try {
       const [code] = await f.exited; assert.equal(code, 1);
       assert.equal(f.output().stdout.includes('listening'), false);
-      assert.ok(f.output().stderr.includes(scenario === 'dual' ? 'mpp_configuration' : 'stripe_profile_mismatch'));
+      assert.ok(f.output().stderr.includes(scenario === 'dual' ? 'mpp_configuration' : scenario === 'wrong-key' ? 'stripe_publishable_key' : 'stripe_profile_mismatch'));
       assert.equal(f.calls().some(line => line.startsWith('POST')), false);
-      if (scenario === 'dual') assert.deepEqual(f.calls(), []);
+      if (scenario !== 'mismatch') assert.deepEqual(f.calls(), []);
       assert.equal(f.output().stderr.includes(issuerKey), false);
     } finally { await f.close(); }
   }
 });
 
-test('documented sandbox pm_card_visa works only through explicit test-helper configuration without startup issuance', async () => {
-  const f = await fixture('helper');
+for (const paymentMethod of ['pm_card_visa', 'pm_card_visa_chargeDeclined', 'pm_card_authenticationRequired']) test(`documented sandbox ${paymentMethod} starts through explicit helper without issuance`, async () => {
+  const f = await fixture('helper', paymentMethod);
   try {
     for (let i = 0; i < 200 && !f.output().stdout.includes('listening') && f.child.exitCode === null; i++) await new Promise(resolve => setTimeout(resolve, 10));
     assert.ok(f.output().stdout.includes('listening'), f.output().stderr);

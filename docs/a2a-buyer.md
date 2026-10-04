@@ -54,8 +54,11 @@ Limits use currency-specific integer strings in smallest units and are cumulativ
    input digest and expiry.
 3. `POST /management/v1/purchases/confirm` with `{previewId, quoteToken, messageId}`.
 4. Read `GET /management/v1/purchases/{id}`. This reads persisted state only.
-5. If required, `POST /management/v1/purchases/{id}/recover` with `{}`. It reads the
-   original Task or replays the original signed request; it never signs again.
+5. If Stripe requires customer authentication, use the owner-only
+   [MPP authentication flow](#mpp-customer-authentication) below.
+6. If required, `POST /management/v1/purchases/{id}/recover` with `{}`. It reads the
+   original Task or recovers the original payment operation; it never creates a
+   replacement authorization.
 
 All routes require Bearer authentication. Each credential maps to a stable local
 caller identity, and callers cannot inspect or confirm one another's purchases.
@@ -104,8 +107,8 @@ payment verification remains unknown, and payment can succeed while execution fa
 
 Management snapshots may include the original transaction receipt and authorization
 nonce for independent observation. They never expose the signature, private key,
-vault path, management token or seller token. No component creates an automatic
-replacement purchase or an automatic refund.
+vault path, management token, seller token or Stripe authentication action.
+No component creates an automatic replacement purchase or an automatic refund.
 
 Tests in `commerce-buyer.test.mjs` use simulated facilitation, signing and chain
 verification. They prove budget/ownership/recovery behavior, not a real on-chain
@@ -171,6 +174,46 @@ The built-in adapter uses the public `issued_tokens` API; it does not create
 accounts or collect/fund payment methods. Real test/live completion depends on
 qualified accounts, API access and an owner-authorized payment source. Source
 tests use simulated HTTP and do not prove that eligibility or a real charge.
+
+### MPP customer authentication
+
+For a purchase waiting on Stripe customer action, its original owner calls
+`GET /management/v1/purchases/{id}/authentication` with the same Bearer identity
+used to confirm it. The only input is the purchase UUID in the path; there is no
+request body, query or caller-supplied operation ID. The management layer verifies
+ownership and the frozen operation before reading the original token. Another
+owner receives `404 purchase_not_found`.
+
+The response is `{purchaseId, action: {type: "use_stripe_sdk", hashedValue,
+publishableKey}}` or `{purchaseId, action: null}`. It is private and non-cacheable.
+`action: null` means no supported action is currently required, not that the
+purchase is paid. This GET cannot issue or confirm a payment, dispatch a task,
+replay a credential or change the reserved/spent budget.
+
+Configure the original issuer's optional `mppStripe.publishableKey` in the
+`buyer-serve` credentials, using `pk_test_...` or `pk_live_...` matching its mode.
+It is needed to return an action when a token has `requires_action`; a missing key
+returns `stripe_publishable_key_required`. A mismatched key mode is rejected.
+Purchases that require no customer action do not need this key.
+
+The owner's web host can proxy the action route after authenticating the owner
+and checking access to the original purchase. It loads official Stripe.js,
+initializes `Stripe(action.publishableKey)` and calls
+`stripe.handleNextAction({ hashedValue: action.hashedValue })`. Keep management
+and Stripe secret keys on the private host and action values out of URLs, logs,
+ordinary snapshots, receipts and Cards. The API does not itself display or
+complete the customer's authentication.
+
+After the customer successfully completes Stripe's interface, explicitly POST
+`{}` to `/management/v1/purchases/{id}/recover` for the **same purchase** and read
+its state. Neither a browser callback nor an action fetch marks the payment
+confirmed: the original seller PaymentIntent must independently prove success,
+amount, currency, mode and frozen order/quote bindings. A canceled or failed
+authentication must not be presented as paid or replaced with a new purchase.
+See [Stripe SPT setup and sandbox limits](stripe-issuer.md) for the full contract
+and the distinction between granted-token helper tests and issuer 3DS acceptance.
+
+### Free offers
 
 A free-only policy can be configured without payment budgets:
 

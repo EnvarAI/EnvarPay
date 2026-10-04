@@ -120,3 +120,26 @@ test('token recovery has the original payment method and never creates another S
     assert.deepEqual(f.store.usage('usd'), { reserved: '300', spent: '0' });
   } finally { await f.close(); }
 });
+
+test('authentication sanitizes provider output, validates mode and never persists customer action', async () => {
+  const f = fixture({ loseToken: true });
+  try {
+    const preview = await f.buyer.preview('owner', input()), unknown = await confirm(f.buyer, preview);
+    const before = JSON.stringify(f.buyer.get('owner', unknown.id));
+    await assert.rejects(f.buyer.authentication('owner', unknown.id), { code: 'mpp_authentication_unavailable' });
+    let observed;
+    const action = { type: 'use_stripe_sdk', hashedValue: 'private-action', publishableKey: 'pk_test_issuer', secretKey: 'sk_test_doNotExpose' };
+    f.mpp.getAuthentication = async context => { observed = context; return action; };
+    const result = await f.buyer.authentication('owner', unknown.id);
+    assert.deepEqual(result, { purchaseId: unknown.id, action: { type: 'use_stripe_sdk', hashedValue: 'private-action', publishableKey: 'pk_test_issuer' } });
+    assert.equal(observed.purchaseId, unknown.id); assert.equal(observed.operationId, f.calls.createToken[0].operationId);
+    assert.deepEqual(observed.quote, unknown.quote); assert.equal(observed.mode, 'test');
+    for (const patch of [{ type: 'redirect_to_url' }, { publishableKey: 'pk_live_wrong' }, { hashedValue: '' }, { hashedValue: 'x'.repeat(16385) }]) {
+      f.mpp.getAuthentication = async () => ({ ...action, ...patch });
+      await assert.rejects(f.buyer.authentication('owner', unknown.id), { code: 'stripe_spt_action_unsupported' });
+    }
+    assert.equal(JSON.stringify(f.buyer.get('owner', unknown.id)), before);
+    assert.deepEqual(f.store.usage('usd'), { reserved: '300', spent: '0' });
+    assert.equal(f.calls.createToken.length, 1); assert.equal(f.calls.create.length, 0); assert.equal(f.calls.recoverToken.length, 0);
+  } finally { await f.close(); }
+});

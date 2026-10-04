@@ -13,6 +13,7 @@ function fixture(origin = 'http://127.0.0.1:4021') {
     confirm: async (caller, input) => { calls.push(['confirm', caller, input]); return { id, state: 'unknown' }; },
     get: (caller, purchase) => { calls.push(['get', caller, purchase]); if (caller !== 'owner') throw new CommerceError('purchase_not_found', 'Private order'); return { id, state: 'unknown' }; },
     recover: async (caller, purchase) => { calls.push(['recover', caller, purchase]); if (caller !== 'owner') throw new CommerceError('purchase_not_found', 'Private order'); return { id, state: 'unknown' }; },
+    authentication: async (caller, purchase) => { calls.push(['authentication', caller, purchase]); if (caller !== 'owner') throw new CommerceError('purchase_not_found', 'Private order'); return { purchaseId: purchase, action: null }; },
   };
   const management = new BuyerManagement({ buyer, origin, authenticate: bearerAuthenticator({ [token]: 'owner', [otherToken]: 'other' }) });
   const request = (path, body, options = {}) => new Request(origin + path, { method: body !== undefined ? 'POST' : 'GET', headers: { Authorization: 'Bearer ' + token, ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}), ...options.headers }, ...(body !== undefined ? { body: JSON.stringify(body) } : {}), ...options });
@@ -27,6 +28,25 @@ test('private management authenticates every route and keeps readback free of re
   const read = await f.management.handle(f.request('/management/v1/purchases/' + id)); assert.equal(read.status, 200); assert.deepEqual(f.calls, [['get', 'owner', id]]);
   const other = f.request('/management/v1/purchases/' + id); other.headers.set('Authorization', 'Bearer ' + otherToken);
   assert.equal((await f.management.handle(other)).status, 404);
+});
+
+test('authentication is owner-scoped GET only with no arbitrary operation input and no cache', async () => {
+  const f = fixture(), path = '/management/v1/purchases/' + id + '/authentication';
+  assert.equal((await f.management.handle(new Request('http://127.0.0.1:4021' + path))).status, 401);
+  assert.deepEqual(f.calls, []);
+  const response = await f.management.handle(f.request(path));
+  assert.equal(response.status, 200); assert.equal(response.headers.get('Cache-Control'), 'no-store');
+  assert.deepEqual(await response.json(), { purchaseId: id, action: null });
+  const other = f.request(path); other.headers.set('Authorization', 'Bearer ' + otherToken);
+  assert.equal((await f.management.handle(other)).status, 404);
+  const count = f.calls.length;
+  assert.equal((await f.management.handle(f.request(path + '?operationId=another'))).status, 400);
+  assert.equal((await f.management.handle(f.request(path, { operationId: 'another' }))).status, 404);
+  assert.equal((await f.management.handle(f.request('/management/v1/purchases/mpp-token-' + id + '/authentication'))).status, 404);
+  const cross = f.request(path); cross.headers.set('Origin', 'https://foreign.example');
+  assert.equal((await f.management.handle(cross)).status, 403);
+  assert.equal(f.calls.length, count);
+  assert.equal(f.calls.some(c => c[0] === 'recover' || c[0] === 'confirm'), false);
 });
 
 test('management preview and approval reject extra target/amount fields', async () => {

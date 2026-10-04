@@ -49,6 +49,7 @@ const mpp = createStripeMppBuyer({
   mode: 'test',
   issuerAccountId: 'acct_ISSUER',
   secretKey: issuerSecretKey,
+  publishableKey: issuerPublishableKey, // Optional until owner authentication is needed.
   paymentMethod: ownerApprovedPaymentMethod,
   sellers: {
     profile_test_SELLER: {
@@ -81,6 +82,7 @@ required for this official Stripe flow:
     "mode": "test",
     "issuerAccountId": "acct_ISSUER",
     "secretKeyFile": "./private/stripe-issuer.key",
+    "publishableKey": "pk_test_ISSUER",
     "paymentMethod": "pm_AUTHORIZED",
     "sellers": {
       "profile_test_SELLER": {
@@ -100,8 +102,12 @@ issuer ledger is derived from the buyer `--state` path by appending
 `.stripe-issuer.sqlite3`; it shares the buyer's encrypted authorization vault.
 `mppStripe` and `mppAdapterModule` are mutually exclusive. Starting the service
 checks readiness but never creates a token; a reviewed buyer purchase does that.
-This CLI wiring does not expose the private customer-authentication accessor as
-a public unauthenticated endpoint.
+`publishableKey` is optional for purchases that need no customer action. When
+configured, it must be a `pk_test_...` or `pk_live_...` key matching the issuer's
+mode. Use the original issuer account's publishable key. The owner-authenticated
+management action route requires it when the original token is in
+`requires_action`; an omitted key produces `stripe_publishable_key_required`
+without issuing a replacement token.
 
 The normal mode calls
 [`POST /v1/shared_payment/issued_tokens`](https://docs.stripe.com/api/shared-payment/issued-token/create?api-version=2026-09-30.preview)
@@ -131,8 +137,18 @@ independently of the seller PaymentIntent mapping and its contract tests.
 ## Explicit real Stripe sandbox helper
 
 For seller sandbox acceptance, choose `issuance: 'test-helper'`, `mode: 'test'`
-and `paymentMethod: 'pm_card_visa'`. The issuer account must be the same account
-as the configured seller. The adapter then uses the official
+and one of these explicitly allowed PaymentMethods from Stripe's
+[official testing guide](https://docs.stripe.com/testing?testing-method=payment-methods):
+
+| PaymentMethod | Stripe's general test behavior |
+| --- | --- |
+| `pm_card_visa` | Successful Visa payment. |
+| `pm_card_visa_chargeDeclined` | Generic card decline. |
+| `pm_card_authenticationRequired` | Authentication required for every transaction. |
+
+Only this explicit helper accepts these test aliases; normal issued-token mode
+uses an actual owner-approved `pm_...` object. The issuer account must be the same
+account as the configured seller. The adapter then uses the official
 [`POST /v1/test_helpers/shared_payment/granted_tokens`](https://docs.stripe.com/api/shared-payment/granted-token/create?api-version=2026-09-30.preview)
 and reads the original granted token on recovery.
 
@@ -145,10 +161,21 @@ The helper is never selected after an issued-token API failure, and cannot run
 with a live key. An actual Stripe sandbox run is separate evidence from mocked
 HTTP contract tests; neither proves a live card charge.
 
+Stripe's general test-card behavior is not an SPT-specific acceptance result.
+Record the actual helper and PaymentIntent responses for each scenario. A decline
+must not dispatch a task or mark the budget spent; an unresolved provider outcome
+keeps its reservation until independently reconciled. A granted token has no
+documented issued-token `status`/`next_action`, so selecting
+`pm_card_authenticationRequired` in the helper does not prove issuer 3DS. That
+acceptance needs normal test-mode `issued_tokens` access, an actual test
+PaymentMethod with the intended authentication behavior, and the owner browser
+flow below against the original issued token.
+
 ## Original-operation recovery and customer action
 
 ```mermaid
 sequenceDiagram
+    participant O as Owner browser
     participant B as Private buyer
     participant L as Issuer ledger and encrypted vault
     participant I as Stripe issuer API
@@ -162,9 +189,13 @@ sequenceDiagram
         S-->>B: Receipt and task result
         B->>I: Read PaymentIntent using seller read credential
     else Customer action required
-        B-->>B: stripe_spt_requires_action
-        B->>I: GET original SPT; hand action to Stripe.js
-        B->>I: GET original SPT after customer completes action
+        B-->>O: Purchase requires authentication
+        O->>B: GET original purchase authentication
+        B->>I: GET original SPT
+        B-->>O: Original Stripe.js action
+        O->>O: Complete Stripe.js authentication
+        O->>B: Explicit recovery of same purchase
+        B->>I: GET original SPT
     end
 ```
 
@@ -183,14 +214,57 @@ resolve its existing issuance with the provider; do not create a new purchase
 to bypass the uncertainty.
 
 `stripe_spt_requires_action` means the original SPT needs customer authentication.
-The private `authenticationAction(operationId)` accessor retrieves that same SPT
-and returns `{ type: 'use_stripe_sdk', hashedValue }` for
-`stripe.handleNextAction({ hashedValue })`. A host exposing this method must first
-authenticate the owner and check access to the original buyer purchase. Keep
-the value out of logs. This module does not provide a hosted checkout or pretend
-that merely retrieving the action completes 3DS. Unsupported action types stay
-blocked. After actual customer completion, recover the original purchase; never
-mint a substitute SPT.
+The private SDK `authenticationAction(operationId)` accessor retrieves that same
+SPT. CLI hosts use the purchase-scoped owner route instead:
+
+```http
+GET /management/v1/purchases/{purchaseId}/authentication
+Authorization: Bearer OWNER_MANAGEMENT_TOKEN
+```
+
+Pass the original purchase UUID, with no body, query parameters or arbitrary
+operation ID. The route checks the authenticated caller's ownership and the
+original purchase, operation, quote and mode bindings before provider access.
+It only reads the existing token; it cannot issue a token, create or confirm a
+PaymentIntent, replay payment credentials, dispatch work, change a budget or mark
+the purchase paid. Responses use `Cache-Control: no-store` and
+`X-Content-Type-Options: nosniff`:
+
+```json
+{
+  "purchaseId": "ORIGINAL_PURCHASE_UUID",
+  "action": {
+    "type": "use_stripe_sdk",
+    "hashedValue": "OPAQUE_ORIGINAL_TOKEN_ACTION",
+    "publishableKey": "pk_test_ISSUER"
+  }
+}
+```
+
+The other successful response is `{ "purchaseId": "ORIGINAL_PURCHASE_UUID",
+"action": null }`. It means no supported authentication action is currently
+required; it does not mean payment succeeded. Missing authentication returns
+`401 authentication_required`; a missing purchase or another owner's purchase
+returns `404 purchase_not_found`. Configuration, unsupported action, missing or
+mismatched original operation, and changed-policy errors return `400` and require
+resolution against the same purchase.
+
+The owner's web host may proxy this GET after checking access to that purchase.
+Load [official Stripe.js](https://docs.stripe.com/js/including), initialize it with
+`Stripe(action.publishableKey)`, and pass the opaque value to
+`stripe.handleNextAction({ hashedValue: action.hashedValue })`, as documented in
+Stripe's [SPT agent integration](https://docs.stripe.com/agentic-commerce/concepts/shared-payment-tokens?agent-seller=agent).
+Do not decode the value or put it in ordinary snapshots, Agent Cards, receipts,
+URLs or logs. Management Bearer and Stripe secret keys stay in the private host.
+This API supplies the browser action; the host must present Stripe's authentication
+interface to the owner. Unsupported action types stay blocked.
+
+After Stripe.js finishes successfully, explicitly call
+`POST /management/v1/purchases/{purchaseId}/recover` with `{}` for the **same
+purchase**, then read its state. Cancellation or an authentication error is not a
+successful payment. A callback, an action fetch or `action: null` never completes
+authentication or payment locally, and does not authorize a substitute SPT or
+purchase. Recovery verifies the original provider state before continuing.
 
 Payment receipt verification reads the original PaymentIntent under the explicit
 seller account and profile. It checks succeeded status, full received amount,
