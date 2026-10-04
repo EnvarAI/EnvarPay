@@ -174,6 +174,44 @@ Shutdown stops admitting seller work, ends the synchronization loop and waits fo
 
 ## Buyer CLI and correlation boundary
 
-For an MPP-only buyer, EVM private keys and RPC URLs are not required. The private buyer credentials file supplies `mppAdapterModule`, an absolute path to an owner-only local JavaScript module exporting `createMppBuyerOptions()`. The factory must return real authorized token creation, original token-operation recovery and independent receipt verification callbacks, plus the payer, payment method and explicit test/live mode. The CLI supplies no SPT generator, test helper or payment-provider fallback. Mixed policies still require every configured adapter's actual credentials.
+For an MPP-only buyer, EVM private keys and RPC URLs are not required. The private
+credentials file can select the built-in [Stripe issuer](stripe-issuer.md) with
+`mppStripe`, or supply `mppAdapterModule`, an absolute path to an owner-only local
+module exporting `createMppBuyerOptions()`. Configuring both is rejected. A custom
+factory must supply authorized token creation, original-operation recovery and
+independent receipt verification, plus the payer, payment method and explicit
+test/live mode. Neither option creates or funds a payment method. Mixed policies
+still require every configured adapter's actual credentials.
+
+The built-in configuration reads Stripe secrets only from private files:
+
+```json
+{
+  "callers": {"OWNER_MANAGEMENT_TOKEN": "owner"},
+  "peerTokens": {"approved-seller": "SELLER_A2A_TOKEN"},
+  "vaultKeyFile": "/private/envarpay/vault.key",
+  "mppStripe": {
+    "payer": "owner-approved-buyer",
+    "mode": "test",
+    "issuerAccountId": "acct_ISSUER",
+    "secretKeyFile": "/private/envarpay/issuer.key",
+    "paymentMethod": "pm_AUTHORIZED",
+    "sellers": {
+      "profile_test_SELLER": {
+        "accountId": "acct_SELLER",
+        "secretKeyFile": "/private/envarpay/seller-read.key"
+      }
+    }
+  }
+}
+```
+
+Replace all placeholders with the owner's reviewed settings. Startup performs
+account/profile GETs only and fails closed on a mismatch. The issuer ledger is
+created beside the buyer ledger as `<buyer-state>.stripe-issuer.sqlite3`; exact
+original requests and token IDs use the existing private buyer vault. Keep both
+ledgers, the vault and keys in the same consistent backup. Shutdown drains buyer
+work before closing the issuer store. Test helpers require explicit
+`issuance: "test-helper"` and never act as a fallback after another API fails.
 
 The Envar flags currently wire seller configuration synchronization and its durable acknowledgments. Automatic buyer/seller commerce report emission additionally needs a trusted mapping from local purchase ID to platform order UUID. No such mapping is inferred from A2A messages, quote IDs or caller prompts. The report queue APIs remain available to an explicitly wired application hook; enabling the seller flags alone does not claim that every purchase is automatically reported.

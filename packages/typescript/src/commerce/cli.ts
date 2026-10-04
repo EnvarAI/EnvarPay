@@ -84,6 +84,11 @@ async function run(): Promise<void> {
     const secrets = JSON.parse(privateFile(values.credentials).toString('utf8')) as {
       callers: Record<string, string>; peerTokens: Record<string, string>; peerEndpoints?: Record<string, string>;
       privateKeyFile?: string; vaultKeyFile?: string; rpcUrls?: Record<string, string>; mppAdapterModule?:string;
+      mppStripe?: {
+        payer:string; mode:'test'|'live'; issuerAccountId:string; secretKeyFile:string; paymentMethod:string;
+        sellers:Record<string,{accountId:string;secretKeyFile:string}>;
+        issuance?:'issued-token'|'test-helper'; returnUrl?:string;
+      };
       peerProxies?: {peerId:string;offerId:string;buyerCaller:string;origin:string;stateDirectory:string;tokens:Record<string,string>;host?:string;port:number;allowPrivateHttp?:boolean;label?:string}[];
     };
     const needsEvm=policy.peers.some(peer=>peer.protocol==='x402'),needsMpp=policy.peers.some(peer=>peer.protocol==='mpp');
@@ -95,13 +100,28 @@ async function run(): Promise<void> {
       if(!/^0x[0-9a-fA-F]{64}$/.test(key))throw new CommerceError('buyer_key','Signer file must contain one 32-byte 0x-prefixed private key');
       signer=privateKeyToAccount(key as `0x${string}`);
     }
-    if(needsMpp&&!secrets.mppAdapterModule)throw new CommerceError('mpp_adapter_module','MPP peers require an explicit local adapter module for authorized funding and receipt verification');
-    const mpp=needsMpp?await loadMppAdapter(secrets.mppAdapterModule!):undefined;
+    if(secrets.mppAdapterModule&&secrets.mppStripe)throw new CommerceError('mpp_configuration','Choose the built-in Stripe issuer or one explicit adapter module');
+    if(needsMpp&&!secrets.mppAdapterModule&&!secrets.mppStripe)throw new CommerceError('mpp_configuration','MPP peers require a configured Stripe issuer or explicit authorized funding adapter');
+    const buyerVault=secrets.vaultKeyFile?new CredentialVault(join(dirname(values.state), 'buyer-authorizations'), privateFile(secrets.vaultKeyFile)):undefined;
+    let mpp:MppBuyerOptions|undefined;
+    if(needsMpp&&secrets.mppStripe){
+      const configured=secrets.mppStripe;
+      if(!configured.secretKeyFile||!configured.sellers||typeof configured.sellers!=='object'||Array.isArray(configured.sellers))throw new CommerceError('mpp_configuration','Stripe issuer and seller read credentials must use private key files');
+      const {createStripeMppBuyer}=await import('./stripe-issuer.js');
+      const adapter=createStripeMppBuyer({
+        payer:configured.payer, mode:configured.mode, issuerAccountId:configured.issuerAccountId,
+        secretKey:privateFile(configured.secretKeyFile).toString('utf8').trim(), paymentMethod:configured.paymentMethod,
+        sellers:Object.fromEntries(Object.entries(configured.sellers).map(([id,seller])=>[id,{accountId:seller.accountId,secretKey:privateFile(seller.secretKeyFile).toString('utf8').trim()}])),
+        ...(configured.issuance?{issuance:configured.issuance}:{}),...(configured.returnUrl?{returnUrl:configured.returnUrl}:{}),
+      },{statePath:values.state+'.stripe-issuer.sqlite3',vault:buyerVault!});
+      closers.push(()=>adapter.close());
+      await adapter.assertReady();mpp=adapter;
+    }else if(needsMpp)mpp=await loadMppAdapter(secrets.mppAdapterModule!);
     const { BuyerStore } = await import('./buyer-store.js');
     const { CommerceBuyer } = await import('./buyer.js');
     const { BuyerManagement, listenBuyerManagement } = await import('./management.js');
     const store = new BuyerStore(values.state); closers.push(() => store.close());
-    const buyer = new CommerceBuyer({ policy, store, vault: secrets.vaultKeyFile?new CredentialVault(join(dirname(values.state), 'buyer-authorizations'), privateFile(secrets.vaultKeyFile)):undefined,
+    const buyer = new CommerceBuyer({ policy, store, vault: buyerVault,
       signer, mpp, peerTokens: secrets.peerTokens, peerEndpoints: secrets.peerEndpoints,
       ...(needsEvm?{verifyReceipt:evmReceiptVerifier(secrets.rpcUrls!),...evmSettlementRecovery(secrets.rpcUrls!)}:{}) });
     closers.push(() => buyer.stop());

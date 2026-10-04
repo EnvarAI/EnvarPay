@@ -1,7 +1,7 @@
 # Getting started
 
 Use the TypeScript A2A commerce runtime from
-`npm install @envarai/envarpay@0.2.0-alpha.3` with Node24 recommended.
+`npm install @envarai/envarpay@0.2.0-alpha.4` with Node24 recommended.
 The `next` npm channel is the new runtime; pin the exact tested version after its
 [archive publication is verified](packages.md).
 

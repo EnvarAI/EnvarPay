@@ -6,7 +6,7 @@ allowlists and cumulative budgets. The public task wire is official A2A 1.0,
 with native x402 v2 or MPP payment credentials. Envar is optional.
 
 Once this source version is published, install the alpha from npm with
-`npm install @envarai/envarpay@0.2.0-alpha.3`. Node22.14+ is required; Node24 is
+`npm install @envarai/envarpay@0.2.0-alpha.4`. Node22.14+ is required; Node24 is
 recommended. Review configuration before enabling payments. The `next` dist-tag
 tracks this new runtime; the older `latest` tag still identifies the previous
 wallet-client package. Verify the exact archive in the [release channels](packages.md).
@@ -38,8 +38,8 @@ the execution boundary honestly.
 ## Seller setup
 
 ```sh
-npx --package @envarai/envarpay@0.2.0-alpha.3 envarpay init --directory ./private
-npx --package @envarai/envarpay@0.2.0-alpha.3 envarpay validate --config ./private/seller.json
+npx --package @envarai/envarpay@0.2.0-alpha.4 envarpay init --directory ./private
+npx --package @envarai/envarpay@0.2.0-alpha.4 envarpay validate --config ./private/seller.json
 ```
 
 Replace placeholder upstreams, addresses and prices. Private credential files must
@@ -81,6 +81,14 @@ authentication present, its standard `header` field selects `Payment-Authorizati
 leaving Bearer identity untouched. The SDK creates native Stripe PaymentIntents
 using the original SPT and idempotency identity. PaymentIntent retrieval verifies
 amount, merchant binding, mode and original quote metadata before dispatch.
+
+Stripe readiness reads the authenticated account and its documented
+`/v2/network/business_profiles/me` under one pinned preview version. Both profile
+identity and `livemode` must match. Sandbox `profile_test_...` identities are
+accepted; live card activation is checked only for live operation. The
+[built-in SPT issuer](stripe-issuer.md) uses the public token API and a separate
+seller-scoped credential for independent PaymentIntent reads. Current supported
+country/account access and buyer funding remain prerequisites for real charges.
 
 Cards optionally describe the application's service contract via
 `urn:envarpay:commerce:1`; x402 challenges include optional quote display metadata
