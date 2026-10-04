@@ -1,0 +1,52 @@
+{
+  "configVersion": 1,
+  "agent": {"id": "hermes-researcher", "name": "我的研究助手"},
+  "paymentProfiles": {
+    "base-usdc": {
+      "adapter": "x402", "scheme": "exact", "network": "eip155:84532",
+      "asset": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+      "payTo": "0x2222222222222222222222222222222222222222",
+      "facilitatorUrl": "https://facilitator.example"
+    },
+    "stripe-usd": {"adapter": "mpp", "method": "stripe", "intent": "charge", "currency": "usd", "accountRef": "seller-stripe"}
+  },
+  "services": [
+    {
+      "id": "research", "name": "竞品调研", "revision": 1,
+      "execution": {"type": "a2a", "cardUrl": "http://hermes:9000/research/agent-card.json"},
+      "contract": {
+        "inputSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object", "additionalProperties": false, "required": ["topic", "competitors"],
+          "properties": {
+            "topic": {"type": "string", "minLength": 1, "maxLength": 500},
+            "competitors": {"type": "array", "minItems": 1, "maxItems": 3, "uniqueItems": true, "items": {"type": "string", "minLength": 1, "maxLength": 120}}
+          }
+        },
+        "deliverables": ["report.md", "comparison.csv"], "targetDurationSeconds": 600, "includedRevisions": 0
+      },
+      "offers": [
+        {"id": "usdc-once", "pricing": {"kind": "fixed", "amount": "3000000"}, "collection": {"kind": "upfront"}, "paymentProfile": "base-usdc"},
+        {"id": "card-once", "pricing": {"kind": "fixed", "amount": "300"}, "collection": {"kind": "upfront"}, "paymentProfile": "stripe-usd"}
+      ]
+    },
+    {
+      "id": "summary-preview", "name": "免费试读", "revision": 1,
+      "execution": {"type": "a2a", "cardUrl": "http://hermes:9000/preview/agent-card.json"},
+      "contract": {
+        "inputSchema": {"type": "object", "additionalProperties": false, "required": ["text"], "properties": {"text": {"type": "string", "minLength": 1, "maxLength": 500}}},
+        "deliverables": ["summary.txt"], "targetDurationSeconds": 60, "includedRevisions": 0
+      },
+      "offers": [{"id": "free", "pricing": {"kind": "free"}, "collection": {"kind": "none"}}]
+    },
+    {
+      "id": "translation", "name": "文档翻译", "revision": 1,
+      "execution": {"type": "a2a", "cardUrl": "http://openclaw:9000/translate/agent-card.json"},
+      "contract": {
+        "inputSchema": {"type": "object", "additionalProperties": false, "required": ["documents"], "properties": {"documents": {"type": "array", "minItems": 1, "maxItems": 20, "items": {"type": "string", "minLength": 1, "maxLength": 10000}}}},
+        "deliverables": ["translations.json"], "targetDurationSeconds": 600, "includedRevisions": 0
+      },
+      "offers": [{"id": "per-document", "pricing": {"kind": "quantity", "unit": "document", "unitAmount": "100000", "quantity": {"pointer": "/documents", "measure": "count", "min": 1, "max": 20}}, "collection": {"kind": "upfront"}, "paymentProfile": "base-usdc"}]
+    }
+  ]
+}

@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:envarpay:price-quote:1",
+  "title": "Immutable price quote before payment challenge construction",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "quoteVersion",
+    "quoteId",
+    "caller",
+    "serviceId",
+    "serviceRevision",
+    "offerId",
+    "messageId",
+    "inputDigest",
+    "termsDigest",
+    "issuedAt",
+    "expiresAt",
+    "amount",
+    "currency",
+    "recipient",
+    "paymentProfile"
+  ],
+  "properties": {
+    "quoteVersion": {
+      "const": 1
+    },
+    "quoteId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "caller": {
+      "type": "string",
+      "minLength": 1
+    },
+    "serviceId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "serviceRevision": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "offerId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "messageId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "inputDigest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "termsDigest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "issuedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "expiresAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "amount": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]{0,77})$"
+    },
+    "currency": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "recipient": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "paymentProfile": {
+      "type": [
+        "object",
+        "null"
+      ]
+    }
+  }
+}
