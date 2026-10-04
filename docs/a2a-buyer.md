@@ -136,8 +136,12 @@ not evidence that the continuation was received.
 MPP uses the same ledger, preview tokens, caller ownership and cumulative USD
 budget. Configure an `mpp` peer with `currency: "usd"`, an explicitly approved
 Stripe merchant `recipient: "profile_..."`, a per-purchase limit in cents and a
-matching cumulative USD budget. A buyer that has only MPP peers needs no EVM signer.
-The optional local provider boundary is:
+matching cumulative USD budget. Sandbox recipients can use the documented
+`profile_test_...` IDs. A buyer that has only MPP peers needs no EVM signer.
+The built-in [Stripe SPT adapter](stripe-issuer.md) supplies token creation,
+original-token recovery and independent seller-scoped receipt verification using
+the public Stripe APIs. A custom authorized provider can still implement this
+local interface:
 
 ```ts
 mpp: {
@@ -163,10 +167,10 @@ The official `mppx` Stripe client builds the native credential. Its
 The provider verifier must independently match reference, amount, currency,
 merchant/account, quote and test/live mode; a seller receipt alone keeps the USD
 reservation unknown. Snapshots include the sanitized receipt, never the SPT.
-There is no default token creation implementation and no assumed undocumented
-Stripe API. Real test/live completion depends on the operator having a qualified
-Stripe account and an authorized SPT provider; source tests use an explicit fake
-PSP and do not prove that eligibility.
+The built-in adapter uses the public `issued_tokens` API; it does not create
+accounts or collect/fund payment methods. Real test/live completion depends on
+qualified accounts, API access and an owner-authorized payment source. Source
+tests use simulated HTTP and do not prove that eligibility or a real charge.
 
 A free-only policy can be configured without payment budgets:
 

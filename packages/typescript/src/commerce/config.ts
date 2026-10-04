@@ -43,6 +43,11 @@ export function currencyOf(profile: PaymentProfile): string {
   return profile.adapter === 'x402' ? `${profile.network}/erc20:${profile.asset.toLowerCase()}` : profile.currency;
 }
 
+/** Stripe documents sandbox Business Profile IDs as profile_test_<opaque id>. */
+export function isStripeProfileId(value: unknown): value is string {
+  return typeof value === 'string' && /^profile_(?:test_)?[A-Za-z0-9]{1,120}$/.test(value);
+}
+
 function assertJson(value: unknown): void {
   if (typeof value === 'number' && (!Number.isFinite(value) || (Number.isInteger(value) && !Number.isSafeInteger(value)))) throw new CommerceError('unsafe_json_number', 'Use strings for integers outside the safe JSON number range');
   if (value === undefined || typeof value === 'function' || typeof value === 'bigint' || typeof value === 'symbol') throw new CommerceError('invalid_json', 'Value must be JSON');
@@ -139,7 +144,7 @@ export function loadBuyerPolicy(value: unknown): BuyerPolicy {
     if (peer.protocol === 'x402') {
       if (!/^0x[0-9a-fA-F]{40}$/.test(peer.recipient) || BigInt(peer.recipient) === 0n || peer.currency === 'usd') throw new CommerceError('invalid_recipient', 'x402 peers require a nonzero EVM recipient and USDC asset');
       peer.recipient = peer.recipient.toLowerCase();
-    } else if (peer.currency !== 'usd' || !/^profile_[A-Za-z0-9]+$/.test(peer.recipient)) throw new CommerceError('invalid_recipient', 'MPP peers require USD and a verified Stripe merchant profile');
+    } else if (peer.currency !== 'usd' || !isStripeProfileId(peer.recipient)) throw new CommerceError('invalid_recipient', 'MPP peers require USD and a verified Stripe merchant profile');
     const limit = limits.get(peer.currency);
     if (limit === undefined || atomic(peer.maxPerPurchase) > limit) throw new CommerceError('invalid_budget', 'Each peer needs a cumulative budget at least as large as its per-purchase limit');
   }
