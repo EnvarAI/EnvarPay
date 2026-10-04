@@ -32,6 +32,43 @@ sending a new task. A [standard third-party peer](a2a-standard-peers.md) does no
 implicitly promise idempotent `SendMessage`, so ambiguous paid sends are not
 reposted.
 
+## Review paid work that failed
+
+Use the same local owner-only inspection with `--refund-review` to find original
+purchases or seller orders whose payment is confirmed and execution ended in
+failure:
+
+```sh
+envarpay inspect --state /private/envarpay/seller.sqlite3 --refund-review --after 0 --limit 100
+envarpay inspect --state /private/envarpay/buyer.sqlite3 --refund-review --after 0 --limit 100
+```
+
+Each candidate includes the original ID, payment/execution states, known Task ID
+and `reason: "confirmed_payment_failed_execution"`. A native Task that ended
+failed, canceled or rejected is represented by the runtime's terminal `failed`
+execution state. Free work, rejected or unknown payments, completed work and
+nonterminal execution are excluded. Unknown operations remain in the default
+attention view and must first be reconciled against their original evidence.
+
+`view` identifies the selected list. `refundReviewCount` counts candidates in the
+whole ledger, while `attentionCount` retains the default pending/unknown count;
+`total` is the number of all orders or purchases. These counts do not shrink as
+you page with `nextCursor`. Without `--refund-review`, the existing attention
+items and pagination are unchanged. No prompts, payment credentials, vault paths
+or provider secrets are included in either view.
+
+This is a **manual review candidate**, not a refund entitlement or a statement
+that money was returned. Review the original terms, Task outcome and independently
+verified payment before deciding what to do. The list does not track review
+decisions or external refund status; a candidate may remain listed after an
+external resolution. Preserve that separate evidence with the original ID.
+
+Both `paymentPerformed` and `refundPerformed` are `false`. Inspection does not
+contact a provider, open a vault/signer, issue a refund, alter payment state,
+release a buyer budget or retry execution. Actual refund handling and its
+provider reconciliation are outside this inspection command. Never delete the
+ledger, reset spent budget or create a replacement purchase to resolve a candidate.
+
 ## Health and readiness
 
 Seller `GET /healthz` reports process liveness and whether shutdown has begun.

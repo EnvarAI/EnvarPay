@@ -6,7 +6,7 @@ allowlists and cumulative budgets. The public task wire is official A2A 1.0,
 with native x402 v2 or MPP payment credentials. Envar is optional.
 
 Once this source version is published, install the alpha from npm with
-`npm install @envarai/envarpay@0.2.0-alpha.5`. Node22.14+ is required; Node24 is
+`npm install @envarai/envarpay@0.2.0-alpha.6`. Node22.14+ is required; Node24 is
 recommended. Review configuration before enabling payments. The `next` dist-tag
 tracks this new runtime; the older `latest` tag still identifies the previous
 wallet-client package. Verify the exact archive in the [release channels](packages.md).
@@ -38,8 +38,8 @@ the execution boundary honestly.
 ## Seller setup
 
 ```sh
-npx --package @envarai/envarpay@0.2.0-alpha.5 envarpay init --directory ./private
-npx --package @envarai/envarpay@0.2.0-alpha.5 envarpay validate --config ./private/seller.json
+npx --package @envarai/envarpay@0.2.0-alpha.6 envarpay init --directory ./private
+npx --package @envarai/envarpay@0.2.0-alpha.6 envarpay validate --config ./private/seller.json
 ```
 
 Replace placeholder upstreams, addresses and prices. Private credential files must
