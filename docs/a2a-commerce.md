@@ -4,11 +4,11 @@ EnvarPay is adding an independent TypeScript A2A service commerce runtime. It ca
 operate without an Envar account: sellers define services and receiving profiles;
 buyers retain their own authorization policy and budget.
 
-This first implementation milestone provides validated configuration, exact integer
-pricing, immutable price quotes, official A2A 1.0 offer cards and a configuration
-CLI. It does **not yet expose a paid A2A server, sign payments or dispatch tasks**.
-Those are the subsequent MVP milestones. Do not use a successful configuration
-check as payment or service-delivery evidence.
+The runtime now exposes authenticated A2A service entries with SQLite order and
+Task storage, a persistent dispatch queue and an official A2A upstream client.
+Free services execute; paid entries remain blocked until the payment transport
+milestone is connected. It does **not yet sign or collect payments**. Do not use
+a successful free task or configuration check as payment evidence.
 
 ## Build and validate
 
@@ -23,6 +23,40 @@ node dist/commerce/cli.js card --config examples/seller.json \
 
 The example addresses and hosts are placeholders; validation does not contact them.
 The CLI never creates a key, changes a wallet policy, calls a model or pays.
+
+## Run a free A2A service
+
+`validate` and `card` remain read-only. `serve` starts the actual configured Agent
+executor, so configure a bounded service and the model credentials in that runtime.
+
+```sh
+node dist/commerce/cli.js serve --config seller.json \
+  --state ./private/commerce.sqlite3 --credentials ./private/runtime-auth.json \
+  --origin https://YOUR_PUBLIC_ORIGIN --host 127.0.0.1 --port 4020
+```
+
+The owner-only credentials file has `callers` (strong bearer token to buyer ID)
+and `upstreams` (service ID to private runtime bearer token) maps. Never publish
+this file. The public reverse proxy must preserve the configured Host and use
+HTTPS. Card and JSON-RPC routes follow `/services/SERVICE/vREV/offers/OFFER/`.
+
+The service accepts one structured JSON data part matching its input schema.
+Send `A2A-Version: 1.0`, `Authorization: Bearer ...`, and standard `SendMessage`.
+Set `configuration.returnImmediately=true` for asynchronous work and query the
+returned Task ID with `GetTask`. Replaying the same caller/message/offer/input
+returns the original Task. Changed input or offer conflicts. Read access is scoped
+to the authenticated buyer and service revision.
+
+This milestone supports initial tasks only. Runtime cancellation, nonterminal
+continuation and explicit remote reconciliation are subsequent work; unsupported
+operations are refused. A lost upstream outcome becomes durable `unknown` with
+`recoveryRequired` metadata, never a second automatic execution.
+
+SQLite uses an OS-released exclusive ownership transaction in a companion database;
+only one runtime instance may own a ledger. Restart preserves results and moves
+interrupted dispatches to unknown. This is single-instance storage, not a shared
+multi-replica database. The Node runtime entry is `@envarai/envarpay/commerce/server`;
+the configuration entry does not import `node:sqlite`.
 
 ## Services and prices
 
