@@ -1,166 +1,69 @@
-# @envarai/envarpay
+# EnvarPay TypeScript
 
-A TypeScript client for an existing **authenticated EnvarPay wallet MCP service**.
-The client does not install Python, run a signer, hold wallet keys, or change wallet
-policy. Use the Python CLI or a separately operated service for those responsibilities.
+Independent service commerce for user-operated Agents. Public communication uses
+A2A 1.0; payments use native x402 v2 exact USDC or MPP Stripe charge. Prices and
+scope are versioned configuration, enforced before dispatch, not instructions in
+a prompt. Envar is an optional directory and management UI.
 
-This client uses the alpha release channel. See
-[installation channels](https://github.com/EnvarAI/EnvarPay/blob/main/docs/packages.md)
-for the current registry status and available distributions.
+The 0.2 source line replaces the previous npm wallet-only MCP client. Build from
+this checkout while the release is undergoing acceptance; a source version is
+not evidence that its npm/OCI artifact is published.
 
-## Install and start a wallet
+## Runtime and entry points
 
-Install the npm alpha client:
+Node.js 22.14+ (Node 24 recommended). SQLite is single-instance. Contracts can be
+read without loading the seller or buyer runtime; Bun validation covers the
+contracts entry, not the SQLite server.
 
-```sh
-npm install @envarai/envarpay@next
-```
-
-If your project uses a custom package registry, route this scope to the public
-registry in its `.npmrc`: `@envarai:registry=https://registry.npmjs.org/`.
-
-Node.js >=22.14 and Bun are supported. Import this package from an ESM application.
-The npm library is a client; the wallet runs as a separate service:
-
-```sh
-uv tool install --python 3.13 envarpay==0.1.0a10
-envarpay init --agent mcp --role buyer --directory ./buyer \
-  --peer-url https://seller.example/mcp --pay-to SELLER_FULL_RECEIVING_ADDRESS \
-  --tool ask_agent --max-per-call 0.01 --budget 0.05
-envarpay keygen --output ./buyer/buyer.key
-```
-
-The generated policy uses Base Sepolia test USDC and payments off. Fund the
-dedicated test wallet, review the recipient/tool/limits and enable payments only
-for your intended purchases. The agent never receives the wallet key.
-
-Create the wallet-access credential in your private operator environment. This
-command never prints it and refuses to overwrite an existing file:
+| Entry | Purpose |
+|---|---|
+| `@envarai/envarpay` | Config types/validation, integer pricing, quotes and A2A Cards |
+| `/server` | Durable seller A2A handler, exact x402 gate and native upstream executor |
+| `/client` | Buyer policy, atomic budgets, original-operation recovery and private management |
+| `/mpp` | Opt-in native MPP seller and read-only Stripe reconciliation |
+| `/envar` | Optional bounded config pull/ack and durable observation reports |
 
 ```sh
-python3 - <<'PY'
-import os, secrets
-with os.fdopen(os.open('buyer/wallet-service.token', os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), 'w') as f:
-    f.write(secrets.token_urlsafe(32))
-PY
+npm ci --ignore-scripts
+npm run build
+node dist/commerce/cli.js init --directory ./private
+node dist/commerce/cli.js validate --config ./private/seller.json
 ```
 
-Add this table to the existing `buyer.toml`:
-
-```toml
-[wallet_server]
-host = "127.0.0.1"
-port = 4021
-allowed_hosts = ["127.0.0.1:*", "localhost:*"]
-bearer_token_file = "./wallet-service.token"
-```
+Initialization writes examples and a vault key; it never creates a purchase or
+funds a wallet. Replace example addresses/hosts and review service limits before
+starting. Keep Agent model credentials in the Agent, and signer keys in a separate
+private wallet boundary.
 
 ```sh
-envarpay doctor --config ./buyer/buyer.toml
-envarpay wallet-serve --config ./buyer/buyer.toml
+node dist/commerce/cli.js serve --config seller.json \
+  --credentials private/seller-auth.json --state private/seller.sqlite3 \
+  --origin https://seller.example --port 4020
+node dist/commerce/cli.js buyer-serve --config buyer-policy.json \
+  --credentials private/buyer-auth.json --state private/buyer.sqlite3 \
+  --origin https://buyer-management.example --port 4021
 ```
 
-For local development, connect to `http://127.0.0.1:4021/mcp`. For a separate wallet
-permission boundary, run it under another OS identity/container or on a private
-service with HTTPS; only the wallet receives its key, policy and ledger. Keep the
-wallet service private. Give the client its wallet-access token, not a seller's
-token or an Envar machine credential.
+The management service is private and owner-authenticated. A website may request a
+quote and confirm an already-reviewed purchase; it cannot change peers, recipient
+allowlists, budgets or signing keys. Unknown outcomes retain the original request,
+signature/SPT and reserved budget. Never create a replacement purchase after a
+timeout.
 
-## Discover tools and make a purchase
+[Seller and wire behavior](../../docs/a2a-commerce.md) ·
+[Buyer management](../../docs/a2a-buyer.md) ·
+[Continuation and recovery](../../docs/a2a-runtime-recovery.md) ·
+[Envar configuration integration](../../docs/a2a-envar.md)
 
-```ts
-import { WalletClient, OperationUnknownError } from '@envarai/envarpay';
+## Payment guarantees
 
-const wallet = await WalletClient.connect({
-  url: 'https://wallet.example/mcp',
-  token: process.env.ENVARPAY_WALLET_TOKEN!,
-});
-try {
-  const tools = await wallet.listPaidTools('seller');
-  console.log(tools.tools.map(tool => tool.name));
-  // This may pay within the wallet operator's existing allowlist and budget.
-  const result = await wallet.callPaidTool({
-    peer: 'seller', tool: 'ask_agent',
-    arguments: { question: 'Review my API design' }, requestId: 'review-001',
-  });
-  console.log(result.result.content);
-} catch (error) {
-  if (error instanceof OperationUnknownError) {
-    console.log(await wallet.paymentStatus(error.requestId));
-    // When the operator-approved seller supports recovery:
-    // await wallet.recoverPayment(error.requestId);
-  } else throw error;
-} finally {
-  await wallet.close();
-}
-```
+Payment confirmation, task completion and acceptance are separate facts. The MVP
+charges upfront for a new task; reads and permitted clarification use that same
+purchase. It does not provide escrow, automatic refunds, subscriptions or billing
+for arbitrary internal tools. A2A compatibility alone does not give an Agent a
+wallet or authorize payment.
 
-The example uses the `seller` alias generated by the quickstart. If you changed it,
-use the alias actually configured in `buyer.toml`.
-`listPaidTools` does not pay. `callPaidTool` may spend within the existing wallet
-policy; `paymentStatus` and `recoverPayment` retain the original purchase.
-
-## Envar discovery and transaction pages
-
-With the optional `[connection]` in the wallet, these additional methods read
-Envar's public catalog:
-
-```ts
-const candidates = await wallet.discoverAgents('research');
-console.log(candidates.payment_authorized); // always false
-const profile = await wallet.getAgent('THE_PUBLISHED_AGENT_HANDLE');
-```
-
-The operator still approves and configures a peer before purchasing from it.
-The Python wallet handles optional durable Envar reports; the npm client does not
-duplicate signing, settlement or the platform's payment verification.
-[Complete Envar setup](https://github.com/EnvarAI/EnvarPay/blob/main/docs/envar.md).
-
-## Receiving and asynchronous tasks
-
-For **receiving**, put the Python `envarpay` payment gate in front of your existing
-private JS/TS MCP tool and expose only the gate through HTTPS. No buyer-wallet
-client is needed to receive payments; the seller does not need a signing key.
-[Seller quickstart](https://github.com/EnvarAI/EnvarPay/blob/main/docs/selling.md).
-
-For **asynchronous escrow/acceptance/refunds**, use Python `envarpay[task]` and
-`envarpay task wallet` with your host's standard MCP client. The task mode is an
-experimental Base Sepolia-only flow, separate from this upfront wallet API.
-[Task guide](https://github.com/EnvarAI/EnvarPay/blob/main/docs/tasks/README.md).
-
-## Errors and recovery
-
-Persist the request ID in your application before calling. Never replace it after
-an uncertain result. The client does not retry paid calls; the wallet retains the
-original authorization and ledger. A `WalletToolError` preserves an explicit
-wallet refusal/execution error. An `OperationUnknownError` means the result is
-uncertain, including transport failures and timeouts; it does not mean no payment occurred.
-
-HTTPS is required except for loopback HTTP. Redirects are rejected, including
-redirects to another wallet URL. The bearer token belongs to the wallet service,
-not to a seller or public directory; keep it in the application's private config.
-
-Targets Node.js >=22.14 and Bun. Local tests use the actual Python wallet MCP
-adapter with a fake service and transfer no funds; they are not real payment evidence.
-This client has no task-escrow API or framework-native plugin manifest.
-
-## Reviewed purchases from Envar
-
-Use the published Python EnvarPay 0.1.0a10 service with this client. `walletPolicy()` reads limits
-and already-approved peers. `callAgent()` selects only a peer bound to the reviewed
-Agent and endpoint IDs; it never adds a directory candidate to wallet policy. Supply
-`expectedNetwork`, `expectedPayTo` and `expectedAmountAtomic` from the terms you
-reviewed. A different live price is refused before signing. Keep `requestId` across
-uncertain outcomes and use the original status/recovery methods.
-
-The website can use the same authenticated wallet through its owner-only entry.
-For task creation, result verification and acceptance/refunds, connect the private
-`envarpay task wallet-serve` using a standard MCP client. The task signer and
-contract verification stay in Python; the task mode remains experimental/testnet.
-# A2A commerce development
-
-The new `@envarai/envarpay/commerce` entry provides service configuration,
-integer pricing, frozen quotes and official A2A 1.0 offer cards. See the
-[implementation guide](../../docs/a2a-commerce.md). The Node-only `/commerce/server` entry now supports durable A2A tasks and an
-x402 seller gate. Buyer signing and MPP are still being implemented. The wallet client described
-below remains the previous MCP client while the new runtime is implemented.
+MPP requires an eligible Stripe merchant, a permitted buyer token-creation flow,
+explicit test/live mode and any required customer authentication. Simulator tests
+are not card charges. Provider and chain acceptance must be recorded separately
+from SDK tests and build results.

@@ -42,3 +42,38 @@ test('chain receipt must match canonical block, confirmations, Transfer and sign
   for(const bad of ['wrong-amount','wrong-asset','missing-nonce','reorg','unconfirmed','reverted']){mode=bad;assert.equal(await verify(receipt,payload,requirements),false,bad);}
  }finally{await new Promise(r=>server.close(r));}
 });
+
+test('expired-unused proof requires exact official-token state at a canonical finalized block',async()=>{
+ let mode='valid';const seen=[];
+ const server=createServer(async(req,res)=>{
+  let text='';for await(const part of req)text+=part;const rpc=JSON.parse(text);seen.push(rpc);let result;
+  if(mode==='rpc-error'){res.setHeader('Content-Type','application/json');res.end(JSON.stringify({jsonrpc:'2.0',id:rpc.id,error:{code:-32000,message:'RPC unavailable'}}));return;}
+  if(rpc.method==='eth_chainId')result=mode==='wrong-chain'?'0x2105':'0x14a34';
+  else if(rpc.method==='eth_getBlockByNumber'){
+   if(rpc.params[0]==='finalized'&&mode==='no-finalized'){res.setHeader('Content-Type','application/json');res.end(JSON.stringify({jsonrpc:'2.0',id:rpc.id,error:{code:-32602,message:'Unsupported finalized tag'}}));return;}
+   const changed=mode==='reorg'&&rpc.params[0]!=='finalized';
+   result={number:'0xa',hash:changed?'0x'+'6'.repeat(64):block,transactions:[],timestamp:mode==='before-expiry'?'0x63':'0x64',gasLimit:'0x1',gasUsed:'0x1',extraData:'0x',miner:payee};
+  }else if(rpc.method==='eth_call'){
+   assert.equal(rpc.params[0].to.toLowerCase(),asset.toLowerCase());assert.equal(rpc.params[1],'0xa');
+   result=mode==='malformed-state'?'0x':encodeAbiParameters([{type:'bool'}],[mode==='used']);
+  }else throw new Error('Unexpected proof RPC '+rpc.method);
+  res.setHeader('Content-Type','application/json');res.end(JSON.stringify({jsonrpc:'2.0',id:rpc.id,result}));
+ });server.listen(0,'127.0.0.1');await once(server,'listening');
+ try{
+  const recovery=evmSettlementRecovery({'eip155:84532':`http://127.0.0.1:${server.address().port}`});
+  const payload={payload:{authorization:{from:payer,to:payee,value:'100',nonce,validAfter:'10',validBefore:'100'}}};
+  const requirements={network:'eip155:84532',asset,payTo:payee,amount:'100'};
+  const proof=await recovery.expiredUnusedProof(payload,requirements);
+  assert.equal(proof.expiredUnused,true);assert.equal(proof.finality,'finalized');assert.equal(proof.blockTimestamp,'100');assert.equal(proof.authorizationUsed,false);
+  assert.deepEqual(seen.map(x=>x.method),['eth_chainId','eth_getBlockByNumber','eth_call','eth_getBlockByNumber']);
+  assert.equal(seen[1].params[0],'finalized');assert.equal(seen[3].params[0],'0xa');
+  for(const bad of ['before-expiry','used','wrong-chain','reorg','rpc-error','no-finalized','malformed-state']){mode=bad;assert.equal(await recovery.proveExpiredUnused(payload,requirements),false,bad);}
+  mode='valid';const requests=seen.length;
+  assert.equal(await recovery.proveExpiredUnused(payload,{...requirements,asset:payee}),false);
+  assert.equal(await recovery.proveExpiredUnused(payload,{...requirements,amount:'101'}),false);
+  assert.equal(await recovery.proveExpiredUnused({...payload,payload:{authorization:{...payload.payload.authorization,nonce:'bad'}}},requirements),false);
+  assert.equal(await recovery.proveExpiredUnused({...payload,payload:{authorization:{...payload.payload.authorization,validAfter:'101'}}},requirements),false);
+  assert.equal(seen.length,requests,'malformed or mismatched inputs fail before network access');
+  assert.equal(await recovery.proveExpiredUnused(payload,requirements),true);
+ }finally{await new Promise(resolve=>server.close(resolve));}
+});

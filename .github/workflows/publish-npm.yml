@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Existing npm release tag (npm-v0.1.0-alpha.2)
+        description: Existing npm release tag (npm-v0.2.0-alpha.1)
         type: string
         required: true
       publish:
@@ -81,10 +81,10 @@ jobs:
           cd /tmp/envarpay-consumer
           npm init -y
           npm install --ignore-scripts /tmp/envarai-envarpay-*.tgz typescript@5.9.3
-          printf '%s\n' 'import { WalletClient, type PaidCall } from "@envarai/envarpay";' 'const connect: typeof WalletClient.connect = WalletClient.connect;' 'const result: PaidCall | undefined = undefined;' 'void connect; void result;' > check.mts
+          printf '%s\n' 'import { loadCommerceConfig, type CommerceConfig } from "@envarai/envarpay";' 'import { CommerceBuyer, BuyerStore } from "@envarai/envarpay/client";' 'import { CommerceServer } from "@envarai/envarpay/server";' 'import { MppGate } from "@envarai/envarpay/mpp";' 'import { EnvarIntegration } from "@envarai/envarpay/envar";' 'void loadCommerceConfig; void CommerceBuyer; void BuyerStore; void CommerceServer; void MppGate; void EnvarIntegration;' > check.mts
           npx --no-install tsc --noEmit --strict --skipLibCheck --module NodeNext --target ES2022 check.mts
-          node --input-type=module -e 'import { WalletClient } from "@envarai/envarpay"; if (typeof WalletClient.connect !== "function") throw new Error("Missing API");'
-          bun -e 'import { WalletClient } from "@envarai/envarpay"; if (typeof WalletClient.connect !== "function") throw new Error("Missing API");'
+          node --input-type=module -e 'import { CommerceBuyer } from "@envarai/envarpay/client"; import { CommerceServer } from "@envarai/envarpay/server"; if (!CommerceBuyer || !CommerceServer) throw new Error("Missing commerce API");'
+          bun -e 'import { loadCommerceConfig } from "@envarai/envarpay"; if (typeof loadCommerceConfig !== "function") throw new Error("Missing contracts API");'
           sha256sum /tmp/envarai-envarpay-*.tgz >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
         with:

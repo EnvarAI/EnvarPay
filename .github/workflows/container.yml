@@ -6,9 +6,7 @@ on:
       - Dockerfile
       - .dockerignore
       - .github/workflows/container.yml
-      - pyproject.toml
-      - README.pypi.md
-      - src/**
+      - packages/typescript/**
   workflow_dispatch:
     inputs:
       tag:
@@ -41,15 +39,14 @@ jobs:
           persist-credentials: false
       - run: docker build -t envarpay:check .
       - run: docker run --rm --network none envarpay:check --version
-      - name: Check non-root setup and task dependencies without signing
+      - name: Check non-root commerce setup without signing
         run: |
           docker run --rm --network none --entrypoint sh envarpay:check -ec '
             test "$(id -u)" = 10001
-            envarpay init --role buyer --pay-to 0x3333333333333333333333333333333333333333 --directory /data/check --json
-            envarpay doctor --config /data/check/buyer.toml
-            test ! -e /data/check/buyer.key
-            python -c "import web3; import envarpay.tasks"
-            envarpay task --help
+            envarpay init --directory /data/check
+            envarpay validate --config /data/check/seller.json
+            test ! -e /data/check/signer.key
+            envarpay --help
           '
 
   publish:
@@ -70,12 +67,12 @@ jobs:
           RELEASE_TAG: ${{ inputs.tag }}
         run: |
           python - <<'PYTHON'
-          import os, re, subprocess, tomllib
+          import os, re, subprocess, json
           from pathlib import Path
           tag = os.environ["RELEASE_TAG"]
-          if not re.fullmatch(r"oci-v[0-9]+\.[0-9]+\.[0-9]+(?:a[0-9]+)?", tag):
+          if not re.fullmatch(r"oci-v[0-9]+\.[0-9]+\.[0-9]+(?:-(?:alpha|beta|rc)\.[0-9]+)?", tag):
               raise SystemExit("Use an immutable oci-v<VERSION> release tag")
-          version = tomllib.loads(Path("pyproject.toml").read_text())["project"]["version"]
+          version = json.loads(Path("packages/typescript/package.json").read_text())["version"]
           if tag != f"oci-v{version}":
               raise SystemExit("Release tag differs from package version")
           head = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()

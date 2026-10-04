@@ -123,14 +123,15 @@ export function loadBuyerPolicy(value: unknown): BuyerPolicy {
   }
   const ids = new Set<string>();
   for (const peer of policy.peers) {
+    validateUrl(peer.cardUrl);
+    if (ids.has(peer.id)) throw new CommerceError('duplicate_peer', 'Peer IDs must be unique');
+    ids.add(peer.id);
+    if (peer.protocol === 'free') continue;
     peer.currency = normalizedCurrency(peer.currency);
     if (peer.protocol === 'x402') {
       if (!/^0x[0-9a-fA-F]{40}$/.test(peer.recipient) || BigInt(peer.recipient) === 0n || peer.currency === 'usd') throw new CommerceError('invalid_recipient', 'x402 peers require a nonzero EVM recipient and USDC asset');
       peer.recipient = peer.recipient.toLowerCase();
     } else if (peer.currency !== 'usd' || !/^profile_[A-Za-z0-9]+$/.test(peer.recipient)) throw new CommerceError('invalid_recipient', 'MPP peers require USD and a verified Stripe merchant profile');
-    validateUrl(peer.cardUrl);
-    if (ids.has(peer.id)) throw new CommerceError('duplicate_peer', 'Peer IDs must be unique');
-    ids.add(peer.id);
     const limit = limits.get(peer.currency);
     if (limit === undefined || atomic(peer.maxPerPurchase) > limit) throw new CommerceError('invalid_budget', 'Each peer needs a cumulative budget at least as large as its per-purchase limit');
   }
