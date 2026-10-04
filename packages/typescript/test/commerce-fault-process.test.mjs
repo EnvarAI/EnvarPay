@@ -83,6 +83,9 @@ async function childMain(checkpoint, directory) {
   writeFileSync(join(directory, 'vault.key'), Buffer.alloc(32, 7), { mode: 0o600, flush: true });
   savePrivate(join(directory, 'upstream-bindings.json'), { fixture: true, origin: config.services[0].execution.cardUrl, token: 'synthetic-runtime-token' });
   const store = new CommerceStore(join(directory, 'seller.sqlite3'));
+  // Keep the ledger strongly reachable while awaiting SIGKILL. Otherwise a
+  // concurrent-suite GC can close SQLite ownership before the checkpoint kill.
+  globalThis.fixtureSellerStore = store;
   const vault = new CredentialVault(join(directory, 'authorizations'), readFileSync(join(directory, 'vault.key')));
   store.registerCatalog(config);
   const quote = buildQuote(config, { caller, serviceId: 'research', offerId: 'usdc-once', messageId: 'original-business-request', input });

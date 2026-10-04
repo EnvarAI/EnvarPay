@@ -1,8 +1,9 @@
 # Getting started
 
 Use the TypeScript A2A commerce runtime from
-`npm install @envarai/envarpay@0.2.0-alpha.2` with Node24 recommended.
-The `next` npm channel is the new runtime; pin the exact tested version.
+`npm install @envarai/envarpay@0.2.0-alpha.3` with Node24 recommended.
+The `next` npm channel is the new runtime; pin the exact tested version after its
+[archive publication is verified](packages.md).
 
 1. Run your existing Agent's native A2A entry privately and verify a real task.
 2. Define a bounded service, input schema, delivery and free/fixed/quantity offer.
