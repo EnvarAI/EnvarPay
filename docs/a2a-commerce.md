@@ -6,9 +6,10 @@ buyers retain their own authorization policy and budget.
 
 The runtime now exposes authenticated A2A service entries with SQLite order and
 Task storage, a persistent dispatch queue and an official A2A upstream client.
-Free services execute; paid entries remain blocked until the payment transport
-milestone is connected. It does **not yet sign or collect payments**. Do not use
-a successful free task or configuration check as payment evidence.
+Free services execute directly. The seller can now collect exact x402 USDC before
+dispatching a paid task, with independent receipt verification. The buyer signer,
+MPP adapter and platform integration are later milestones. Automated fixtures
+use simulated settlement and do not prove a real transfer.
 
 ## Build and validate
 
@@ -22,7 +23,7 @@ node dist/commerce/cli.js card --config examples/seller.json \
 ```
 
 The example addresses and hosts are placeholders; validation does not contact them.
-The CLI never creates a key, changes a wallet policy, calls a model or pays.
+`validate` and `card` never create keys, change a wallet policy, call a model or pay.
 
 ## Run a free A2A service
 
@@ -107,9 +108,49 @@ is an internal object, not a new public payment protocol.
 The pinned official `@a2a-js/sdk 1.2.1` exports the A2A 1.0 model and codecs;
 its version number is not the protocol version. This milestone checks actual
 serialization rather than relying on repository-main documentation. x402 core/EVM
-are pinned to 2.24.0; payment integration tests belong to the next milestones.
+and the payment-identifier extension are pinned to 2.24.0. Seller tests exercise
+the unmodified official x402 client, concurrency, replay, lost responses, frozen
+challenges, encrypted credential restart/tamper checks and simulated RPC receipts.
+Real testnet delivery remains a separate release acceptance requirement.
 
 `npm test` discovers all Node test files. Existing MCP client checks remain while
 implementation work proceeds; they are not evidence for the new A2A payment path.
 The final release will replace the old public entry with the complete A2A SDK;
 there is no requirement to preserve the previous product API.
+
+## x402 seller configuration and recovery
+
+An x402 profile requires these additional **private** credential-file fields:
+
+```json
+{
+  "payers": {"authenticated-buyer-id": "0xBUYER_ADDRESS"},
+  "vaultKeyFile": "/private/vault.key",
+  "rpcUrls": {"eip155:84532": "https://YOUR_BASE_SEPOLIA_RPC"}
+}
+```
+
+Merge with `callers` and `upstreams`; placeholders are not usable values. The vault
+key is 32 random bytes in an owner-only file. Keep the ledger, companion ownership
+database, encrypted `authorizations/` and vault key together in a consistent private
+backup. Never mount them into the Agent's unrestricted execution environment.
+
+The public request is still standard A2A `SendMessage`. The unpaid response has
+HTTP 402 + `PAYMENT-REQUIRED`; retry the same request with the official x402
+`PAYMENT-SIGNATURE`. The frozen resource URL includes a quote identifier, copied
+by the official client. No private Envar payment payload is required. Optional
+standard `payment-identifier` values are deduplicated per caller; an economic nonce
+cannot buy two orders even when a client omits the extension.
+
+Before settle, the runtime persists the original signature encrypted and records
+its chain checkpoint. It confirms payment only after matching the official token,
+exact Transfer, AuthorizationUsed nonce, canonical block and confirmation depth.
+A lost or unverified result stays `unknown`: execution is blocked and the signature
+must not be replaced. `X402Gate.recover(orderId, caller)` reads the original receipt,
+or searches AuthorizationUsed logs from the saved checkpoint without settling
+again. More than 100,000 blocks requires an operator/archive lookup; absence of
+logs never becomes proof of non-payment. Public management recovery is added with
+the buyer-management milestone.
+
+Upfront payment does not promise escrow, automatic refunds or acceptance-based
+release. Payment success and task execution success are stored separately.

@@ -61,6 +61,14 @@ export class CommerceStore implements TaskStore {
         state TEXT NOT NULL CHECK(state IN ('settling','confirmed','rejected','unknown')),
         receipt_json TEXT
       );
+      CREATE TABLE IF NOT EXISTS commerce_payment_challenges (
+        order_id TEXT PRIMARY KEY REFERENCES commerce_orders(id), challenge_json TEXT NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS commerce_payment_identifiers (
+        caller TEXT NOT NULL, identifier TEXT NOT NULL,
+        attempt_id TEXT NOT NULL UNIQUE REFERENCES commerce_payment_attempts(id),
+        PRIMARY KEY(caller,identifier)
+      );
       CREATE TRIGGER IF NOT EXISTS require_paid_outbox BEFORE INSERT ON commerce_outbox
       WHEN NOT EXISTS (SELECT 1 FROM commerce_orders WHERE id=NEW.order_id AND payment_state IN ('confirmed','not_required'))
       BEGIN SELECT RAISE(ABORT,'Payment not confirmed'); END;
@@ -102,6 +110,20 @@ export class CommerceStore implements TaskStore {
   getOrder(id:string,caller:string):OrderRecord|undefined {
     return this.order(this.db.prepare('SELECT * FROM commerce_orders WHERE id=? AND caller=?').get(id,caller) as Row|undefined);
   }
+  paymentForOrder(orderId:string):{id:string;state:string;credentialRef:string;receipt:Record<string,unknown>|null}|undefined {
+    const row=this.db.prepare('SELECT * FROM commerce_payment_attempts WHERE order_id=? ORDER BY rowid DESC LIMIT 1').get(orderId) as Row|undefined;
+    return row?{id:String(row.id),state:String(row.state),credentialRef:String(row.credential_ref),receipt:row.receipt_json?JSON.parse(String(row.receipt_json)):null}:undefined;
+  }
+  paymentChallenge<T>(orderId:string):T|undefined {
+    const row=this.db.prepare('SELECT challenge_json FROM commerce_payment_challenges WHERE order_id=?').get(orderId) as Row|undefined;
+    return row?JSON.parse(String(row.challenge_json)):undefined;
+  }
+  freezePaymentChallenge<T>(orderId:string,challenge:T):T {
+    return this.transaction(()=>{
+      this.db.prepare('INSERT OR IGNORE INTO commerce_payment_challenges VALUES (?,?)').run(orderId,JSON.stringify(challenge));
+      return this.paymentChallenge<T>(orderId)!;
+    });
+  }
   findOrder(caller:string,serviceRevision:string,messageId:string):OrderRecord|undefined {
     return this.order(this.db.prepare('SELECT * FROM commerce_orders WHERE caller=? AND service_revision=? AND message_id=?').get(caller,serviceRevision,messageId) as Row|undefined);
   }
@@ -137,7 +159,7 @@ export class CommerceStore implements TaskStore {
       return this.createTaskOnce(order);
     });
   }
-  reservePayment(orderId:string,caller:string,economicKey:string,credentialRef:string):string {
+  reservePayment(orderId:string,caller:string,economicKey:string,credentialRef:string,paymentIdentifier?:string):string {
     return this.transaction(()=>{
       const order=this.getOrder(orderId,caller);
       if(!order || !['quoted','rejected'].includes(order.paymentState)) throw new CommerceError('payment_recovery_required','Inspect the original payment before authorizing another');
@@ -146,6 +168,10 @@ export class CommerceStore implements TaskStore {
       if(this.db.prepare('SELECT id FROM commerce_payment_attempts WHERE economic_key=?').get(economicKey))throw new CommerceError('payment_reuse','Economic payment is already bound to an order');
       const id=randomUUID();
       this.db.prepare("INSERT INTO commerce_payment_attempts(id,order_id,economic_key,credential_ref,state) VALUES (?,?,?,?,'settling')").run(id,orderId,economicKey,credentialRef);
+      if(paymentIdentifier){
+        if(this.db.prepare('SELECT attempt_id FROM commerce_payment_identifiers WHERE caller=? AND identifier=?').get(caller,paymentIdentifier))throw new CommerceError('identifier_reuse','Payment identifier already belongs to another attempt');
+        this.db.prepare('INSERT INTO commerce_payment_identifiers VALUES (?,?,?)').run(caller,paymentIdentifier,id);
+      }
       this.db.prepare("UPDATE commerce_orders SET payment_state='settling' WHERE id=?").run(orderId);
       return id;
     });
