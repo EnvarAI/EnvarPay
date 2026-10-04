@@ -144,6 +144,7 @@ export class CommerceServer {
   private running=false;
   private kickPending=false;
   private stopped=false;
+  private workerFailed=false;
   private waiters=new Map<string,Set<()=>void>>();
   private activeOrders=new Set<string>();
   private recoveries=new Map<string,Promise<void>>();
@@ -191,7 +192,14 @@ export class CommerceServer {
   async handle(request:Request):Promise<Response>{
     const url=new URL(request.url);
     if(url.origin!==new URL(this.options.origin).origin)return Response.json({error:'invalid_host'},{status:421});
-    if(request.method==='GET'&&['/healthz','/readyz'].includes(url.pathname))return Response.json({status:this.stopped?'draining':'ready'},{status:this.stopped?503:200,headers:{'Cache-Control':'no-store'}});
+    if(request.method==='GET'&&['/healthz','/readyz'].includes(url.pathname)){
+      let ready=!this.stopped;
+      if(url.pathname==='/readyz'){
+        ready=ready&&!this.workerFailed;
+        try{this.store.assertReady();}catch{ready=false;}
+      }
+      return Response.json({status:ready?'ready':this.stopped?'draining':'unavailable'},{status:ready?200:503,headers:{'Cache-Control':'no-store'}});
+    }
     const proof=/^\/\.well-known\/envar\/([0-9a-f-]{36})$/.exec(url.pathname);
     if(request.method==='GET'&&proof){
       const challenge=this.options.ownershipChallenges?.[proof[1]!];
@@ -213,6 +221,7 @@ export class CommerceServer {
     const body=Buffer.concat(chunks).toString('utf8');let requestId:unknown=null;
     try{
       const raw=JSON.parse(body) as Record<string,unknown>;
+      if(raw.method==='SendMessage'&&this.workerFailed)return Response.json({error:'worker_unavailable'},{status:503,headers:{'Cache-Control':'no-store'}});
       if(!raw||Array.isArray(raw)||typeof raw!=='object')throw new RequestMalformedError('A single JSONRPC object is required');
       requestId=raw.id??null;const params=raw.params;
       if(params&&typeof params==='object'&&'tenant' in params&&params.tenant!==route.tenant)return Response.json({jsonrpc:'2.0',id:raw.id??null,error:{code:-32602,message:'Invalid tenant'}},{status:200});
@@ -290,10 +299,10 @@ export class CommerceServer {
     projected.metadata=metadata;return projected;
   }
   schedule():void {
-    if(this.stopped)return;
+    if(this.stopped||this.workerFailed)return;
     if(this.running){this.kickPending=true;return;}
     this.running=true;
-    void this.drain().catch(()=>this.options.onError?.('worker_failure')).finally(()=>{this.running=false;if(this.kickPending){this.kickPending=false;this.schedule();}});
+    void this.drain().catch(()=>{this.workerFailed=true;this.options.onError?.('worker_failure');}).finally(()=>{this.running=false;if(this.kickPending){this.kickPending=false;this.schedule();}});
   }
   private async drain():Promise<void>{
     while(!this.stopped){

@@ -12,11 +12,15 @@ export interface BuyerQuote {
   messageId: string; payer: string; amount: string; currency: string | null; recipient: string | null;
   expiresAt: string; serviceId: string; serviceRevision: number; offerId: string;
   inputDigest: string; termsDigest: string; quoteId: string;
+  /** Absent for the original seller-advertised EnvarPay contract. */
+  termsSource?: 'local-policy';
 }
 export interface BuyerRecord {
   id: string; caller: string; peerId: string; cardUrl: string; endpoint: string;
   messageId: string; fingerprint: string; body: string; quoteToken: string; quote: BuyerQuote;
   input: Input; inputSchema: Record<string, unknown>;
+  peerMode?: 'standard-a2a';
+  standardBinding?: { policyDigest: string; bodyDigest: string; challengeDigest: string };
   continuations?: { messageId: string; input: Input; body?: string; state: 'pending' | 'unknown' | 'resolved'; beforeDigest: string }[];
   protocol?: 'x402' | 'mpp' | 'free'; mppChallenge?: Challenge.Challenge; tokenOperationId?: string; tokenRef?: string; mppMode?: 'test' | 'live'; mppPaymentMethod?: string;
   required?: PaymentRequired; requirements?: PaymentRequirements; createdAt: string; updatedAt: string;

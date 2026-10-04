@@ -124,6 +124,14 @@ export function loadBuyerPolicy(value: unknown): BuyerPolicy {
   const ids = new Set<string>();
   for (const peer of policy.peers) {
     validateUrl(peer.cardUrl);
+    if (peer.mode === 'standard-a2a') {
+      const endpoint = validateUrl(peer.endpoint), card = validateUrl(peer.cardUrl);
+      if (endpoint.origin !== card.origin || endpoint.search || endpoint.href !== peer.endpoint || card.href !== peer.cardUrl) throw new CommerceError('standard_peer_endpoint', 'Review an exact same-origin HTTPS A2A endpoint without query parameters');
+      noExternalRefs(peer.localContract.inputSchema);
+      if (JSON.stringify(peer.localContract.inputSchema).length > 512 * 1024) throw new CommerceError('standard_peer_schema', 'Local input schema exceeds 512 KiB');
+      try { const inputAjv = new Ajv2020({ strict: true }); addFormats(inputAjv); inputAjv.compile(peer.localContract.inputSchema); } catch { throw new CommerceError('standard_peer_schema', 'Local input schema must be a valid supported JSON Schema'); }
+      if (atomic(peer.localContract.amount) > atomic(peer.maxPerPurchase)) throw new CommerceError('purchase_limit', 'Locally reviewed standard-peer price exceeds the per-purchase limit');
+    }
     if (ids.has(peer.id)) throw new CommerceError('duplicate_peer', 'Peer IDs must be unique');
     ids.add(peer.id);
     if (peer.protocol === 'free') continue;

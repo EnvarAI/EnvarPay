@@ -119,6 +119,12 @@ export class CommerceStore implements TaskStore {
     this.db.close();
     if(this.ownerDb){this.ownerDb.exec('ROLLBACK');this.ownerDb.close();}
   }
+  /** Local readiness only. External settlement is independently verified per purchase. */
+  assertReady():void {
+    const row=this.db.prepare('SELECT version FROM commerce_meta').get();
+    if(row?.version!==2)throw new CommerceError('store_unavailable','Commerce ledger is unavailable');
+    this.db.prepare('SELECT id FROM commerce_orders LIMIT 1').get();
+  }
   registerCatalog(config:CommerceConfig):void {
     this.transaction(()=>{
       for(const service of config.services){

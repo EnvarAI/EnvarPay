@@ -472,3 +472,22 @@ test("restart during confirmation marks uncertainty on GetTask without silently 
     await f.close();
   }
 });
+
+
+test("unpaid preview errors survive GetTask/restart and same-intent retry without duplicate payment", async () => {
+ const f=fixture();
+ try {
+  const originalPreview=f.buyer.preview;
+  f.buyer.preview=async()=>{throw new CommerceError('paid_quote_required','retired paid route');};
+  const response=await f.proxy.handle(f.request('preflight-original'));
+  const id=(await response.json()).result.task.id;
+  const task=await f.settled(id,'TASK_STATE_INPUT_REQUIRED');
+  assert.equal(task.metadata.errorCode,'paid_quote_required');
+  await f.restart();
+  const read=await f.get(id);assert.equal(read.result.metadata.errorCode,'paid_quote_required');assert.equal(read.result.status.state,'TASK_STATE_INPUT_REQUIRED');
+  assert.equal(f.calls.confirm,0);
+  f.buyer.preview=originalPreview;
+  await f.proxy.handle(f.request('preflight-original'));
+  const done=await f.settled(id);assert.equal(done.id,id);assert.equal(f.calls.confirm,1);
+ } finally {await f.close();}
+});

@@ -20,13 +20,15 @@ import { CredentialVault } from './vault.js';
 import { X402Gate } from './x402.js';
 import { evmReceiptVerifier, evmSettlementRecovery } from './chain.js';
 import { CommerceError } from './types.js';
+import { inspectLedger } from './operations.js';
 
 const { values, positionals } = parseArgs({ allowPositionals: true, options: {
   config: { type: 'string' }, service: { type: 'string' }, offer: { type: 'string' }, origin: { type: 'string' },
   version: { type: 'boolean' }, help: {type:'boolean',short:'h'}, state: { type: 'string' }, credentials: { type: 'string' }, host: { type: 'string' },
   port: { type: 'string' }, directory: { type: 'string' }, 'envar-config': {type:'string'}, 'envar-credentials': {type:'string'},
+  after:{type:'string'}, limit:{type:'string'},
 } });
-const usage = 'envarpay init --directory DIR | validate --config seller.json | card --config seller.json --service ID --offer ID --origin URL | serve/buyer-serve --config FILE --credentials FILE --state DB --origin URL';
+const usage = 'envarpay init --directory DIR | inspect --state DB [--after ROW --limit 100] | validate --config seller.json | card --config seller.json --service ID --offer ID --origin URL | serve/buyer-serve --config FILE --credentials FILE --state DB --origin URL';
 const closers: (() => void | Promise<void>)[] = [];
 function privateFile(path: string): Buffer {
   const stat = lstatSync(path);
@@ -63,6 +65,7 @@ async function run(): Promise<void> {
   if(values.help||positionals.length===0&&!values.version){console.log(usage);return;}
   if (values.version) { console.log(createRequire(import.meta.url)('../../package.json').version); return; }
   const command = positionals[0];
+  if(command==='inspect'&&values.state){console.log(JSON.stringify(inspectLedger(values.state,Number(values.after??0),Number(values.limit??100)),null,2));return;}
   if((values['envar-config']||values['envar-credentials'])&&command!=='serve')throw new CommerceError('envar_role','Configuration synchronization is available on seller serve only');
   if(Boolean(values['envar-config'])!==Boolean(values['envar-credentials']))throw new CommerceError('envar_configuration','Supply both --envar-config and --envar-credentials');
   if (command === 'init' && values.directory) {

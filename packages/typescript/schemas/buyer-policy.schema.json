@@ -70,6 +70,54 @@
           "maxPerPurchase": {
             "type": "string",
             "pattern": "^(0|[1-9][0-9]{0,77})$"
+          },
+          "mode": {
+            "enum": [
+              "envarpay",
+              "standard-a2a"
+            ]
+          },
+          "endpoint": {
+            "type": "string",
+            "format": "uri",
+            "pattern": "^https://"
+          },
+          "authentication": {
+            "enum": [
+              "none",
+              "bearer"
+            ]
+          },
+          "localContract": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "revision",
+              "offerId",
+              "inputSchema",
+              "amount",
+              "paidOnly"
+            ],
+            "properties": {
+              "revision": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "offerId": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]{0,63}$"
+              },
+              "inputSchema": {
+                "type": "object"
+              },
+              "amount": {
+                "$ref": "#/$defs/amount"
+              },
+              "paidOnly": {
+                "const": true
+              }
+            }
           }
         },
         "allOf": [
@@ -107,6 +155,63 @@
                 "maxPerPurchase": {
                   "$ref": "#/$defs/amount"
                 }
+              }
+            }
+          },
+          {
+            "if": {
+              "required": [
+                "mode"
+              ],
+              "properties": {
+                "mode": {
+                  "const": "standard-a2a"
+                }
+              }
+            },
+            "then": {
+              "required": [
+                "endpoint",
+                "authentication",
+                "localContract"
+              ],
+              "properties": {
+                "protocol": {
+                  "const": "x402"
+                },
+                "endpoint": {},
+                "authentication": {},
+                "localContract": {}
+              }
+            },
+            "else": {
+              "not": {
+                "anyOf": [
+                  {
+                    "required": [
+                      "endpoint"
+                    ],
+                    "properties": {
+                      "endpoint": {}
+                    }
+                  },
+                  {
+                    "required": [
+                      "authentication"
+                    ],
+                    "properties": {
+                      "authentication": {}
+                    }
+                  },
+                  {
+                    "required": [
+                      "localContract"
+                    ],
+                    "properties": {
+                      "localContract": {}
+                    }
+                  }
+                ]
               }
             }
           }
