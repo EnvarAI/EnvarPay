@@ -1,7 +1,7 @@
 import { timingSafeEqual } from 'node:crypto';
 import { AgentCard, GetTaskRequest, Role, Task, TaskState, SendMessageRequest, type StreamResponse } from '@a2a-js/sdk';
 import { DefaultRequestHandler, JsonRpcTransportHandler, ServerCallContext, type AgentExecutor } from '@a2a-js/sdk/server';
-import { RequestMalformedError, TaskNotFoundError, UnsupportedOperationError } from '@a2a-js/sdk/errors';
+import { ContentTypeNotSupportedError, RequestMalformedError, TaskNotFoundError, UnsupportedOperationError, VersionNotSupportedError } from '@a2a-js/sdk/errors';
 import { Ajv2020 } from 'ajv/dist/2020.js';
 import addFormatsImport from 'ajv-formats';
 import { createOfferCard, offerPath } from './card.js';
@@ -214,16 +214,19 @@ export class CommerceServer {
     if(this.stopped)return Response.json({error:'server_draining'},{status:503,headers:{'Retry-After':'5'}});
     const caller=await this.options.authenticate(request);
     if(!caller)return Response.json({error:'authentication_required'},{status:401,headers:{'WWW-Authenticate':'Bearer','Cache-Control':'no-store'}});
-    if(request.headers.get('A2A-Version')!=='1.0')return Response.json({error:'A2A-Version 1.0 required'},{status:400});
     if(Number(request.headers.get('Content-Length')??0)>1024*1024)return Response.json({error:'request_too_large'},{status:413});
     let size=0;const chunks:Uint8Array[]=[];
     if(request.body){const reader=request.body.getReader();while(true){const {value,done}=await reader.read();if(done)break;size+=value.byteLength;if(size>1024*1024){await reader.cancel();return Response.json({error:'request_too_large'},{status:413});}chunks.push(value);}}
     const body=Buffer.concat(chunks).toString('utf8');let requestId:unknown=null;
     try{
       const raw=JSON.parse(body) as Record<string,unknown>;
-      if(raw.method==='SendMessage'&&this.workerFailed)return Response.json({error:'worker_unavailable'},{status:503,headers:{'Cache-Control':'no-store'}});
       if(!raw||Array.isArray(raw)||typeof raw!=='object')throw new RequestMalformedError('A single JSONRPC object is required');
       requestId=raw.id??null;const params=raw.params;
+      // Parse only the bounded envelope to preserve its request ID. Reject these
+      // transport conditions before any quote, payment gate or Task dispatch.
+      if(request.headers.get('A2A-Version')!=='1.0')throw new VersionNotSupportedError('This service supports A2A-Version 1.0');
+      if(request.headers.get('Content-Type')?.split(';',1)[0]?.trim().toLowerCase()!=='application/json')throw new ContentTypeNotSupportedError('Send application/json to this JSON-RPC endpoint');
+      if(raw.method==='SendMessage'&&this.workerFailed)return Response.json({error:'worker_unavailable'},{status:503,headers:{'Cache-Control':'no-store'}});
       if(params&&typeof params==='object'&&'tenant' in params&&params.tenant!==route.tenant)return Response.json({jsonrpc:'2.0',id:raw.id??null,error:{code:-32602,message:'Invalid tenant'}},{status:200});
       let paymentHeaders:Record<string,string>={};
       if(raw.method==='SendMessage'){
@@ -249,7 +252,7 @@ export class CommerceServer {
       return Response.json(result,{headers:{'A2A-Version':'1.0','Cache-Control':'no-store',...paymentHeaders}});
     }catch(error){
       const mapped=error instanceof CommerceError?{code:-32000,message:error.message,data:{code:error.code}}:JsonRpcTransportHandler.mapToJSONRPCError(error);
-      return Response.json({jsonrpc:'2.0',id:requestId,error:mapped},{headers:{'Cache-Control':'no-store'}});
+      return Response.json({jsonrpc:'2.0',id:requestId,error:mapped},{headers:{'A2A-Version':'1.0','Cache-Control':'no-store'}});
     }
   }
   async continueTask(params:SendMessageRequest,input:Input,service:Service,offerId:string,context:ServerCallContext):Promise<Task>{
