@@ -161,6 +161,6 @@ contract verification stay in Python; the task mode remains experimental/testnet
 
 The new `@envarai/envarpay/commerce` entry provides service configuration,
 integer pricing, frozen quotes and official A2A 1.0 offer cards. See the
-[implementation guide](../../docs/a2a-commerce.md). This first milestone does not
-yet provide a paid A2A server or payment signer. The wallet client described
+[implementation guide](../../docs/a2a-commerce.md). The Node-only `/commerce/server` entry now supports durable A2A tasks and an
+x402 seller gate. Buyer signing and MPP are still being implemented. The wallet client described
 below remains the previous MCP client while the new runtime is implemented.

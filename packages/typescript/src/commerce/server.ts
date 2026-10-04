@@ -1,5 +1,5 @@
 import { timingSafeEqual } from 'node:crypto';
-import { AgentCard, GetTaskRequest, Role, Task, TaskState, type SendMessageRequest, type StreamResponse } from '@a2a-js/sdk';
+import { AgentCard, GetTaskRequest, Role, Task, TaskState, SendMessageRequest, type StreamResponse } from '@a2a-js/sdk';
 import { DefaultRequestHandler, JsonRpcTransportHandler, ServerCallContext, type AgentExecutor } from '@a2a-js/sdk/server';
 import { RequestMalformedError, TaskNotFoundError, UnsupportedOperationError } from '@a2a-js/sdk/errors';
 import { createOfferCard, offerPath } from './card.js';
@@ -15,6 +15,7 @@ export interface CommerceServerOptions {
   store: CommerceStore;
   authenticate: (request:Request)=>Promise<string|null>;
   execute: ExecuteOrder;
+  paymentGate?:{handle(request:Request,order:OrderRecord):Promise<{response:Response}|{headers:Record<string,string>}>};
   onError?: (code:string,orderId?:string)=>void;
 }
 const TERMINAL=[TaskState.TASK_STATE_COMPLETED,TaskState.TASK_STATE_FAILED,TaskState.TASK_STATE_CANCELED,TaskState.TASK_STATE_REJECTED];
@@ -38,6 +39,21 @@ function structuredInput(params:SendMessageRequest):Input {
   return p.value as Input;
 }
 
+function validateBeforePayment(raw:Record<string,unknown>):void {
+  if(raw.jsonrpc!=='2.0'||!['string','number'].includes(typeof raw.id)||raw.id===''||(typeof raw.id==='number'&&!Number.isSafeInteger(raw.id)))throw new RequestMalformedError('Valid JSONRPC request ID required');
+  const params=raw.params as Record<string,unknown>|undefined;
+  const message=params?.message as Record<string,unknown>|undefined;
+  if(!message||typeof message.messageId!=='string'||message.role!=='ROLE_USER'||!Array.isArray(message.parts))throw new RequestMalformedError('A valid user Message is required');
+  if(message.parts.length!==1||!message.parts[0]||typeof message.parts[0]!=='object'||Object.keys(message.parts[0]).some(x=>!['data','mediaType'].includes(x)))throw new RequestMalformedError('Commerce accepts exactly one structured data part');
+  if(params?.metadata||message.metadata||message.extensions)throw new UnsupportedOperationError('Unrecognized execution metadata is not accepted by this service');
+  const configuration=params?.configuration as Record<string,unknown>|undefined;
+  if(configuration){
+    if(typeof configuration!=='object'||Array.isArray(configuration)||Object.keys(configuration).some(k=>!['returnImmediately','acceptedOutputModes','historyLength'].includes(k)))throw new UnsupportedOperationError('Unsupported request configuration');
+    if(configuration.returnImmediately!==undefined&&typeof configuration.returnImmediately!=='boolean')throw new RequestMalformedError('returnImmediately must be boolean');
+    if(configuration.historyLength!==undefined&&(!Number.isInteger(configuration.historyLength)||(configuration.historyLength as number)<0))throw new RequestMalformedError('historyLength must be a nonnegative integer');
+  }
+}
+
 class OrderHandler extends DefaultRequestHandler {
   constructor(private host:CommerceServer,private service:Service,private offerId:string,card:AgentCard,store:CommerceStore,private active:boolean){
     const executor:AgentExecutor={execute:async()=>{throw new UnsupportedOperationError('Use commerce order dispatch');},cancelTask:async()=>{throw new UnsupportedOperationError('Runtime cancellation is not available');}};
@@ -57,6 +73,12 @@ class OrderHandler extends DefaultRequestHandler {
     if(!this.active)throw new UnsupportedOperationError('This service revision is retired; existing Tasks remain readable');
     const quote=buildQuote(this.host.config,{serviceId:this.service.id,offerId:this.offerId,caller,messageId:params.message!.messageId,input});
     const order=this.host.store.ensureQuote(quote,input);
+    if(order.paymentState==='confirmed'){
+      const task=await this.host.store.load(order.taskId,context);
+      if(!task)throw new CommerceError('task_recovery_required','Paid task record is incomplete');
+      this.host.schedule();
+      return task;
+    }
     if(order.paymentState!=='not_required')throw new UnsupportedOperationError('Payment transport must be enabled before this paid offer can execute');
     const task=this.host.store.enqueueFree(order.id,caller);
     this.host.schedule();
@@ -77,7 +99,7 @@ class OrderHandler extends DefaultRequestHandler {
 export class CommerceServer {
   readonly config:CommerceConfig;
   readonly store:CommerceStore;
-  private readonly routes=new Map<string,{card:AgentCard;rpc:JsonRpcTransportHandler;tenant:string}>();
+  private readonly routes=new Map<string,{card:AgentCard;rpc:JsonRpcTransportHandler;tenant:string;service:Service;offerId:string;active:boolean}>();
   private running=false;
   private kickPending=false;
   private stopped=false;
@@ -90,7 +112,7 @@ export class CommerceServer {
       const historical={...this.config,paymentProfiles:entry.profiles,services:[service]};
       const card=createOfferCard(historical,service.id,offer.id,options.origin);
       const active=this.config.services.some(s=>s.id===service.id&&s.revision===service.revision);
-      this.routes.set(offerPath(service.id,service.revision,offer.id),{card,rpc:new JsonRpcTransportHandler(new OrderHandler(this,service,offer.id,card,this.store,active)),tenant:`${service.id}:${service.revision}`});
+      this.routes.set(offerPath(service.id,service.revision,offer.id),{card,rpc:new JsonRpcTransportHandler(new OrderHandler(this,service,offer.id,card,this.store,active)),tenant:`${service.id}:${service.revision}`,service,offerId:offer.id,active});
     }
     // Single instance has exclusive ownership of its store for the process lifetime.
     this.store.recoverInterruptedDispatches();
@@ -114,16 +136,35 @@ export class CommerceServer {
     let size=0;const chunks:Uint8Array[]=[];
     if(request.body){const reader=request.body.getReader();while(true){const {value,done}=await reader.read();if(done)break;size+=value.byteLength;if(size>1024*1024){await reader.cancel();return Response.json({error:'request_too_large'},{status:413});}chunks.push(value);}}
     const body=Buffer.concat(chunks).toString('utf8');
+    let requestId:unknown=null;
     try{
       const raw=JSON.parse(body) as Record<string,unknown>;
+      if(!raw||Array.isArray(raw)||typeof raw!=='object')throw new RequestMalformedError('A single JSONRPC object is required');
+      requestId=raw.id??null;
       const params=raw.params;
       if(params&&typeof params==='object'&&'tenant' in params&&params.tenant!==route.tenant)return Response.json({jsonrpc:'2.0',id:raw.id??null,error:{code:-32602,message:'Invalid tenant'}},{status:200});
+      let paymentHeaders:Record<string,string>={};
+      if(this.options.paymentGate&&raw.method==='SendMessage'){
+        validateBeforePayment(raw);
+        const message=SendMessageRequest.fromJSON(params as Record<string,unknown>);
+        const input=structuredInput(message);
+        const prior=this.store.findOrder(caller,route.tenant,message.message!.messageId);
+        if(prior&&(prior.inputDigest!==digest(input)||prior.offerId!==route.offerId))throw new RequestMalformedError('Purchase request conflicts with the original');
+        if(!prior&&!route.active)throw new UnsupportedOperationError('This service revision is retired');
+        const order=prior??this.store.ensureQuote(buildQuote(this.config,{serviceId:route.service.id,offerId:route.offerId,caller,messageId:message.message!.messageId,input}),input);
+        if(order.paymentState!=='not_required'){
+          const gate=await this.options.paymentGate.handle(new Request(request.url,{method:'POST',headers:request.headers,body}),order);
+          if('response' in gate)return gate.response;
+          paymentHeaders=gate.headers;
+          this.schedule();
+        }
+      }
       const result=await route.rpc.handle(body,this.context(caller,route.tenant));
       if(Symbol.asyncIterator in result)return Response.json({jsonrpc:'2.0',id:raw.id??null,error:{code:-32004,message:'Streaming not available'}},{status:200});
-      return Response.json(result,{headers:{'A2A-Version':'1.0','Cache-Control':'no-store'}});
+      return Response.json(result,{headers:{'A2A-Version':'1.0','Cache-Control':'no-store',...paymentHeaders}});
     }catch(error){
-      const mapped=JsonRpcTransportHandler.mapToJSONRPCError(error);
-      return Response.json({jsonrpc:'2.0',id:null,error:mapped},{headers:{'Cache-Control':'no-store'}});
+      const mapped=error instanceof CommerceError?{code:-32000,message:error.message,data:{code:error.code}}:JsonRpcTransportHandler.mapToJSONRPCError(error);
+      return Response.json({jsonrpc:'2.0',id:requestId,error:mapped},{headers:{'Cache-Control':'no-store'}});
     }
   }
   schedule():void {
