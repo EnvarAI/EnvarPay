@@ -5,3 +5,4 @@ export * from './management.js';
 export * from './vault.js';
 export * from './chain.js';
 export type { MppBuyerOptions, MppTokenOperation, MppVerificationContext, MppReceipt } from './mpp-client.js';
+export * from './peer-proxy.js';

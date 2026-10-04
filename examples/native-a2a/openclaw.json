@@ -1,0 +1,14 @@
+{
+  "channels": {
+    "a2a": {
+      "enabled": true,
+      "peers": {
+        "approved_research": {
+          "token": "REPLACE_WITH_INBOUND_PEER_TOKEN",
+          "url": "http://host.docker.internal:4030/a2a",
+          "outboundToken": "REPLACE_WITH_PRIVATE_PROXY_TOKEN"
+        }
+      }
+    }
+  }
+}

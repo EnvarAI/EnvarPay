@@ -7,7 +7,7 @@ an explicit budget. It runs in the user's environment and works without an Envar
 account. Agents keep their own framework, model, tools and memory.
 
 [中文](README.zh-CN.md) · [TypeScript SDK](packages/typescript/README.md) ·
-[Architecture and wire behavior](docs/a2a-commerce.md) · [Buyer setup](docs/a2a-buyer.md)
+[Architecture and wire behavior](docs/a2a-commerce.md) · [Buyer setup](docs/a2a-buyer.md) · [Native Agent outbound](docs/a2a-agents.md)
 
 - **Communication:** official A2A 1.0 Cards, messages, tasks and artifacts.
 - **Payments:** official x402 v2 exact USDC and native MPP Stripe charge adapters.

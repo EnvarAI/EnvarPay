@@ -81,6 +81,7 @@ async function run(): Promise<void> {
     const secrets = JSON.parse(privateFile(values.credentials).toString('utf8')) as {
       callers: Record<string, string>; peerTokens: Record<string, string>; peerEndpoints?: Record<string, string>;
       privateKeyFile?: string; vaultKeyFile?: string; rpcUrls?: Record<string, string>; mppAdapterModule?:string;
+      peerProxies?: {peerId:string;offerId:string;buyerCaller:string;origin:string;stateDirectory:string;tokens:Record<string,string>;host?:string;port:number;allowPrivateHttp?:boolean;label?:string}[];
     };
     const needsEvm=policy.peers.some(peer=>peer.protocol==='x402'),needsMpp=policy.peers.some(peer=>peer.protocol==='mpp');
     if (!secrets.peerTokens || (needsEvm||needsMpp)&&!secrets.vaultKeyFile) throw new CommerceError('buyer_credentials', 'Paid buyer needs private vault key and peer credentials');
@@ -101,6 +102,18 @@ async function run(): Promise<void> {
       signer, mpp, peerTokens: secrets.peerTokens, peerEndpoints: secrets.peerEndpoints,
       ...(needsEvm?{verifyReceipt:evmReceiptVerifier(secrets.rpcUrls!),...evmSettlementRecovery(secrets.rpcUrls!)}:{}) });
     closers.push(() => buyer.stop());
+    if(secrets.peerProxies?.length){
+      if(secrets.peerProxies.length>8)throw new CommerceError('proxy_limit','Configure at most8 explicit peer proxies per buyer');
+      const {A2APeerProxy,listenPeerProxy}=await import('./peer-proxy.js');
+      for(const settings of secrets.peerProxies){
+        if(Object.keys(settings.tokens).some(token=>Object.hasOwn(secrets.callers,token)))throw new CommerceError('proxy_token_scope','Agent proxy tokens must differ from owner management credentials');
+        if(!Number.isInteger(settings.port)||settings.port<1||settings.port>65535)throw new CommerceError('proxy_port','Invalid proxy listen port');
+        const proxy=new A2APeerProxy({...settings,buyer});
+        closers.push(async()=>{await proxy.stop();proxy.close();});
+        const listener=listenPeerProxy(proxy,settings.host??'127.0.0.1',settings.port);
+        closers.push(()=>closeHttp(listener));await once(listener,'listening');
+      }
+    }
     const management = new BuyerManagement({ buyer, origin: values.origin, authenticate: bearerAuthenticator(secrets.callers) });
     const http = listenBuyerManagement(management, values.origin, values.host ?? '127.0.0.1', port(4021));
     closers.push(() => closeHttp(http)); await once(http, 'listening'); buyer.start(); signals();
