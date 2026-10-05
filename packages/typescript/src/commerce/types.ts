@@ -22,13 +22,13 @@ export interface Service {
   id: string;
   name: string;
   revision: number;
-  execution: { type: 'a2a'; cardUrl: string };
+  execution: { type: 'a2a'; cardUrl: string } | { type: 'skill'; cardUrl: string; skillDigest: string };
   contract: { inputSchema: Record<string, unknown>; deliverables: string[]; targetDurationSeconds: number; includedRevisions: 0 };
   offers: Offer[];
 }
 
 export interface CommerceConfig {
-  configVersion: 1;
+  configVersion: 1 | 2;
   agent: { id: string; name: string };
   paymentProfiles: Record<string, PaymentProfile>;
   services: Service[];

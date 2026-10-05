@@ -23,6 +23,15 @@ entry, input JSON Schema, deliverables, target duration and offers. One offer ha
 one deterministic Card and A2A endpoint. USDC and card offers are alternatives,
 not two payments for one task.
 
+For new **skill-named services**, `configVersion: 2` makes the service ID and
+display name exactly the installed skill name. The seller runtime pins the
+skill's content digest and must provide an enforcing skill adapter. A generic
+A2A endpoint or a matching Card label is insufficient. EnvarPay grants the
+purchased skill for this Task, allows declared free skills, and refuses another
+paid skill without a separate purchase. Buyer-facing A2A does not change.
+The [skill-gate design](../plans/skill-named-services.md) documents adapter and
+publication requirements. Legacy version 1 orders keep their original terms.
+
 - `free` with `collection.kind: none`: validates input and executes without payment.
 - `fixed` with `upfront`: exact configured total in smallest currency units.
 - `quantity` with `upfront`: integer unit price times the count of a schema-bounded
@@ -136,3 +145,52 @@ framework version or live card eligibility. MPP live collection remains disabled
 until the operator has an eligible merchant, supported SPT issuance/recovery and
 independent merchant identity proof. Configuration or mock success cannot supply
 those external capabilities.
+
+## Native installed skills (configVersion 2)
+
+A service's `id` and `name` must both equal its installed `SKILL.md` name. Use
+`execution: {type: "skill", cardUrl: "https://your-agent/.well-known/agent-card.json", skillDigest: "<package SHA256>"}`.
+The runtime derives the digest from all package files. The public Agent Card advertises
+multiple installed skills; the Envar service editor selects them without a mapping table.
+Ordinary A2A offer paths, authenticated callers, x402/MPP and result Tasks remain unchanged.
+
+The built-in native adapter supports **instruction-only text tasks** for Hermes/OpenClaw.
+Review the skill, pin its source and license, and add `envar-runtime: instruction-only` to
+its frontmatter. Its directory and frontmatter `name` must match. Skills requiring scripts,
+web browsing, external APIs or file access need a separately reviewed execution adapter.
+
+In the private seller credentials file add:
+
+```json
+{
+  "skills": {
+    "framework": "hermes",
+    "skillsDirectory": "/absolute/installed-skills",
+    "freeSkills": ["plain-language"],
+    "stateDirectory": "/absolute/private/skill-tasks",
+    "python": "/absolute/hermes/bin/python",
+    "model": "your-configured-model",
+    "baseUrl": "https://your-model-provider/v1",
+    "apiKeyFile": "/absolute/private/model.key"
+  }
+}
+```
+
+For OpenClaw, set `framework: "openclaw"`, use a Python 3 interpreter, and add
+`command: ["/absolute/node", "/absolute/openclaw/openclaw.mjs"]`. The installed framework
+must support the adapter's native configuration. Unsupported versions fail without fallback.
+Keep credentials/state owner-only. Run the usual `envarpay serve` command; no user mapping is
+required. Register its `/.well-known/agent-card.json`, then select each installed skill in Envar.
+
+Each order creates a fresh native home and workspace, loads only the purchased skill and
+explicit free helpers, and exposes no model tools. Hermes uses `enabled_toolsets=[]`;
+OpenClaw uses an isolated config with `tools.deny=["*"]`. Both verify the resolved tool list.
+No other paid skill files, personal memory, peer credentials or wallet keys are supplied to the
+model. The selected package digest is checked before quote/payment and execution. Installed
+skill calls are the authorization boundary; a model's general knowledge is not partitionable
+by topic, and directory metadata is not a capability/quality attestation for arbitrary sellers.
+
+Task state is durable before native dispatch. A crash does not silently run it twice; original
+orders remain recoverable. Payment success and execution success remain separate facts.
+A free offer authorizes its selected skill for that task, even if that skill also has a paid
+offer. Only entries in `freeSkills` are available as helpers to other tasks.

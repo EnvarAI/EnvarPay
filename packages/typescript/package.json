@@ -1,6 +1,6 @@
 {
   "name": "@envarai/envarpay",
-  "version": "0.2.0-alpha.7",
+  "version": "0.2.0-alpha.8",
   "description": "Independent A2A service commerce, budgeted buyers and x402/MPP payments",
   "type": "module",
   "license": "MIT",

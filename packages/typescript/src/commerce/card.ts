@@ -1,7 +1,7 @@
 import { AgentCard } from '@a2a-js/sdk';
 import type { CommerceConfig } from './types.js';
 import { CommerceError } from './types.js';
-import { validateUrl, digest } from './config.js';
+import { validateUrl, serviceTermsDigest } from './config.js';
 
 /** One deterministic offer route, serialized by the official A2A 1.0 codec. */
 export function offerPath(serviceId: string, revision: number, offerId: string): string {
@@ -21,7 +21,7 @@ export function createOfferCard(config: CommerceConfig, serviceId: string, offer
     description: `Deliverables: ${service.contract.deliverables.join(', ')}`,
     version: String(service.revision),
     supportedInterfaces: [{url: new URL(`${offerPath(service.id,service.revision,offer.id)}/a2a`,base).href,protocolBinding:'JSONRPC',protocolVersion:'1.0'}],
-    capabilities: {streaming:false,pushNotifications:false,extensions:[{uri:'urn:envarpay:commerce:1',required:false,description:'Optional service offer metadata; standard A2A and payment transports remain independently usable',params:{serviceId:service.id,serviceRevision:service.revision,offerId:offer.id,pricing:offer.pricing,collection:offer.collection,contract:service.contract,payment,termsDigest:digest({contract:service.contract,offer,profile})}}]},
+    capabilities: {streaming:false,pushNotifications:false,extensions:[{uri:'urn:envarpay:commerce:1',required:false,description:'Optional service offer metadata; standard A2A and payment transports remain independently usable',params:{serviceId:service.id,serviceRevision:service.revision,offerId:offer.id,pricing:offer.pricing,collection:offer.collection,contract:service.contract,payment,termsDigest:serviceTermsDigest(config.configVersion,service,offer,profile),...(config.configVersion===2&&service.execution.type==='skill'?{skillDigest:service.execution.skillDigest}:{})}}]},
     defaultInputModes:['application/json'], defaultOutputModes:['application/json','text/plain'],
     skills:[{id:service.id,name:service.name,description:`Purchase ${service.name}`,tags:[service.id]}],
     securitySchemes:{bearer:{httpAuthSecurityScheme:{scheme:'bearer'}}},

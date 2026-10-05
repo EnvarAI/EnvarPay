@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import { Ajv2020 } from 'ajv/dist/2020.js';
 import addFormatsImport from 'ajv-formats';
 import canonicalizeImport from 'canonicalize';
-import { CommerceError, type BuyerPolicy, type CommerceConfig, type PaymentProfile } from './types.js';
+import { CommerceError, type BuyerPolicy, type CommerceConfig, type Offer, type PaymentProfile, type Service } from './types.js';
 
 const canonicalize = canonicalizeImport as unknown as (data: unknown) => string | undefined;
 const addFormats = addFormatsImport as unknown as (ajv: Ajv2020) => void;
@@ -64,6 +64,14 @@ export function digest(value: unknown): string {
   return createHash('sha256').update(serialized).digest('hex');
 }
 
+/** Keep legacy quotes unchanged; skill-bound quotes freeze the installed skill revision too. */
+export function serviceTermsDigest(configVersion: 1 | 2, service: Service, offer: Offer, profile: PaymentProfile | null): string {
+  const terms = {contract: service.contract, offer, profile};
+  return digest(configVersion === 2 && service.execution.type === 'skill'
+    ? {...terms, skill: {name: service.id, digest: service.execution.skillDigest}}
+    : terms);
+}
+
 export function loadCommerceConfig(value: unknown): CommerceConfig {
   if (!sellerValidator(value)) throw new CommerceError('invalid_config', ajv.errorsText(sellerValidator.errors));
   const config = structuredClone(value) as CommerceConfig;
@@ -77,6 +85,12 @@ export function loadCommerceConfig(value: unknown): CommerceConfig {
   for (const service of config.services) {
     if (services.has(service.id)) throw new CommerceError('duplicate_service', 'Service IDs must be unique');
     services.add(service.id);
+    if (config.configVersion === 2 && service.execution.type === 'skill') {
+      if (service.id !== service.name)
+        throw new CommerceError('skill_name_mismatch', 'A version 2 service must use the exact installed skill name as its ID and name');
+    } else if (config.configVersion === 1 && service.execution.type !== 'a2a') {
+      throw new CommerceError('legacy_skill_mode', 'Skill-bound services require configVersion 2');
+    }
     validateUrl(service.execution.cardUrl, true);
     noExternalRefs(service.contract.inputSchema);
     const inputAjv = new Ajv2020({ strict: true });

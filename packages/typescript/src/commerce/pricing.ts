@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { Ajv2020 } from 'ajv/dist/2020.js';
 import addFormatsImport from 'ajv-formats';
-import { atomic, currencyOf, digest } from './config.js';
+import { atomic, currencyOf, digest, serviceTermsDigest } from './config.js';
 import { CommerceError, type CommerceConfig, type Input, type PriceQuote } from './types.js';
 
 const addFormats = addFormatsImport as unknown as (ajv: Ajv2020) => void;
@@ -38,7 +38,7 @@ export function buildQuote(config: CommerceConfig, args: {
   const quote: PriceQuote = {
     quoteVersion: 1, quoteId: randomUUID(), caller: args.caller, serviceId: service.id,
     serviceRevision: service.revision, offerId: offer.id, messageId: args.messageId,
-    inputDigest: digest(args.input), termsDigest: digest({contract:service.contract, offer, profile}),
+    inputDigest: digest(args.input), termsDigest: serviceTermsDigest(config.configVersion, service, offer, profile),
     issuedAt: now.toISOString(), expiresAt: new Date(now.getTime() + ttl * 1000).toISOString(),
     amount: amount.toString(), currency: profile ? currencyOf(profile) : null,
     recipient: recipient ?? null, paymentProfile: profile ? structuredClone(profile) : null,
