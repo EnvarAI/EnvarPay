@@ -18,11 +18,11 @@ const url='http://127.0.0.1:19411/services/research/v1/offers/usdc-once/a2a';
 const rpc={jsonrpc:'2.0',id:1,method:'SendMessage',params:{message:{messageId:'buy-1',role:'ROLE_USER',parts:[{data:{topic:'x',competitors:['A']}}]},configuration:{returnImmediately:true}}};
 const req=(payload,body=rpc)=>new Request(url,{method:'POST',headers:{Authorization:'Bearer '+token,'A2A-Version':'1.0','Content-Type':'application/json',...(payload?{'PAYMENT-SIGNATURE':encodePaymentSignatureHeader(payload)}:{})},body:JSON.stringify(body)});
 
-function fixture({settle,verifyReceipt,checkpoint,findOriginalReceipt,mainnet=false}={}){
+function fixture({settle,verifyReceipt,checkpoint,findOriginalReceipt,proveExpiredUnused,mainnet=false}={}){
  const dir=mkdtempSync(join(tmpdir(),'envar-x402-'));const store=new CommerceStore(':memory:');const vault=new CredentialVault(dir,Buffer.alloc(32,7));
  const network=mainnet?'eip155:8453':'eip155:84532';
  const calls=[];const facilitator={getSupported:async()=>({kinds:[{x402Version:2,scheme:'exact',network}],extensions:[],signers:{}}),verify:async(payload)=>{assert.equal(payload.extensions?.['urn:envarpay:quote:1'],undefined,'local quote metadata must not become a required facilitator extension');calls.push('verify');return {isValid:true,payer};},settle:settle??(async()=>{calls.push('settle');return {success:true,payer,network,transaction:'0x'+'5'.repeat(64)};})};
- const gate=new X402Gate({store,vault,checkpoint,findOriginalReceipt,payerFor:()=>payer,facilitator:()=>facilitator,verifyReceipt:verifyReceipt??(async()=>{calls.push('receipt');return true;})});
+ const gate=new X402Gate({store,vault,checkpoint,findOriginalReceipt,proveExpiredUnused,payerFor:()=>payer,facilitator:()=>facilitator,verifyReceipt:verifyReceipt??(async()=>{calls.push('receipt');return true;})});
  const config=loadCommerceConfig(JSON.parse(readFileSync(new URL('../examples/seller.json',import.meta.url),'utf8')));
  if(mainnet)Object.assign(config.paymentProfiles['base-usdc'],{network,asset:'0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913'});
  const server=new CommerceServer({config,origin:new URL(url).origin,store,authenticate:bearerAuthenticator({[token]:'buyer'}),paymentGate:gate,execute:async function*(order){calls.push('execute');yield Task.fromJSON({id:'remote-'+order.id,status:{state:'TASK_STATE_COMPLETED'},artifacts:[{artifactId:'a',parts:[{text:'simulated-agent-result'}]}]});}});
@@ -130,5 +130,19 @@ test('mainnet USDC uses the official USD Coin signing domain',async()=>{
   assert.equal(required.accepts[0].network,'eip155:8453');assert.equal(required.accepts[0].extra.name,'USD Coin');
   const domains=[];const client=new x402Client().setSpendControls({maxAmountPerPayment:'$3'}).register('eip155:8453',new ExactEvmScheme({address:payer,signTypedData:async data=>{domains.push(data.domain);return '0x'+'6'.repeat(130);}}));
   await client.createPaymentPayload(required);assert.equal(domains[0].name,'USD Coin');assert.equal(domains[0].chainId,8453);
+ }finally{await f.close();}
+});
+
+
+test('seller closes an unknown authorization only after expired-unused chain proof',async()=>{
+ let proven=false,checks=0;const f=fixture({checkpoint:async()=> '100',settle:async()=>{throw new Error('broadcast response lost');},findOriginalReceipt:async()=>undefined,proveExpiredUnused:async()=>{checks++;return proven;}});
+ try{
+  const required=decodePaymentRequiredHeader((await f.server.handle(req())).headers.get('PAYMENT-REQUIRED'));
+  await f.server.handle(req(proof(required)));const order=f.store.findOrder('buyer','research:1','buy-1');
+  assert.equal((await f.gate.recover(order.id,'buyer')).state,'unknown');
+  assert.equal(f.store.getOrder(order.id,'buyer').paymentState,'unknown');assert.equal(f.calls.includes('execute'),false);
+  proven=true;const rejected=await f.server.handle(req(proof(required)));assert.equal(rejected.status,409);assert.equal((await rejected.json()).error,'authorization_expired_unused');
+  assert.equal(f.store.getOrder(order.id,'buyer').paymentState,'rejected');assert.equal(f.calls.includes('execute'),false);
+  assert.equal((await f.gate.recover(order.id,'buyer')).state,'rejected');assert.equal(checks,2);
  }finally{await f.close();}
 });

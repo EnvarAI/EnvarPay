@@ -194,3 +194,8 @@ Task state is durable before native dispatch. A crash does not silently run it t
 orders remain recoverable. Payment success and execution success remain separate facts.
 A free offer authorizes its selected skill for that task, even if that skill also has a paid
 offer. Only entries in `freeSkills` are available as helpers to other tasks.
+
+If the facilitator loses its broadcast result and no transaction is found, seller
+recovery may reject the original authorization only after the same independent
+finalized-block proof used by the buyer establishes that it expired unused. This
+closes the seller's unknown state without execution or another settlement.

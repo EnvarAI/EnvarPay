@@ -28,6 +28,7 @@ export interface X402GateOptions {
   /** Read chain before broadcast, so a lost facilitator response remains recoverable. */
   checkpoint?: (requirements: PaymentRequirements) => Promise<string>;
   findOriginalReceipt?: (payload: PaymentPayload, requirements: PaymentRequirements, fromBlock: string) => Promise<SettleResponse | undefined>;
+  proveExpiredUnused?: (payload: PaymentPayload, requirements: PaymentRequirements) => Promise<boolean>;
 }
 export type GateResult = { response: Response } | { headers: Record<string, string> };
 
@@ -61,7 +62,13 @@ export class X402Gate {
     if (!receipt?.transaction && saved.fromBlock && this.options.findOriginalReceipt) {
       receipt = await this.options.findOriginalReceipt(saved.payload, saved.requirements, saved.fromBlock) ?? null;
     }
-    if (!receipt?.transaction) return { state: 'unknown', taskId: order.taskId };
+    if (!receipt?.transaction) {
+      if (await this.options.proveExpiredUnused?.(saved.payload, saved.requirements)) {
+        this.options.store.recordSettlement(attempt.id, 'rejected', {errorReason:'authorization_expired_unused'});
+        return {state:'rejected',taskId:order.taskId};
+      }
+      return { state: 'unknown', taskId: order.taskId };
+    }
     let proven = false;
     try { proven = await this.options.verifyReceipt(receipt, saved.payload, saved.requirements); } catch {}
     // Persist the discovered transaction even if confirmations are still pending.
@@ -97,6 +104,7 @@ export class X402Gate {
     if (['settling', 'unknown'].includes(order.paymentState)) {
       const recovered=await this.recover(order.id,order.caller);
       if(recovered.state==='confirmed'){const receipt=this.options.store.paymentForOrder(order.id)!.receipt!;return {headers:{'PAYMENT-RESPONSE':encodePaymentResponseHeader(receipt as SettleResponse)}};}
+      if(recovered.state==='rejected')return {response:Response.json({error:'authorization_expired_unused',taskId:order.taskId},{status:409,headers:{'Cache-Control':'no-store'}})};
       return { response: Response.json({ error: 'payment_reconciliation_required', taskId: order.taskId }, { status: 503, headers: { 'Cache-Control': 'no-store' } }) };
     }
     if (Date.now() >= Date.parse(order.quote.expiresAt)) return { response: Response.json({ error: 'quote_expired' }, { status: 409 }) };
