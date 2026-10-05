@@ -71,6 +71,74 @@ ledger, reset spent budget or create a replacement purchase to resolve a candida
 
 ## Health and readiness
 
+### Local aggregate alerts
+
+The owner can read aggregate signals without opening a signer/vault, changing any
+budget or contacting Envar, an Agent or a payment provider:
+
+```sh
+envarpay inspect --state /private/envarpay/buyer.sqlite3 --alerts \
+  --config /private/envarpay/buyer-policy.json --no-integration --fail-on-alert
+envarpay inspect --state /private/envarpay/seller.sqlite3 --alerts \
+  --integration-state /private/envarpay/envar-state/integration.sqlite --fail-on-alert
+```
+
+Use the policy actually loaded by the buyer. Limits are not stored in its ledger,
+so omitting or supplying an unreadable/incompatible policy makes budget signals
+`unavailable`; the command does not infer a limit from a balance. A policy whose
+currencies omit any spent/reserved ledger currency also leaves budgets unavailable.
+The command cannot prove that a file matches a running process's loaded policy.
+Restart/configuration management and the owner must establish that binding.
+
+Supply the actual optional integration ledger to observe pending reports and
+acknowledgments. Use `--no-integration` only when that runtime has no Envar
+integration configured; those two signals are then `not_applicable`. Omitting
+both options means they are `unavailable`, not zero. They cannot be combined.
+
+Output has a finite `signals` list, integer counts, severity and `clear`, `alert`,
+`unavailable` or `not_applicable` status. It includes no purchase, caller, event,
+wallet or account IDs, URLs, prompts, raw provider messages or credential paths.
+Budget entries use only the fixed units `usd_cents`, `base_usdc_atomic` and
+`base_sepolia_usdc_atomic`, with exact integer-string limits/spent/reserved/remaining.
+All monetary arithmetic uses BigInt; no FX conversion or floating-point rounding.
+
+| Signal | Meaning of an alert |
+| --- | --- |
+| `payment_unknown` | At least one persisted payment remains unknown. |
+| `execution_unknown` | At least one persisted task execution remains unknown. |
+| `recorded_provider_failure` | A pending buyer record has a recognized Stripe transport/request/response error, or a seller attempt contains an explicitly unsuccessful x402 receipt with an error reason. |
+| `budget_near_limit` | Reserved plus spent is at least90% but below the supplied cumulative limit. |
+| `budget_exhausted` | Reserved plus spent is at or above the supplied limit; critical severity. |
+| `report_backlog` | The integration outbox has pending reports or application acknowledgments. |
+| `report_failure` | A pending outbox event has a recorded failed delivery attempt. |
+
+`ledger_read` is clear when the recognized private ledger can be read; corrupt,
+missing, wrong-version or unsafe files produce unavailable signals. All sources
+must be regular owner-only files owned by the invoking OS user. Symlinks are
+refused. Each database is read under a query-only transaction; sources are separate
+snapshots, not a cross-database atomic snapshot. SQLite may update transient WAL
+reader marks in shared memory; no ledger/payment/outbox/budget rows are changed.
+
+This is **local persisted evidence**, not a live provider-health probe. A generic
+unknown outcome or empty receipt does not prove provider failure; conversely no
+recorded error does not prove the provider is healthy. `providerHealth` is always
+`unavailable_not_probed`. Report backlog may be normal briefly; use repeat samples
+and your operational threshold before paging. Application/quote publication
+digest mismatches and platform observer alerts belong to Envar's monitoring;
+the independent wallet does not read or fabricate those platform facts.
+
+Without `--fail-on-alert` inspection prints JSON and exits0 even when its report
+is partial. With it, exit0 means all applicable local signals are available and
+clear, exit2 means at least one alert, and exit3 means a requested source is
+unavailable (which takes precedence over exit2). Invalid CLI combinations exit1.
+The JSON includes `recommendedExitCode` in either mode. Operators can schedule
+this explicit command in their existing local monitor and route nonzero status;
+no scheduler, daemon, external message or public wallet endpoint is installed.
+
+Alerts never authorize retry, payment, refund or budget release. Use the original
+owner recovery workflow to reconcile unknown records and preserve spent history.
+`paymentPerformed:false`, `refundPerformed:false`, `networkRequests:0` are explicit.
+
 Seller `GET /healthz` reports process liveness and whether shutdown has begun.
 `GET /readyz` also checks the local ledger schema/readability and a latched fatal worker failure.
 An unavailable store or fatal worker error returns 503; shutdown reports draining.
@@ -133,3 +201,13 @@ named boundaries; they do not establish real chain/PSP payment, model execution,
 power-loss behavior, an atomic filesystem-wide snapshot or every instruction-level
 crash window. Native Agent and real payment acceptance remain separate evidence.
 No full A2A TCK certification is claimed.
+
+The buyer contention test confirms100 distinct purchase IDs concurrently against
+one real SQLite budget. Thirteen fit;87 are rejected before signing. Seven
+independently accepted synthetic receipts become spent and six remain unknown
+and reserved. Restart/recovery retains the same thirteen nonces and credentials,
+with no extra signature/settlement or budget overshoot. A separate source-transport
+test denies all ambient network access and every Envar domain while the independent
+purchase and original recovery use only the explicitly injected peer. These tests
+use synthetic financial and task fixtures; they do not add real purchases to the
+eight separate native/chain acceptance records.

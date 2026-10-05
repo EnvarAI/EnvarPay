@@ -1,6 +1,7 @@
 import { DatabaseSync } from 'node:sqlite';
 import { lstatSync } from 'node:fs';
 import { CommerceError } from './types.js';
+export { inspectLocalAlerts, type LocalAlertOptions } from './alerts.js';
 
 export type InspectionView = 'attention' | 'refund-review';
 

@@ -4,7 +4,7 @@ import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Task } from '@a2a-js/sdk';
-import { decodePaymentRequiredHeader, encodePaymentRequiredHeader } from '@x402/core/http';
+import { decodePaymentRequiredHeader, decodePaymentSignatureHeader, encodePaymentRequiredHeader } from '@x402/core/http';
 import { CommerceBuyer } from '../dist/commerce/buyer.js';
 import { BuyerStore } from '../dist/commerce/buyer-store.js';
 import { CredentialVault } from '../dist/commerce/vault.js';
@@ -23,7 +23,7 @@ function fixture(options = {}) {
   const sellerVault = new CredentialVault(join(directory, 'seller-vault'), Buffer.alloc(32, 3));
   let store = new BuyerStore(join(directory, 'buyer.sqlite3'));
   const vault = new CredentialVault(join(directory, 'buyer-vault'), Buffer.alloc(32, 4));
-  const calls = { sign: 0, settle: 0, execute: 0, reads: 0, paidBodies: [], paidHeaders: [] };
+  const calls = { sign: 0, settle: 0, execute: 0, reads: 0, paidBodies: [], paidHeaders: [], signedNonces: [] };
   const facilitator = {
     getSupported: async () => ({ kinds: [{ x402Version: 2, scheme: 'exact', network: 'eip155:84532' }], extensions: [], signers: {} }),
     verify: async () => ({ isValid: true, payer }),
@@ -48,8 +48,8 @@ function fixture(options = {}) {
     }
     return seller.handle(request);
   };
-  const signer = { address: payer, signTypedData: async () => { calls.sign++; if (options.signWait) await options.signWait(); return '0x' + '6'.repeat(130); } };
-  const buyerOptions = { policy: options.policy ?? policy, store, vault, signer, peerTokens: { seller: token }, fetchImpl, verifyReceipt: async () => receiptReady, checkpoint: options.checkpoint ?? (async () => '100'), findOriginalReceipt: options.findOriginalReceipt, proveExpiredUnused: options.proveExpiredUnused };
+  const signer = { address: payer, signTypedData: async value => { calls.sign++; calls.signedNonces.push(value.message.nonce); options.onSign?.(store, value); if (options.signWait) await options.signWait(); return '0x' + '6'.repeat(130); } };
+  const buyerOptions = { policy: options.policy ?? policy, store, vault, signer, peerTokens: { seller: token }, fetchImpl, verifyReceipt: async (receipt, payload, requirements) => options.verifyReceipt ? options.verifyReceipt(receipt, payload, requirements) : receiptReady, checkpoint: options.checkpoint ?? (async () => '100'), findOriginalReceipt: options.findOriginalReceipt, proveExpiredUnused: options.proveExpiredUnused };
   let buyer = new CommerceBuyer(buyerOptions);
   return {
     directory, calls, seller, sellerStore, vault,
@@ -91,6 +91,74 @@ test('concurrent cumulative reservations prevent a second authorization over bud
     assert.equal(results.find(r => r.status === 'rejected').reason.code, 'budget_exceeded');
     assert.equal(f.calls.sign, 1); assert.equal(f.calls.settle, 1);
   } finally { await f.close(); }
+});
+
+test('100 distinct concurrent purchases retain exact reservations and original authorizations across restart within one budget', { timeout: 30000 }, async () => {
+  const boundedPolicy = structuredClone(policy), price = 3000000n, allowed = 13, cap = price * BigInt(allowed);
+  boundedPolicy.budgets[0].maxTotal = cap.toString();
+  let releaseSigners, atBarrier, signerCount = 0;
+  const barrier = new Promise(resolve => { releaseSigners = resolve; }), allReserved = new Promise(resolve => { atBarrier = resolve; });
+  const verifiedNonces = new Set(), samples = [];
+  const f = fixture({ policy: boundedPolicy, signWait: () => barrier,
+    onSign: store => {
+      const usage = store.usage(currency), total = BigInt(usage.reserved) + BigInt(usage.spent);
+      samples.push(total); assert.ok(total <= cap); if (++signerCount === allowed) atBarrier();
+    },
+    verifyReceipt: async (_receipt, payload) => verifiedNonces.has(payload.payload.authorization.nonce),
+  });
+  try {
+    const previews = await Promise.all(Array.from({ length: 100 }, (_, index) => f.buyer.preview('owner', input('distinct-' + index))));
+    assert.equal(new Set(previews.map(p => p.id)).size, 100); assert.equal(new Set(previews.map(p => p.messageId)).size, 100);
+    let rejectedBeforeIssue = 0;
+    const attempts = previews.map(p => confirm(f.buyer, p).catch(error => { assert.equal(error.code, 'budget_exceeded'); rejectedBeforeIssue++; throw error; }));
+    const pending = Promise.allSettled(attempts);
+    await allReserved;
+    assert.deepEqual(f.store.usage(currency), { reserved: cap.toString(), spent: '0' });
+    assert.equal(f.calls.sign, allowed); assert.equal(f.calls.settle, 0); assert.equal(f.calls.execute, 0);
+    assert.equal(new Set(f.calls.signedNonces).size, allowed);
+    // Seven receipts are independently accepted; the remaining six stay unknown/reserved.
+    f.calls.signedNonces.slice(0, 7).forEach(nonce => verifiedNonces.add(nonce));
+    releaseSigners();
+    const results = await pending;
+    while (f.seller.isRunning) await new Promise(resolve => setTimeout(resolve, 1));
+    assert.equal(results.filter(r => r.status === 'fulfilled').length, allowed); assert.equal(rejectedBeforeIssue, 87);
+    const winners = previews.filter((_p, i) => results[i].status === 'fulfilled'), losers = previews.filter((_p, i) => results[i].status === 'rejected');
+    const saved = winners.map(p => f.store.get(p.id, 'owner'));
+    assert.equal(saved.filter(p => p.paymentState === 'confirmed').length, 7); assert.equal(saved.filter(p => p.paymentState === 'unknown').length, 6);
+    for (const p of losers) { const r = f.store.get(p.id, 'owner'); assert.equal(r.state, 'previewed'); assert.equal(r.paymentState, 'quoted'); assert.equal(r.credentialRef, undefined); assert.equal(r.nonce, undefined); }
+    const usage = { reserved: (price * 6n).toString(), spent: (price * 7n).toString() };
+    assert.deepEqual(f.store.usage(currency), usage); assert.ok(samples.every(amount => amount <= cap));
+    assert.equal(f.calls.sign, allowed); assert.equal(f.calls.settle, allowed); assert.equal(f.calls.execute, allowed);
+    assert.equal(new Set(saved.map(r => r.nonce)).size, allowed);
+    assert.deepEqual(new Set(f.calls.paidHeaders.map(h => decodePaymentSignatureHeader(h).payload.authorization.nonce)), new Set(saved.map(r => r.nonce)));
+    const originals = saved.map(r => ({ id: r.id, nonce: r.nonce, credentialRef: r.credentialRef, taskId: r.task.id, paymentState: r.paymentState }));
+    await f.buyer.stop(); f.restart();
+    for (const before of originals) { const after = f.store.get(before.id, 'owner'); for (const key of ['nonce', 'credentialRef', 'paymentState']) assert.equal(after[key], before[key]); assert.equal(after.task.id, before.taskId); }
+    assert.deepEqual(f.store.usage(currency), usage);
+    const paidCount = f.calls.paidHeaders.length;
+    await Promise.all(winners.map(p => f.buyer.recover('owner', p.id)));
+    await Promise.all(losers.map(p => assert.rejects(confirm(f.buyer, p), { code: 'budget_exceeded' })));
+    assert.deepEqual(f.store.usage(currency), usage); assert.equal(f.calls.sign, allowed); assert.equal(f.calls.settle, allowed); assert.equal(f.calls.paidHeaders.length, paidCount);
+  } finally { releaseSigners(); await f.close(); }
+});
+
+test('independent purchase and original recovery use only approved peer transport while every Envar domain is denied', async () => {
+  const originalFetch = globalThis.fetch, denied = [], peerCalls = [];
+  globalThis.fetch = async input => { denied.push(String(input?.url ?? input)); throw new Error('All ambient network access denied, including Envar'); };
+  const f = fixture({ fetchOverride: async request => {
+    const hostname = new URL(request.url).hostname;
+    if (hostname === 'envar.ai' || hostname.endsWith('.envar.ai') || hostname.includes('envar')) throw new Error('Envar domain forbidden');
+    assert.equal(hostname, 'seller.example'); peerCalls.push(request.method);
+  } });
+  try {
+    const preview = await f.buyer.preview('owner', input('no-platform'));
+    const done = await finish(f, await confirm(f.buyer, preview));
+    assert.equal(done.paymentState, 'confirmed'); assert.equal(done.executionState, 'completed');
+    await f.buyer.stop(); f.restart();
+    const restored = await f.buyer.recover('owner', done.id);
+    assert.equal(restored.id, done.id); assert.equal(restored.task.id, done.task.id); assert.equal(restored.nonce, done.nonce);
+    assert.equal(f.calls.sign, 1); assert.equal(f.calls.settle, 1); assert.equal(f.calls.execute, 1); assert.deepEqual(denied, []); assert.ok(peerCalls.length > 0);
+  } finally { await f.close(); globalThis.fetch = originalFetch; }
 });
 
 test('lost paid response and restart replay identical bytes and authorization, never sign or pay again', async () => {
