@@ -104,6 +104,7 @@ export class X402Gate {
     if (['settling', 'unknown'].includes(order.paymentState)) {
       const recovered=await this.recover(order.id,order.caller);
       if(recovered.state==='confirmed'){const receipt=this.options.store.paymentForOrder(order.id)!.receipt!;return {headers:{'PAYMENT-RESPONSE':encodePaymentResponseHeader(receipt as SettleResponse)}};}
+      if(recovered.state==='rejected')return {response:Response.json({error:'authorization_expired_unused',taskId:order.taskId},{status:409,headers:{'Cache-Control':'no-store'}})};
       return { response: Response.json({ error: 'payment_reconciliation_required', taskId: order.taskId }, { status: 503, headers: { 'Cache-Control': 'no-store' } }) };
     }
     if (Date.now() >= Date.parse(order.quote.expiresAt)) return { response: Response.json({ error: 'quote_expired' }, { status: 409 }) };

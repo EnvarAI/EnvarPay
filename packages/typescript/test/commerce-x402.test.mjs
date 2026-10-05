@@ -141,7 +141,7 @@ test('seller closes an unknown authorization only after expired-unused chain pro
   await f.server.handle(req(proof(required)));const order=f.store.findOrder('buyer','research:1','buy-1');
   assert.equal((await f.gate.recover(order.id,'buyer')).state,'unknown');
   assert.equal(f.store.getOrder(order.id,'buyer').paymentState,'unknown');assert.equal(f.calls.includes('execute'),false);
-  proven=true;assert.equal((await f.gate.recover(order.id,'buyer')).state,'rejected');
+  proven=true;const rejected=await f.server.handle(req(proof(required)));assert.equal(rejected.status,409);assert.equal((await rejected.json()).error,'authorization_expired_unused');
   assert.equal(f.store.getOrder(order.id,'buyer').paymentState,'rejected');assert.equal(f.calls.includes('execute'),false);
   assert.equal((await f.gate.recover(order.id,'buyer')).state,'rejected');assert.equal(checks,2);
  }finally{await f.close();}
