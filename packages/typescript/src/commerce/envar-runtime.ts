@@ -83,6 +83,7 @@ export class PinnedUpstreams {
     > = {},
     private readonly fetchImpl: typeof fetch = fetch,
     private readonly signal?: AbortSignal,
+    private readonly skills?: ExecuteOrder,
   ) {
     if (existsSync(path)) {
       const value = privateJson(path) as {
@@ -140,11 +141,21 @@ export class PinnedUpstreams {
       }
       return undefined;
     };
+    if (skills) {
+      this.execute.assertSkill = (service) => skills.assertSkill!(service);
+      this.execute.skillCard = skills.skillCard;
+    }
   }
   prepare(config: CommerceConfig, history: readonly Service[] = []): void {
     const next = structuredClone(this.bindings),
       current = new Set(config.services.map((s) => `${s.id}:${s.revision}`));
     for (const service of [...history, ...config.services]) {
+      if (service.execution.type === 'skill') {
+        if (!this.skills) throw new CommerceError('skill_gate_required', 'Configure the native skill runtime');
+        // Retired versions stay readable even after their skill package is upgraded.
+        if (current.has(`${service.id}:${service.revision}`)) this.skills.assertSkill!(service);
+        continue;
+      }
       const key = `${service.id}:${service.revision}`,
         saved = next[key],
         explicit = this.credentials[key];
@@ -186,6 +197,10 @@ export class PinnedUpstreams {
     this.bindings = next;
   }
   private executor(service: Service): ExecuteOrder {
+    if (service.execution.type === 'skill') {
+      if (!this.skills) throw new CommerceError('skill_gate_required', 'Configure the native skill runtime');
+      return this.skills;
+    }
     const key = `${service.id}:${service.revision}`,
       binding = this.bindings[key];
     if (!binding || binding.cardUrl !== service.execution.cardUrl)
@@ -249,6 +264,7 @@ export function mergeEnvarService(
     );
   return loadCommerceConfig({
     ...base,
+    configVersion: Math.max(base.configVersion, incoming.configVersion),
     paymentProfiles: Object.fromEntries(
       Object.entries(profiles).filter(([key]) => used.has(key)),
     ),

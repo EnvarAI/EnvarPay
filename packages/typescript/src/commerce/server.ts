@@ -12,6 +12,8 @@ import { CommerceError, type CommerceConfig, type Input, type Service } from './
 
 export interface ExecuteOrder {
   (order:OrderRecord,service:Service):AsyncIterable<Task>;
+  assertSkill?:(service:Service)=>unknown;
+  skillCard?:()=>AgentCard;
   continue?:(order:OrderRecord,service:Service,continuation:ContinuationRecord,remote:RemoteTaskReference)=>AsyncIterable<Task>;
   recover?:(order:OrderRecord,service:Service,remote:RemoteTaskReference)=>Promise<Task>;
   remoteInterface?:(task:Task)=>string|undefined;
@@ -157,6 +159,10 @@ export class CommerceServer {
   applyConfig(value:CommerceConfig):void {
     if(this.stopped)throw new CommerceError('server_draining','Cannot apply configuration while stopping');
     const config=loadCommerceConfig(value);
+    for (const service of config.services.filter(s=>s.execution.type==='skill')) {
+      if (!this.options.execute.assertSkill) throw new CommerceError('skill_gate_required','Skill services require an enforcing skill runtime');
+      this.options.execute.assertSkill(service);
+    }
     if(config.agent.id!==this.currentConfig.agent.id)throw new CommerceError('config_agent_changed','Runtime Agent identity cannot change');
     const history=this.store.catalogHistory();
     for(const service of config.services){
@@ -169,7 +175,7 @@ export class CommerceServer {
       snapshots.set(key,{service,profiles});}
     const routes=new Map<string,{card:AgentCard;rpc:JsonRpcTransportHandler;tenant:string;service:Service;offerId:string;active:boolean}>();
     for(const entry of snapshots.values())for(const offer of entry.service.offers){
-      const service=entry.service,historical={...config,paymentProfiles:entry.profiles,services:[service]};
+      const service=entry.service,historical={...config,configVersion:(service.execution.type==='skill'?2:1) as 1|2,paymentProfiles:entry.profiles,services:[service]};
       const card=createOfferCard(historical,service.id,offer.id,this.options.origin);
       const active=config.services.some(s=>s.id===service.id&&s.revision===service.revision);
       routes.set(offerPath(service.id,service.revision,offer.id),{card,rpc:new JsonRpcTransportHandler(new OrderHandler(this,service,offer.id,card,this.store,active)),tenant:`${service.id}:${service.revision}`,service,offerId:offer.id,active});
@@ -183,6 +189,7 @@ export class CommerceServer {
   }
   quote(service:Service,offerId:string,caller:string,messageId:string,input:Input){
     if(!this.activeRevision(service))throw new CommerceError('retired_revision','This service revision is retired; recover original Tasks');
+    if(service.execution.type==='skill')this.options.execute.assertSkill!(service);
     const frozen=this.store.catalogHistory().find(entry=>entry.service.id===service.id&&entry.service.revision===service.revision);
     if(!frozen)throw new CommerceError('unknown_revision','Service revision is not registered');
     const config={...this.currentConfig,paymentProfiles:frozen.profiles,services:[frozen.service]},offer=frozen.service.offers.find(o=>o.id===offerId)!;
@@ -192,6 +199,10 @@ export class CommerceServer {
   async handle(request:Request):Promise<Response>{
     const url=new URL(request.url);
     if(url.origin!==new URL(this.options.origin).origin)return Response.json({error:'invalid_host'},{status:421});
+    if(request.method==='GET'&&url.pathname==='/.well-known/agent-card.json'&&this.options.execute.skillCard)
+      return Response.json(AgentCard.toJSON(this.options.execute.skillCard()),{headers:{'Cache-Control':'no-store'}});
+    if(url.pathname==='/a2a'&&this.options.execute.skillCard)
+      return Response.json({error:'service_required',message:'Select a named service offer to invoke a skill'},{status:400});
     if(request.method==='GET'&&['/healthz','/readyz'].includes(url.pathname)){
       let ready=!this.stopped;
       if(url.pathname==='/readyz'){
@@ -240,6 +251,7 @@ export class CommerceServer {
           if(prior&&(prior.inputDigest!==digest(input)||prior.offerId!==route.offerId))throw new RequestMalformedError('Purchase request conflicts with the original');
           if(!prior&&!this.activeRevision(route.service))throw new UnsupportedOperationError('This service revision is retired');
           const order=prior??this.store.ensureQuote(this.quote(route.service,route.offerId,caller,message.message!.messageId,input),input);
+          if(route.service.execution.type==='skill'&&!['confirmed','not_required'].includes(order.paymentState))this.options.execute.assertSkill!(route.service);
           if(order.paymentState!=='not_required'){
             const gate=await this.options.paymentGate.handle(new Request(request.url,{method:'POST',headers:request.headers,body}),order);
             if('response' in gate)return gate.response;

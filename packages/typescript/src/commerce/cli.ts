@@ -20,6 +20,7 @@ import { CredentialVault } from './vault.js';
 import { X402Gate } from './x402.js';
 import { evmReceiptVerifier, evmSettlementRecovery } from './chain.js';
 import { CommerceError } from './types.js';
+import { createNativeSkillExecutor, type NativeSkillSettings } from './native-skills.js';
 import { inspectLedger, inspectLocalAlerts } from './operations.js';
 
 const { values, positionals } = parseArgs({ allowPositionals: true, options: {
@@ -154,7 +155,7 @@ async function run(): Promise<void> {
   if (command === 'card' && values.service && values.offer && values.origin) { console.log(JSON.stringify(AgentCard.toJSON(createOfferCard(config, values.service, values.offer, values.origin)), null, 2)); return; }
   if (command !== 'serve' || !values.origin || !values.state || !values.credentials) throw new CommerceError('usage', usage);
   const secrets = JSON.parse(privateFile(values.credentials).toString('utf8')) as {
-    callers: Record<string, string>; upstreams: Record<string, string>; upstreamInputEncoding?:Record<string,'data'|'json-text'>; payers?: Record<string, string>;
+    callers: Record<string, string>; upstreams: Record<string, string>; upstreamInputEncoding?:Record<string,'data'|'json-text'>; payers?: Record<string, string>; skills?:NativeSkillSettings;
     vaultKeyFile?: string; rpcUrls?: Record<string, string>; mppHmacKeyFile?: string; ownershipChallenges?:Record<string,string>;
     stripe?: Record<string, { secretKeyFile: string; accountId: string; merchantProfile: string; mode: 'test' | 'live' }>;
   };
@@ -195,7 +196,9 @@ async function run(): Promise<void> {
     const gate = new MppGate({ store, vault: vault!, origin: values.origin, hmacSecret: hmacKey.toString('base64'), providers });
     await gate.check(); gates.mpp = gate; stripeRecipientFor = ref => gate.merchantRecipient(ref);
   }
-  const upstreams=new PinnedUpstreams(join(dirname(values.state),'upstream-bindings.json'),secrets.upstreams,secrets.upstreamInputEncoding,fetch,controller.signal);
+  const nativeSkills=secrets.skills?createNativeSkillExecutor(secrets.skills,values.origin,config.agent.name):undefined;
+  if(nativeSkills)closers.push(()=>nativeSkills.close());
+  const upstreams=new PinnedUpstreams(join(dirname(values.state),'upstream-bindings.json'),secrets.upstreams??{},secrets.upstreamInputEncoding,fetch,controller.signal,nativeSkills?.execute);
   upstreams.prepare(config,store.catalogHistory().map(entry=>entry.service));
   const validateAdapters=(candidate:typeof config)=>{for(const profile of Object.values(candidate.paymentProfiles)){
     if(!gates[profile.adapter])throw new CommerceError('payment_method_unavailable','Configure the payment adapter locally before enabling this service');

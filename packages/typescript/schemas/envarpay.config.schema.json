@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:envarpay:config:1",
+  "$id": "urn:envarpay:config:1-or-2",
   "title": "EnvarPay A2A commerce MVP configuration",
   "type": "object",
   "additionalProperties": false,
@@ -12,7 +12,7 @@
   ],
   "properties": {
     "configVersion": {
-      "const": 1
+      "enum": [1, 2]
     },
     "agent": {
       "type": "object",
@@ -165,20 +165,27 @@
           "maximum": 2147483647
         },
         "execution": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": [
-            "type",
-            "cardUrl"
-          ],
-          "properties": {
-            "type": {
-              "const": "a2a"
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["type", "cardUrl"],
+              "properties": {
+                "type": { "const": "a2a" },
+                "cardUrl": { "$ref": "#/$defs/httpUrl" }
+              }
             },
-            "cardUrl": {
-              "$ref": "#/$defs/httpUrl"
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["type", "cardUrl", "skillDigest"],
+              "properties": {
+                "type": { "const": "skill" },
+                "cardUrl": { "$ref": "#/$defs/httpUrl" },
+                "skillDigest": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+              }
             }
-          }
+          ]
         },
         "contract": {
           "type": "object",
