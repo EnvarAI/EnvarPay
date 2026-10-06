@@ -21,6 +21,9 @@ export interface NativeSkillSettings {
   model: string;
   baseUrl: string;
   apiKeyFile: string;
+  /** Host-side Docker CLI, never a Docker socket mounted into the Agent. */
+  dockerContainer?: string;
+  dockerStateDirectory?: string;
 }
 interface InstalledSkill { descriptor: SkillDescriptor; instructions: string; }
 const namePattern = /^[a-z][a-z0-9-]{0,63}$/;
@@ -92,7 +95,11 @@ export function createNativeSkillExecutor(settings: NativeSkillSettings, origin:
   }
   function executeProcess(payload:unknown):Promise<{output:string;framework:string;tools:string[];sessionId?:string}> {
     return new Promise((accept,reject)=>{
-      const child=spawn(settings.python,[runner],{stdio:['pipe','pipe','pipe'],env:{PATH:process.env.PATH,LANG:'C.UTF-8',PYTHONUNBUFFERED:'1'}});
+      const docker=settings.dockerContainer;
+      if(docker&&!/^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$/.test(docker))throw new CommerceError('skill_container','Invalid Docker container name');
+      const child=docker
+        ? spawn('docker',['exec','-i',docker,settings.python,'-c',readFileSync(runner,'utf8')],{stdio:['pipe','pipe','pipe'],env:{PATH:process.env.PATH,HOME:process.env.HOME,DOCKER_CONFIG:process.env.DOCKER_CONFIG,DOCKER_HOST:process.env.DOCKER_HOST}})
+        : spawn(settings.python,[runner],{stdio:['pipe','pipe','pipe'],env:{PATH:process.env.PATH,LANG:'C.UTF-8',PYTHONUNBUFFERED:'1'}});
       const chunks:Buffer[]=[]; let size=0; const timeout=setTimeout(()=>child.kill('SIGTERM'),240000);
       child.stdout.on('data',(chunk:Buffer)=>{size+=chunk.length;if(size>1024*1024)child.kill('SIGTERM');else chunks.push(chunk);});
       child.stderr.resume();
@@ -127,7 +134,7 @@ export function createNativeSkillExecutor(settings: NativeSkillSettings, origin:
       const operation=(async()=>{
         let task:Task;
         try{
-          const result=await executeProcess({settings:{...settings,stateDirectory:join(settings.stateDirectory,id)},skillName:name,skills:allowed.map(s=>({name:s.descriptor.name,instructions:s.instructions})),input});
+          const result=await executeProcess({settings:{...settings,stateDirectory:join(settings.dockerStateDirectory??settings.stateDirectory,id)},skillName:name,skills:allowed.map(s=>({name:s.descriptor.name,instructions:s.instructions})),input});
           task=Task.fromJSON({id,status:{state:'TASK_STATE_COMPLETED'},artifacts:[{artifactId:'result',name:name+'.md',parts:[{text:result.output,mediaType:'text/markdown'}]}],metadata:{skillName:name,skillDigest:selected.descriptor.digest,allowedSkills:allowed.map(s=>s.descriptor.name),framework:settings.framework,tools:result.tools,sessionId:result.sessionId??id}});
         }catch(error){task=Task.fromJSON({id,status:{state:'TASK_STATE_FAILED'},metadata:{errorCode:error instanceof CommerceError?error.code:'skill_runtime_failed'}});}
         db.prepare('UPDATE skill_tasks SET task_json=? WHERE id=?').run(JSON.stringify(Task.toJSON(task)),id);

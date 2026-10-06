@@ -8,3 +8,5 @@
 - [Task escrow candidate acceptance](task-escrow.md): separate asynchronous task mode and testnet release gates.
 
 - [Task escrow independent security review](task-escrow-security-review.md): frozen a11 candidate, review scope and mainnet release gates; independent audit not yet commissioned.
+
+- [Guided Hermes Skill onboarding](skill-onboarding.md) — implementation and validation in progress.

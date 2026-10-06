@@ -22,14 +22,16 @@ import { evmReceiptVerifier, evmSettlementRecovery } from './chain.js';
 import { CommerceError } from './types.js';
 import { createNativeSkillExecutor, type NativeSkillSettings } from './native-skills.js';
 import { inspectLedger, inspectLocalAlerts } from './operations.js';
+import { setupHermes } from './setup.js';
 
 const { values, positionals } = parseArgs({ allowPositionals: true, options: {
   config: { type: 'string' }, service: { type: 'string' }, offer: { type: 'string' }, origin: { type: 'string' },
   version: { type: 'boolean' }, help: {type:'boolean',short:'h'}, state: { type: 'string' }, credentials: { type: 'string' }, host: { type: 'string' },
   port: { type: 'string' }, directory: { type: 'string' }, 'envar-config': {type:'string'}, 'envar-credentials': {type:'string'},
   after:{type:'string'}, limit:{type:'string'}, 'refund-review':{type:'boolean'}, alerts:{type:'boolean'}, 'fail-on-alert':{type:'boolean'}, 'integration-state':{type:'string'}, 'no-integration':{type:'boolean'},
+  file:{type:'string'},'docker-container':{type:'string'},python:{type:'string'},'hermes-home':{type:'string'},
 } });
-const usage = 'envarpay init --directory DIR | inspect --state DB [--after ROW --limit 100 --refund-review] [--alerts --config buyer-policy.json --integration-state DB/--no-integration --fail-on-alert] | validate --config seller.json | card --config seller.json --service ID --offer ID --origin URL | serve/buyer-serve --config FILE --credentials FILE --state DB --origin URL';
+const usage = 'envarpay setup --file envar-setup.json [--docker-container NAME | --python PATH] [--hermes-home PATH] [--directory DIR]\ninit --directory DIR | inspect --state DB [--after ROW --limit 100 --refund-review] [--alerts --config buyer-policy.json --integration-state DB/--no-integration --fail-on-alert] | validate --config seller.json | card --config seller.json --service ID --offer ID --origin URL | serve/buyer-serve --config FILE --credentials FILE --state DB --origin URL';
 const closers: (() => void | Promise<void>)[] = [];
 function privateFile(path: string): Buffer {
   const stat = lstatSync(path);
@@ -66,6 +68,10 @@ async function run(): Promise<void> {
   if(values.help||positionals.length===0&&!values.version){console.log(usage);return;}
   if (values.version) { console.log(createRequire(import.meta.url)('../../package.json').version); return; }
   const command = positionals[0];
+  if(command==='setup'){
+    if(!values.file)throw new CommerceError('setup_file','Download the setup file from your Agent service page and pass --file PATH');
+    await setupHermes({file:values.file,directory:values.directory,container:values['docker-container'],python:values.python,home:values['hermes-home']});return;
+  }
   if(values.alerts||values['fail-on-alert']||values['integration-state']||values['no-integration']) {
     if(command!=='inspect'||!values.state||!values.alerts||values['refund-review']||values.after||values.limit||(values['no-integration']&&values['integration-state']))throw new CommerceError('inspection_view','Alert inspection needs inspect --state and --alerts, without pagination or refund review; choose at most one integration source');
     const report=inspectLocalAlerts(values.state,{policyPath:values.config,integrationPath:values['integration-state'],integrationDisabled:values['no-integration']});
