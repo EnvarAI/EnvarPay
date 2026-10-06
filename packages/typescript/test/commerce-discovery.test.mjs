@@ -47,6 +47,7 @@ test("new Hermes install is discovered without restart, remains private, and onl
   };
   try {
     await discovery.sync(integration, []);
+    assert.equal(value.state, "ready", "Hermes fixture needs its YAML parser");
     assert.equal(value.skills.length, 0);
     const source = join(home, "skills", "copywriting");
     mkdirSync(source);
