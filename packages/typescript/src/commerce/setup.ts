@@ -169,7 +169,7 @@ export async function setupHermes(options: {
       );
     let python = options.python;
     const compatibility =
-      'import inspect,yaml;from run_agent import AIAgent;assert all(k in inspect.signature(AIAgent).parameters for k in ["skip_context_files","skip_memory","skip_background_review","ephemeral_system_prompt","enabled_toolsets"])';
+      'import inspect;from run_agent import AIAgent;assert all(k in inspect.signature(AIAgent).parameters for k in ["skip_context_files","skip_memory","skip_background_review","ephemeral_system_prompt","enabled_toolsets"])';
     if (!python && options.container) {
       for (const candidate of [
         "/opt/hermes-latest/bin/python",

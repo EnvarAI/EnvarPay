@@ -6,7 +6,10 @@ import shlex
 import sys
 from pathlib import Path
 
-import yaml
+try:
+    import hermes_yaml as yaml
+except ImportError:
+    import yaml
 
 
 def inspect(home):
