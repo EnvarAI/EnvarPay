@@ -255,7 +255,7 @@ test("unknown Task on retired revision recovers using its original execution ser
   }
 });
 
-function syncFixture({ rejectApply = false, failAck = false, dir } = {}) {
+function syncFixture({ rejectApply = false, failAck = false, dir, beforeSync, onError } = {}) {
   const root = dir ?? mkdtempSync(join(tmpdir(), "envar-runtime-")),
     config = freeConfig(),
     next = structuredClone(config);
@@ -311,6 +311,8 @@ function syncFixture({ rejectApply = false, failAck = false, dir } = {}) {
     integration,
     server,
     upstreams,
+    beforeSync,
+    onError,
     validateConfig: () => {
       if (reject) throw new Error("adapter not ready");
     },
@@ -336,6 +338,16 @@ function syncFixture({ rejectApply = false, failAck = false, dir } = {}) {
     },
   };
 }
+test("discovery failure does not block applying an existing service version", async () => {
+  const errors = [];
+  const f = syncFixture({ beforeSync: async () => { throw Error("inventory unavailable"); }, onError: code => errors.push(code) });
+  try {
+    await f.runtime.syncOnce();
+    assert.equal(f.server.config.services[0].revision, 2);
+    assert.equal(f.integration.queueStatus().sent, 1);
+    assert.deepEqual(errors, ["skill_discovery"]);
+  } finally { await f.close(); }
+});
 test("config pull applies active handler before ack and application failure never acknowledges", async () => {
   const f = syncFixture({ rejectApply: true });
   try {

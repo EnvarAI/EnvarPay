@@ -364,7 +364,12 @@ export class EnvarSellerRuntime {
     if (this.running) return this.running;
     this.running = (async () => {
       try {
-        await this.options.beforeSync?.();
+        try {
+          await this.options.beforeSync?.();
+        } catch {
+          // A discovery failure must not stall existing service updates or delivery reports.
+          this.options.onError?.("skill_discovery");
+        }
         for (const candidate of await this.options.integration.pullCandidates())
           await this.options.integration.applyCandidate(candidate, (c) =>
             this.apply(c),
