@@ -24,6 +24,7 @@ export interface NativeSkillSettings {
   /** Host-side Docker CLI, never a Docker socket mounted into the Agent. */
   dockerContainer?: string;
   dockerStateDirectory?: string;
+  discovery?: {hermesHome:string;enabledFromWeb:true};
 }
 interface InstalledSkill { descriptor: SkillDescriptor; instructions: string; }
 const namePattern = /^[a-z][a-z0-9-]{0,63}$/;
@@ -61,7 +62,7 @@ export function readInstalledSkills(root: string, freeSkills: readonly string[],
     if(instructions.length+references.length>120000)throw new CommerceError('skill_size','Instruction resources exceed the supported context size');
     output.push({descriptor:{name,digest:digest(files),cardUrl,access:freeSkills.includes(name)?'free':'paid',description},instructions:instructions+references});
   }
-  if (!output.length || output.length>32 || freeSkills.some(name=>!output.some(s=>s.descriptor.name===name))) throw new CommerceError('skill_inventory','Install between 1 and 32 skills and declare only installed free skills');
+  if (output.length>32 || freeSkills.some(name=>!output.some(s=>s.descriptor.name===name))) throw new CommerceError('skill_inventory','Install at most 32 skills and declare only installed free skills');
   // Free helpers are executable dependencies of every purchase, so their versions
   // and access-policy changes must invalidate the quote's selected skill digest too.
   const helpers=output.filter(s=>s.descriptor.access==='free').map(s=>({name:s.descriptor.name,digest:s.descriptor.digest}));
@@ -73,7 +74,7 @@ export function createNativeSkillExecutor(settings: NativeSkillSettings, origin:
   if (!['hermes','openclaw'].includes(settings.framework) || !Array.isArray(settings.freeSkills) || !settings.python || !settings.model || !settings.baseUrl) throw new CommerceError('skill_settings','Configure a supported native skill runtime');
   const cardUrl=new URL('/.well-known/agent-card.json',origin).href;
   const installed=()=>readInstalledSkills(settings.skillsDirectory,settings.freeSkills,cardUrl);
-  const initial=installed();
+  installed();
   mkdirSync(settings.stateDirectory,{recursive:true,mode:0o700});
   const stateStat=lstatSync(settings.stateDirectory);
   if (!stateStat.isDirectory() || stateStat.isSymbolicLink() || (stateStat.mode&0o077)!==0) throw new CommerceError('skill_state','Skill state must be owner-only');
@@ -149,6 +150,5 @@ export function createNativeSkillExecutor(settings: NativeSkillSettings, origin:
     const skills=installed();
     return AgentCard.fromJSON({name:agentName,description:'Installed Agent Skills',version:'1.0',supportedInterfaces:[{url:new URL('/a2a',origin).href,protocolBinding:'JSONRPC',protocolVersion:'1.0'}],capabilities:{extensions:[{uri:'urn:envarpay:skill-gate:1',required:false,params:{runtime:'instruction-only-v1',skills:skills.map(s=>({name:s.descriptor.name,digest:s.descriptor.digest,access:s.descriptor.access}))}}]},defaultInputModes:['application/json'],defaultOutputModes:['text/markdown'],skills:skills.map(s=>({id:s.descriptor.name,name:s.descriptor.name,description:s.descriptor.description,tags:[s.descriptor.name]}))});
   };
-  if(initial.length===0)throw new CommerceError('skill_inventory','No installed skills');
   return {execute,close:async()=>{await Promise.allSettled(inFlight.values());db.close();}};
 }

@@ -245,16 +245,11 @@ export async function setupHermes(options: {
         `${i + 1}. ${skill.name} — ${skill.description.replace(/[\r\n\x1b]/g, " ").slice(0, 160)}`,
       ),
     );
-    if (!candidates.length)
-      throw new CommerceError(
-        "setup_skills",
-        "Install a text skill in Hermes first, then run setup again",
-      );
-    const selected = (await ask("Skill names to offer (comma separated)"))
+    console.log('Newly installed Skills will be discovered privately. Enable each one from the Envar service page after reviewing text-only compatibility.');
+    const selected = (await ask("Optional: enable existing text Skills now (comma separated, Enter to skip)"))
       .split(",")
-      .map((s) => s.trim());
+      .map((s) => s.trim()).filter(Boolean);
     if (
-      !selected.length ||
       selected.length > 32 ||
       new Set(selected).size !== selected.length ||
       selected.some((name) => !candidates.some((s) => s.name === name))
@@ -266,7 +261,7 @@ export async function setupHermes(options: {
     console.log(
       "This adapter supplies buyer text and bundled Markdown references. Browser, script, file and API tools are disabled. Original Hermes skills are preserved; a service copy is created.",
     );
-    if (
+    if (selected.length &&
       (
         await ask(
           "Do these selected skills work with text input and text output only? (yes/no)",
@@ -445,6 +440,7 @@ export async function setupHermes(options: {
       upstreams: {},
       skills: {
         framework: "hermes",
+        discovery:{hermesHome:probe.home,enabledFromWeb:true},
         skillsDirectory: join(directory, "skills"),
         freeSkills: [],
         stateDirectory,

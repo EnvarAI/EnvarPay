@@ -329,6 +329,7 @@ export class EnvarIntegration {
         "/api/v1/agent-config/candidates",
         "/api/v1/agent-config/acknowledgments",
         "/api/v1/commerce-reports",
+        "/api/v1/agent-config/runtime",
       ].includes(path)
     )
       fail("envar_path", "Unsupported platform integration operation");
@@ -425,6 +426,15 @@ export class EnvarIntegration {
     if (!object(value))
       fail("envar_response_json", "Platform response must be an object");
     return value;
+  }
+  allowInstalledService(name:string):void {
+    if(!ID.test(name))fail('envar_policy','Invalid installed Skill name');
+    if(!this.policy.allowedServices.includes(name))this.policy.allowedServices.push(name);
+  }
+  async reportRuntime(value:unknown):Promise<{name:string;digest:string}[]> {
+    const response=await this.request('/api/v1/agent-config/runtime',value,randomUUID());
+    if(response.agent_id!==this.policy.agentId||!Array.isArray(response.enable)||response.enable.length>128)fail('envar_inventory','Invalid runtime acknowledgment');
+    return response.enable.filter((x:any)=>x&&ID.test(x.name)&&/^[0-9a-f]{64}$/.test(x.digest)) as {name:string;digest:string}[];
   }
   private candidate(value: unknown): EnvarCandidate {
     if (!this.policy.acceptUpdates)
