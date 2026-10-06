@@ -1,6 +1,6 @@
 # Connect Hermes Skills to Envar
 
-The setup command is included in **0.2.0-alpha.10**. Use that exact npm version after publication. Node.js22.14+ is required; Node24 is recommended. Hermes must already have a working OpenAI-compatible model configuration.
+The setup and discovery commands are included in **0.2.0-alpha.11**. Node.js22.14+ is required; Node24 is recommended. Hermes must already have a working OpenAI-compatible model configuration.
 
 ## Guided setup
 
@@ -9,13 +9,13 @@ The setup command is included in **0.2.0-alpha.10**. Use that exact npm version 
 3. In the download folder, run the generated command on the Hermes host:
 
    ```sh
-   npx --yes --package @envarai/envarpay@0.2.0-alpha.10 envarpay setup \
+   npx --registry=https://registry.npmjs.org --yes --package @envarai/envarpay@0.2.0-alpha.11 envarpay setup \
      --file envar-setup-AGENT_ID.json --docker-container my-hermes
    ```
 
    For a local installation, omit `--docker-container`. Setup asks for the Hermes Python interpreter; `--python /path/to/hermes/.venv/bin/python` and `--hermes-home /path/to/profile` override detection. Docker setup checks the actual Hermes constructor's isolation capabilities, rather than selecting an interpreter solely because it can import Hermes.
 
-4. Select installed Skills by name. For a first example, install the community [copywriting Skill](https://github.com/coreyhaines31/marketingskills/tree/main/skills/copywriting) in Hermes:
+4. Optionally select existing Skills, or press Enter to start with none. Newly installed Skills appear privately on the Envar service page within about 30 seconds while both runtime and page are online. For a first example, install the community [copywriting Skill](https://github.com/coreyhaines31/marketingskills/tree/main/skills/copywriting) in Hermes:
 
    ```sh
    hermes skills install coreyhaines31/marketingskills/skills/copywriting
@@ -26,7 +26,17 @@ The setup command is included in **0.2.0-alpha.10**. Use that exact npm version 
 5. Choose a local port and a public HTTPS origin. Setup can add a dedicated tunnel to an already running local ngrok session without changing existing tunnels. Alternatively, supply your reverse proxy's HTTPS origin and forward it to the printed loopback port. Keep the original unrestricted Hermes endpoint private when selling paid work.
 6. Start the generated `start.mjs` using the printed command. Keep this terminal, Hermes, and the HTTPS tunnel running. The runtime initially advertises installed Skills with **zero executable offers**; it cannot run unpriced work.
 7. Import the generated `connection.json` into the Envar setup page. It updates this same Agent's A2A endpoint and reads its real Skill inventory. Wrong-Agent files are rejected. If the endpoint is unavailable, keep the service online and import the same file again to retry.
-8. Select a Skill, describe the output, build the buyer form and save a **free** offer. Request publication. The running EnvarPay process applies that selected service version through the existing authenticated config channel. Then choose **Check and publish**.
+8. New Skills show **New · not listed**. Review text-only compatibility and select **Enable text Skill**. EnvarPay prepares that exact source version; the page checks its A2A Card and makes it selectable. Describe the output, build the buyer form and save an offer. Request publication, wait for the running EnvarPay process to apply it, then choose **Check and publish**. Discovery and enablement never publish automatically.
+
+## Upgrade an existing setup
+
+Run `envarpay upgrade --directory ~/.envarpay/AGENT_ID` with alpha.11. Custom directories and local profiles are supported with `--directory` and `--hermes-home`. Stop the original foreground process and run its updated `start.mjs`. The original port, access tokens, ledger and service copies remain intact. Newly installed Skills are scanned without another restart. Updated source files are marked separately; an existing service keeps its pinned copy until a deliberate new version is prepared.
+
+## Guided USDC receiving
+
+Choose a paid offer in Envar. The page links to receiving-wallet verification and lets you download `envar-receiving-AGENT_ID.json`. Run the generated `envarpay payments --directory ... --file ...` command locally. Confirm the receiving address/network, configured facilitator, network RPC and authorized buyer wallet. The command prepares receiving verification, preserves the original signer/budget state, and writes a dedicated buyer-access token to a private file. Share that file only with the configured buyer.
+
+Restart EnvarPay. After its payment-adapter checks succeed, the page detects the matching receiving configuration and enables saving the price. A disconnected runtime or a different verified payee stays unready. This path supports USDC; Stripe eligibility and merchant setup retain their separate flow. No payment is performed by configuration.
 
 ## Ownership and recovery
 
@@ -36,6 +46,6 @@ The setup command is included in **0.2.0-alpha.10**. Use that exact npm version 
 - The generated script uses the same installed npm package and Node executable as setup. Keep that installation available. If upgrading, preserve all local config/ledger files and use the new CLI's `serve` command with the same arguments.
 - Agent-scoped platform credentials currently expire after30 days. Replace the local `envar.token` with a newly issued credential and restart; never recreate the ledger to renew credentials.
 - This first setup authorizes **free service updates only**. Enabling USDC or Stripe requires the separate [seller payment configuration](a2a-commerce.md), verified receiving identity and local payment adapters. It never creates a wallet, broadens a buyer budget, publishes a service or makes a payment automatically.
-- For another Skill or changed content, update the reviewed service copies and local `allowedServices`, restart, refresh the Agent connection, and publish a new service version. Existing order state remains intact.
+- Newly installed Skills are discovered automatically and become executable only after explicit owner enablement. For changed contents of an already enabled Skill, prepare and publish a new version deliberately; automatic discovery never replaces a live service package. Existing order state remains intact.
 
 Connection files contain secrets and must not be committed, pasted into chat, or placed in browser storage. Envar receives only its scoped connection credential and service credential; the Agent's model and signing keys stay local.

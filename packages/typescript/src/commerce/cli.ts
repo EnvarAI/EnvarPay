@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { readFileSync, lstatSync, mkdirSync, writeFileSync } from 'node:fs';
+import { readFileSync, lstatSync, mkdirSync, writeFileSync,readdirSync } from 'node:fs';
 import { parseArgs } from 'node:util';
 import { createRequire } from 'node:module';
 import { randomBytes } from 'node:crypto';
@@ -23,6 +23,8 @@ import { CommerceError } from './types.js';
 import { createNativeSkillExecutor, type NativeSkillSettings } from './native-skills.js';
 import { inspectLedger, inspectLocalAlerts } from './operations.js';
 import { setupHermes } from './setup.js';
+import { SkillDiscovery } from './discovery.js';
+import {upgradeDiscovery,configurePayments} from './configure.js';
 
 const { values, positionals } = parseArgs({ allowPositionals: true, options: {
   config: { type: 'string' }, service: { type: 'string' }, offer: { type: 'string' }, origin: { type: 'string' },
@@ -31,7 +33,7 @@ const { values, positionals } = parseArgs({ allowPositionals: true, options: {
   after:{type:'string'}, limit:{type:'string'}, 'refund-review':{type:'boolean'}, alerts:{type:'boolean'}, 'fail-on-alert':{type:'boolean'}, 'integration-state':{type:'string'}, 'no-integration':{type:'boolean'},
   file:{type:'string'},'docker-container':{type:'string'},python:{type:'string'},'hermes-home':{type:'string'},
 } });
-const usage = 'envarpay setup --file envar-setup.json [--docker-container NAME | --python PATH] [--hermes-home PATH] [--directory DIR]\ninit --directory DIR | inspect --state DB [--after ROW --limit 100 --refund-review] [--alerts --config buyer-policy.json --integration-state DB/--no-integration --fail-on-alert] | validate --config seller.json | card --config seller.json --service ID --offer ID --origin URL | serve/buyer-serve --config FILE --credentials FILE --state DB --origin URL';
+const usage = 'envarpay upgrade --directory DIR [--hermes-home PATH] | payments --directory DIR --file receiving.json\nenvarpay setup --file envar-setup.json [--docker-container NAME | --python PATH] [--hermes-home PATH] [--directory DIR]\ninit --directory DIR | inspect --state DB [--after ROW --limit 100 --refund-review] [--alerts --config buyer-policy.json --integration-state DB/--no-integration --fail-on-alert] | validate --config seller.json | card --config seller.json --service ID --offer ID --origin URL | serve/buyer-serve --config FILE --credentials FILE --state DB --origin URL';
 const closers: (() => void | Promise<void>)[] = [];
 function privateFile(path: string): Buffer {
   const stat = lstatSync(path);
@@ -68,6 +70,8 @@ async function run(): Promise<void> {
   if(values.help||positionals.length===0&&!values.version){console.log(usage);return;}
   if (values.version) { console.log(createRequire(import.meta.url)('../../package.json').version); return; }
   const command = positionals[0];
+  if(command==='upgrade'&&values.directory){upgradeDiscovery(values.directory,values['hermes-home']);return;}
+  if(command==='payments'&&values.directory&&values.file){await configurePayments(values.directory,values.file);return;}
   if(command==='setup'){
     if(!values.file)throw new CommerceError('setup_file','Download the setup file from your Agent service page and pass --file PATH');
     await setupHermes({file:values.file,directory:values.directory,container:values['docker-container'],python:values.python,home:values['hermes-home']});return;
@@ -164,11 +168,16 @@ async function run(): Promise<void> {
     callers: Record<string, string>; upstreams: Record<string, string>; upstreamInputEncoding?:Record<string,'data'|'json-text'>; payers?: Record<string, string>; skills?:NativeSkillSettings;
     vaultKeyFile?: string; rpcUrls?: Record<string, string>; mppHmacKeyFile?: string; ownershipChallenges?:Record<string,string>;
     stripe?: Record<string, { secretKeyFile: string; accountId: string; merchantProfile: string; mode: 'test' | 'live' }>;
+    receivingProfiles?:Extract<import('./types.js').PaymentProfile,{adapter:'x402'}>[];
   };
   let integration:EnvarIntegration|undefined,syncSettings:{policy:EnvarPolicy;pollIntervalMs?:number;stateDirectory?:string;configDirectory?:string}|undefined;
   if(values['envar-config']){
     syncSettings=JSON.parse(privateFile(values['envar-config']).toString('utf8')) as typeof syncSettings;
     if(!syncSettings?.policy)throw new CommerceError('envar_configuration','Envar settings must include an explicit local policy');
+    if(secrets.skills?.discovery?.enabledFromWeb){
+      const installed=readdirSync(secrets.skills.skillsDirectory,{withFileTypes:true}).filter(e=>e.isDirectory()&&!e.isSymbolicLink()&&/^[a-z][a-z0-9-]{0,63}$/.test(e.name)).map(e=>e.name);
+      syncSettings.policy.allowedServices=[...new Set([...syncSettings.policy.allowedServices,...installed])];
+    }
     const tokenFile=resolve(values['envar-credentials']!);privateFile(tokenFile);
     integration=new EnvarIntegration({policy:syncSettings.policy,stateDirectory:syncSettings.stateDirectory??join(dirname(values.state),'envar-state'),configDirectory:syncSettings.configDirectory??join(dirname(values.state),'envar-configs'),token:()=>privateFile(tokenFile).toString('utf8').trim()});
     closers.push(()=>integration!.close());
@@ -190,7 +199,7 @@ async function run(): Promise<void> {
   if (protocols.has('x402')) {
     if (!secrets.payers || !secrets.rpcUrls) throw new CommerceError('x402_configuration', 'x402 requires explicit caller-payer bindings and network RPCs');
     const gate = new X402Gate({ store, vault: vault!, payerFor: caller => secrets.payers?.[caller], verifyReceipt:evmReceiptVerifier(secrets.rpcUrls),...evmSettlementRecovery(secrets.rpcUrls) });
-    await gate.check(Object.values(config.paymentProfiles).filter((p):p is Extract<import('./types.js').PaymentProfile,{adapter:'x402'}>=>p.adapter==='x402'));
+    await gate.check([...Object.values(config.paymentProfiles).filter((p):p is Extract<import('./types.js').PaymentProfile,{adapter:'x402'}>=>p.adapter==='x402'),...(secrets.receivingProfiles??[])]);
     gates.x402=gate;
   }
   if (protocols.has('mpp')) {
@@ -203,6 +212,7 @@ async function run(): Promise<void> {
     await gate.check(); gates.mpp = gate; stripeRecipientFor = ref => gate.merchantRecipient(ref);
   }
   const nativeSkills=secrets.skills?createNativeSkillExecutor(secrets.skills,values.origin,config.agent.name):undefined;
+  const discovery=secrets.skills?.discovery?.enabledFromWeb?new SkillDiscovery(secrets.skills,secrets.skills.discovery,values.origin):undefined;
   if(nativeSkills)closers.push(()=>nativeSkills.close());
   const upstreams=new PinnedUpstreams(join(dirname(values.state),'upstream-bindings.json'),secrets.upstreams??{},secrets.upstreamInputEncoding,fetch,controller.signal,nativeSkills?.execute);
   upstreams.prepare(config,store.catalogHistory().map(entry=>entry.service));
@@ -221,7 +231,7 @@ async function run(): Promise<void> {
     } }, onError: (code, orderId) => console.error(JSON.stringify({ code, orderId })) });
   closers.push(async () => { server.stop(); controller.abort(); while (server.isRunning) await new Promise(r => setTimeout(r, 50)); });
   let connection:EnvarSellerRuntime|undefined;
-  if(integration){connection=new EnvarSellerRuntime({integration,server,upstreams,pollIntervalMs:syncSettings?.pollIntervalMs,validateConfig:validateAdapters,onError:code=>console.error(JSON.stringify({code,integration:'envar'}))});closers.push(()=>connection!.stop());}
+  if(integration){connection=new EnvarSellerRuntime({integration,server,upstreams,pollIntervalMs:syncSettings?.pollIntervalMs,validateConfig:validateAdapters,beforeSync:discovery?()=>discovery.sync(integration!,[...Object.values(server.config.paymentProfiles).filter(p=>p.adapter==='x402'),...(secrets.receivingProfiles??[])].map(p=>({network:p.network,pay_to:p.payTo,facilitator_url:p.facilitatorUrl}))):undefined,onError:code=>console.error(JSON.stringify({code,integration:'envar'}))});closers.push(()=>connection!.stop());}
   const http = listenCommerce(server, values.origin, values.host ?? '127.0.0.1', port(4020)); closers.push(async () => {server.stop();controller.abort();await closeHttp(http)});
   await once(http, 'listening'); connection?.start(); signals(); console.log(JSON.stringify({ listening: port(4020), role: 'seller', paidTransports: [...protocols] }));
 }
