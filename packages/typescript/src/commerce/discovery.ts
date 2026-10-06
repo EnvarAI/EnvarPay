@@ -9,7 +9,9 @@ import {
   renameSync,
   rmSync,
   readdirSync,
+  lstatSync,
 } from "node:fs";
+import {createHash} from 'node:crypto';
 import { join } from "node:path";
 import { createRequire } from "node:module";
 import type { NativeSkillSettings } from "./native-skills.js";
@@ -18,6 +20,22 @@ import { readInstalledSkills } from "./native-skills.js";
 import type { EnvarIntegration } from "./envar.js";
 
 const exec = promisify(execFile);
+function packageDigest(root:string):string{
+  const files:[string,string][]=[];let size=0;
+  function walk(folder:string,prefix=''){
+    if(prefix.split('/').length>12)throw Error('skill_size');
+    for(const name of readdirSync(folder).sort()){
+      const path=join(folder,name),stat=lstatSync(path);
+      if(stat.isSymbolicLink())throw Error('skill_symlink');
+      if(stat.isDirectory()){walk(path,prefix+name+'/');continue;}
+      if(!stat.isFile()||stat.size>512*1024||(size+=stat.size)>1024*1024||files.length>=128)throw Error('skill_size');
+      files.push([prefix+name,createHash('sha256').update(readFileSync(path)).digest('hex')]);
+    }
+  }
+  walk(root);files.sort((a,b)=>a[0]<b[0]?-1:a[0]>b[0]?1:0);
+  const json=JSON.stringify(files).replace(/[\u007f-\uffff]/g,c=>'\\u'+c.charCodeAt(0).toString(16).padStart(4,'0'));
+  return createHash('sha256').update(json).digest('hex');
+}
 interface FoundSkill {
   name: string;
   digest: string;
@@ -162,6 +180,7 @@ export class SkillDiscovery {
             { timeout: 30000, maxBuffer: 1024 * 1024 },
           );
         }
+        if(packageDigest(source)!==skill.digest)continue;
         const prepared = join(stage, "prepared");
         mkdirSync(prepared);
         prepareTextSkill(source, join(prepared, skill.name), skill.name);
