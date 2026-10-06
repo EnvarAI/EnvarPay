@@ -11,6 +11,8 @@ not evidence that its npm/OCI artifact is published.
 
 ## Runtime and entry points
 
+For Hermes onboarding, see [guided Skill setup](../../docs/hermes-skill-setup.md). The `setup --file ...` command reads the owner's local model configuration and creates a private seller with an empty catalog, ready for the first service to be configured in Envar.
+
 Node.js 22.14+ (Node 24 recommended). SQLite is single-instance. Contracts can be
 read without loading the seller or buyer runtime; Bun validation covers the
 contracts entry, not the SQLite server.
