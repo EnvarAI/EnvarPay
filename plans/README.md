@@ -12,3 +12,5 @@
 - [Guided Hermes Skill onboarding](skill-onboarding.md) — implementation and validation in progress.
 
 - [Skill discovery and receiving setup](skill-discovery.md) — implementation and release validation.
+
+- [Agent-executed onboarding](agent-onboarding-prompt.md) — copy a prompt, automatic setup and platform-verified receipt.

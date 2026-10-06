@@ -25,15 +25,16 @@ import { inspectLedger, inspectLocalAlerts } from './operations.js';
 import { setupHermes } from './setup.js';
 import { SkillDiscovery } from './discovery.js';
 import {upgradeDiscovery,configurePayments} from './configure.js';
+import {agentSetup} from './agent-setup.js';
 
 const { values, positionals } = parseArgs({ allowPositionals: true, options: {
   config: { type: 'string' }, service: { type: 'string' }, offer: { type: 'string' }, origin: { type: 'string' },
   version: { type: 'boolean' }, help: {type:'boolean',short:'h'}, state: { type: 'string' }, credentials: { type: 'string' }, host: { type: 'string' },
   port: { type: 'string' }, directory: { type: 'string' }, 'envar-config': {type:'string'}, 'envar-credentials': {type:'string'},
   after:{type:'string'}, limit:{type:'string'}, 'refund-review':{type:'boolean'}, alerts:{type:'boolean'}, 'fail-on-alert':{type:'boolean'}, 'integration-state':{type:'string'}, 'no-integration':{type:'boolean'},
-  file:{type:'string'},'docker-container':{type:'string'},python:{type:'string'},'hermes-home':{type:'string'},
+  file:{type:'string'},'docker-container':{type:'string'},python:{type:'string'},'hermes-home':{type:'string'},check:{type:'boolean'},
 } });
-const usage = 'envarpay upgrade --directory DIR [--hermes-home PATH] | payments --directory DIR --file receiving.json\nenvarpay setup --file envar-setup.json [--docker-container NAME | --python PATH] [--hermes-home PATH] [--directory DIR]\ninit --directory DIR | inspect --state DB [--after ROW --limit 100 --refund-review] [--alerts --config buyer-policy.json --integration-state DB/--no-integration --fail-on-alert] | validate --config seller.json | card --config seller.json --service ID --offer ID --origin URL | serve/buyer-serve --config FILE --credentials FILE --state DB --origin URL';
+const usage = 'envarpay onboard --file invitation.json [--check] [--python PATH] [--docker-container NAME] [--hermes-home PATH] [--origin HTTPS_ORIGIN]\nenvarpay upgrade --directory DIR [--hermes-home PATH] | payments --directory DIR --file receiving.json\nenvarpay setup --file envar-setup.json [--docker-container NAME | --python PATH] [--hermes-home PATH] [--directory DIR]\ninit --directory DIR | inspect --state DB [--after ROW --limit 100 --refund-review] [--alerts --config buyer-policy.json --integration-state DB/--no-integration --fail-on-alert] | validate --config seller.json | card --config seller.json --service ID --offer ID --origin URL | serve/buyer-serve --config FILE --credentials FILE --state DB --origin URL';
 const closers: (() => void | Promise<void>)[] = [];
 function privateFile(path: string): Buffer {
   const stat = lstatSync(path);
@@ -70,6 +71,10 @@ async function run(): Promise<void> {
   if(values.help||positionals.length===0&&!values.version){console.log(usage);return;}
   if (values.version) { console.log(createRequire(import.meta.url)('../../package.json').version); return; }
   const command = positionals[0];
+  if(command==='onboard'){
+    if(!values.file)throw new CommerceError('setup_file','Save the private invitation and pass --file PATH.');
+    await agentSetup({file:values.file,directory:values.directory,python:values.python,home:values['hermes-home'],container:values['docker-container'],origin:values.origin,port:values.port?port(4020):undefined,checkOnly:values.check});return;
+  }
   if(command==='upgrade'&&values.directory){upgradeDiscovery(values.directory,values['hermes-home']);return;}
   if(command==='payments'&&values.directory&&values.file){await configurePayments(values.directory,values.file);return;}
   if(command==='setup'){
