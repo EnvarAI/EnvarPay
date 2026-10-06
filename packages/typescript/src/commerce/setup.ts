@@ -131,6 +131,7 @@ export async function setupHermes(options: {
   container?: string;
   python?: string;
   home?: string;
+  automatic?: { port: number; origin: string };
 }): Promise<void> {
   const file = resolve(options.file),
     info = lstatSync(file);
@@ -139,26 +140,24 @@ export async function setupHermes(options: {
   const bundle = parseSetupBundle(JSON.parse(readFileSync(file, "utf8")));
   if (options.container && !CONTAINER.test(options.container))
     throw new CommerceError("setup_container", "Use a Docker container name");
-  if (!process.stdin.isTTY)
+  if (!process.stdin.isTTY && !options.automatic)
     throw new CommerceError(
       "setup_terminal",
       "Run setup in an interactive terminal to select skills",
     );
   chmodSync(file, 0o600);
-  const prompt = createInterface({
-    input: process.stdin,
-    output: process.stdout,
-  });
+  const prompt = options.automatic ? undefined : createInterface({ input: process.stdin, output: process.stdout });
+  const output = options.automatic ? (..._args: unknown[]) => {} : console.log;
   const ask = async (label: string, fallback = "") =>
     (
-      await prompt.question(`${label}${fallback ? ` [${fallback}]` : ""}: `)
+      await prompt!.question(`${label}${fallback ? ` [${fallback}]` : ""}: `)
     ).trim() || fallback;
   let staging: string | undefined;
   try {
-    console.log(
+    output(
       `\nConnect ${bundle.agentName} to ${bundle.platformOrigin}\nModel credentials and tasks remain on this machine. Start with free services; no wallet is created.\n`,
     );
-    if ((await ask("Continue? (yes/no)", "no")).toLowerCase() !== "yes") return;
+    if (!options.automatic && (await ask("Continue? (yes/no)", "no")).toLowerCase() !== "yes") return;
     const directory = resolve(
       options.directory ?? join(homedir(), ".envarpay", bundle.agentId),
     );
@@ -193,6 +192,12 @@ export async function setupHermes(options: {
           "setup_runtime",
           "No compatible Hermes interpreter found in this container. Update Hermes or pass --python PATH.",
         );
+    }
+    if (!python && options.automatic) {
+      for (const candidate of [process.env.VIRTUAL_ENV && join(process.env.VIRTUAL_ENV, "bin/python"), "/opt/hermes-latest/bin/python", "/opt/hermes/.venv/bin/python", join(homedir(), "hermes-agent/.venv/bin/python"), "python3"].filter(Boolean) as string[]) {
+        try { execFileSync(candidate, ["-c", compatibility], {stdio:"pipe",timeout:30000}); python=candidate;break; } catch {}
+      }
+      if (!python) throw new CommerceError("setup_runtime", "No compatible Hermes Python found. Pass its executable using --python.");
     }
     python ??= await ask(
       "Hermes Python executable",
@@ -237,16 +242,16 @@ export async function setupHermes(options: {
     const candidates = probe.skills.filter(
       (s) => s.textPackage && ID.test(s.name),
     );
-    console.log(
+    output(
       `Model: ${probe.model}\nInstalled text packages (review their instructions before selecting):`,
     );
     candidates.forEach((skill, i) =>
-      console.log(
+      output(
         `${i + 1}. ${skill.name} — ${skill.description.replace(/[\r\n\x1b]/g, " ").slice(0, 160)}`,
       ),
     );
-    console.log('Newly installed Skills will be discovered privately. Enable each one from the Envar service page after reviewing text-only compatibility.');
-    const selected = (await ask("Optional: enable existing text Skills now (comma separated, Enter to skip)"))
+    output('Newly installed Skills will be discovered privately. Enable each one from the Envar service page after reviewing text-only compatibility.');
+    const selected = (options.automatic ? "" : await ask("Optional: enable existing text Skills now (comma separated, Enter to skip)"))
       .split(",")
       .map((s) => s.trim()).filter(Boolean);
     if (
@@ -258,7 +263,7 @@ export async function setupHermes(options: {
         "setup_skills",
         "Choose installed skill names from the list",
       );
-    console.log(
+    output(
       "This adapter supplies buyer text and bundled Markdown references. Browser, script, file and API tools are disabled. Original Hermes skills are preserved; a service copy is created.",
     );
     if (selected.length &&
@@ -270,14 +275,14 @@ export async function setupHermes(options: {
       ).toLowerCase() !== "yes"
     )
       return;
-    const port = Number(await ask("Local service port", "4020"));
+    const port = options.automatic?.port ?? Number(await ask("Local service port", "4020"));
     if (!Number.isInteger(port) || port < 1024 || port > 65535)
       throw new CommerceError(
         "setup_port",
         "Choose a local port from 1024 to 65535",
       );
     let origin: string;
-    const tunnelMode = await ask(
+    const tunnelMode = options.automatic ? "url" : await ask(
       "Public HTTPS: use an existing ngrok session or your own reverse proxy? (ngrok/url)",
       "ngrok",
     );
@@ -343,7 +348,7 @@ export async function setupHermes(options: {
         origin = ((await response.json()) as { public_url: string }).public_url;
       }
     } else if (tunnelMode === "url") {
-      origin = await ask(
+      origin = options.automatic?.origin ?? await ask(
         `Public HTTPS origin (forward to http://127.0.0.1:${port})`,
       );
     } else throw new CommerceError("setup_tunnel", "Choose ngrok or url");
@@ -512,11 +517,11 @@ export async function setupHermes(options: {
     );
     renameSync(staging, directory);
     staging = undefined;
-    console.log(
+    output(
       `\nReady. Start the local service:\n${process.execPath} ${JSON.stringify(start)}\n\nThen import this connection file in Envar:\n${join(directory, "connection.json")}\n\nKeep the service and HTTPS tunnel online. No task or payment was performed.`,
     );
   } finally {
-    prompt.close();
+    prompt?.close();
     if (staging) rmSync(staging, { recursive: true, force: true });
   }
 }

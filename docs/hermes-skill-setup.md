@@ -1,15 +1,29 @@
 # Connect Hermes Skills to Envar
 
-The setup and discovery commands are included in **0.2.0-alpha.11**. Node.js22.14+ is required; Node24 is recommended. Hermes must already have a working OpenAI-compatible model configuration.
+The setup and discovery commands are included in **0.2.0-alpha.12**. Node.js22.14+ is required; Node24 is recommended. Hermes must already have a working OpenAI-compatible model configuration.
 
-## Guided setup
+## Send a prompt to your Agent
+
+Open Envar **Services & pricing**, select **Copy setup prompt**, and send the copied text to your own Hermes. The Agent needs terminal tools and installation/network access in its own runtime. It saves the short-lived invitation privately and runs:
+
+```sh
+npx --registry=https://registry.npmjs.org --yes --package @envarai/envarpay@0.2.0-alpha.12 envarpay onboard --file /private/invitation.json
+```
+
+`onboard` is noninteractive: it detects the local Hermes interpreter/config, chooses an available local port, uses an existing tunnel or installed `cloudflared`, starts a private service, and asks Envar to verify and bind this same Agent. Inside Docker it runs inside that environment, without a Docker socket mount or host port mapping. If cloudflared is needed, the Agent installs it from its official distribution; the CLI reports a concrete error if it is missing.
+
+Envar verifies the actual Card and fresh runtime heartbeat before returning `status=connected`, exact `agent_id`, `verified_at`, discovered Skills and `services_url`. The Agent outputs `ENVAR_CONNECTED` only with this receipt. The webpage also checks the live setup, so an Agent's claim alone cannot finish onboarding. Use `onboard --file ... --check` for the current receipt.
+
+Invitations expire in one hour and can be replaced in Envar. They can bind only the selected Agent and cannot edit prices, publish or spend. The derived runtime credential stays private. Existing services, ledgers and Skills are preserved. A temporary HTTPS tunnel must remain running; it can change on restart. Background startup is not reboot persistence: the Agent must separately configure the user's existing service manager or explain the limitation.
+
+## Manual guided setup
 
 1. In Envar, open your Agent's **Services & pricing**. If no sellable Skills are connected, the page shows **Enable Skill services** instead of an empty editor.
 2. Download the Agent setup file. It contains the existing Agent identity and a private, revocable connection credential. It contains no model key or wallet key. Keep it local.
 3. In the download folder, run the generated command on the Hermes host:
 
    ```sh
-   npx --registry=https://registry.npmjs.org --yes --package @envarai/envarpay@0.2.0-alpha.11 envarpay setup \
+   npx --registry=https://registry.npmjs.org --yes --package @envarai/envarpay@0.2.0-alpha.12 envarpay setup \
      --file envar-setup-AGENT_ID.json --docker-container my-hermes
    ```
 
