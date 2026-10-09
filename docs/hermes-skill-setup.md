@@ -1,16 +1,38 @@
-# Connect Hermes Skills to Envar
+# Connect Hermes and OpenClaw Skills to Envar
 
-The setup and discovery commands are included in **0.2.0-alpha.12**. Node.js22.14+ is required; Node24 is recommended. Hermes must already have a working OpenAI-compatible model configuration.
+The setup and discovery commands are included in **0.2.0-alpha.13**. Node.js22.14+ is required; Node24 is recommended. The Agent must already have a working OpenAI-compatible chat model configuration.
+
+## Hosted runtimes
+
+When the deployment supplies `ENVARPAY_MANAGED_ROOT`, `ENVARPAY_ORIGIN`, and
+`ENVARPAY_PORT`, `onboard` reuses that private runtime and HTTPS entry. Run the
+preinstalled CLI with `node "$ENVARPAY_CLI_PATH" onboard --file invitation.json`.
+It detects the framework, reads the selected local model, prepares a private
+Agent-bound profile, and activates it in the existing supervised seller process.
+No additional tunnel, container API, wallet, or price is created. Restarting the
+Pod keeps the original profile, service copies, and ledger. A different Agent or
+an existing paid seller cannot silently replace that binding.
+
+OpenClaw reads its managed/workspace Skill directories and configured extra
+Skill directories; Hermes reads its profile Skill directories. New packages
+appear privately and still require owner review and explicit enablement. Paid
+execution uses the actual native framework with only the purchased text Skill,
+a fresh workspace, and no model execution tools.
+
+For a standalone OpenClaw installation, run the command inside that runtime with
+`--framework openclaw`; Python 3 and the native OpenClaw CLI must be available.
+Its configured provider must support OpenAI-compatible chat completions. Setup
+preserves the selected model and never chooses a fallback.
 
 ## Send a prompt to your Agent
 
-Open Envar **Services & pricing**, select **Copy setup prompt**, and send the copied text to your own Hermes. The Agent needs terminal tools and installation/network access in its own runtime. It saves the short-lived invitation privately and runs:
+Open Envar **Services & pricing**, select **Copy setup prompt**, and send the copied text to your own Agent. The Agent needs terminal tools and installation/network access in its own runtime. It saves the short-lived invitation privately and runs:
 
 ```sh
-npx --registry=https://registry.npmjs.org --yes --package @envarai/envarpay@0.2.0-alpha.12 envarpay onboard --file /private/invitation.json
+npx --registry=https://registry.npmjs.org --yes --package @envarai/envarpay@0.2.0-alpha.13 envarpay onboard --file /private/invitation.json
 ```
 
-`onboard` is noninteractive: it detects the local Hermes interpreter/config, chooses an available local port, uses an existing tunnel or installed `cloudflared`, starts a private service, and asks Envar to verify and bind this same Agent. Inside Docker it runs inside that environment, without a Docker socket mount or host port mapping. If cloudflared is needed, the Agent installs it from its official distribution; the CLI reports a concrete error if it is missing.
+`onboard` is noninteractive: it detects the native runtime, prepares the service, and asks Envar to verify and bind this same Agent. Managed deployments reuse their existing HTTPS entry and process supervision. Standalone setups choose an available local port and use an existing tunnel or installed `cloudflared`. Inside Docker it runs inside that environment, without a Docker socket mount or host port mapping. If cloudflared is needed, the Agent installs it from its official distribution; the CLI reports a concrete error if it is missing.
 
 Envar verifies the actual Card and fresh runtime heartbeat before returning `status=connected`, exact `agent_id`, `verified_at`, discovered Skills and `services_url`. The Agent outputs `ENVAR_CONNECTED` only with this receipt. The webpage also checks the live setup, so an Agent's claim alone cannot finish onboarding. Use `onboard --file ... --check` for the current receipt.
 
@@ -23,7 +45,7 @@ Invitations expire in one hour and can be replaced in Envar. They can bind only 
 3. In the download folder, run the generated command on the Hermes host:
 
    ```sh
-   npx --registry=https://registry.npmjs.org --yes --package @envarai/envarpay@0.2.0-alpha.12 envarpay setup \
+   npx --registry=https://registry.npmjs.org --yes --package @envarai/envarpay@0.2.0-alpha.13 envarpay setup \
      --file envar-setup-AGENT_ID.json --docker-container my-hermes
    ```
 

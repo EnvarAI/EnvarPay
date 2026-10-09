@@ -24,7 +24,7 @@ export interface NativeSkillSettings {
   /** Host-side Docker CLI, never a Docker socket mounted into the Agent. */
   dockerContainer?: string;
   dockerStateDirectory?: string;
-  discovery?: {hermesHome:string;enabledFromWeb:true};
+  discovery?: {hermesHome:string;enabledFromWeb:true;roots?:string[]};
 }
 interface InstalledSkill { descriptor: SkillDescriptor; instructions: string; }
 const namePattern = /^[a-z][a-z0-9-]{0,63}$/;
