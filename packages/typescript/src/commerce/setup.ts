@@ -17,6 +17,7 @@ import { fileURLToPath } from "node:url";
 import { randomBytes } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { createInterface } from "node:readline/promises";
+import { probeOpenClaw } from "./openclaw-setup.js";
 import { readInstalledSkills } from "./native-skills.js";
 import { loadCommerceConfig, validateUrl } from "./config.js";
 import { CommerceError } from "./types.js";
@@ -117,6 +118,8 @@ interface Probe {
   baseUrl: string;
   apiKeyFile: string | null;
   apiKey: string | null;
+  command?: string[];
+  skillRoots?: string[];
   skills: {
     name: string;
     path: string;
@@ -125,7 +128,9 @@ interface Probe {
     files: number;
   }[];
 }
-export async function setupHermes(options: {
+export async function setupAgent(options: {
+  framework?: "hermes" | "openclaw";
+  managed?: boolean;
   file: string;
   directory?: string;
   container?: string;
@@ -166,78 +171,86 @@ export async function setupHermes(options: {
         "setup_exists",
         "This Agent already has a local directory. Use its start script; never reset its ledger.",
       );
+    const configuredFramework = process.env.ENVARPAY_FRAMEWORK;
+    const framework = options.framework ?? (configuredFramework === "hermes" || configuredFramework === "openclaw" ? configuredFramework : process.env.OPENCLAW_STATE_DIR ? "openclaw" : "hermes");
     let python = options.python;
-    const compatibility =
-      'import inspect;from run_agent import AIAgent;assert all(k in inspect.signature(AIAgent).parameters for k in ["skip_context_files","skip_memory","skip_background_review","ephemeral_system_prompt","enabled_toolsets"])';
-    if (!python && options.container) {
-      for (const candidate of [
-        "/opt/hermes-latest/bin/python",
-        "/opt/hermes/.venv/bin/python",
-        "python3",
-      ]) {
-        try {
+    let probe: Probe;
+    if (framework === "openclaw") {
+      if (options.container) throw new CommerceError("setup_runtime", "Run OpenClaw setup inside its own runtime");
+      python ??= "python3";
+      probe = probeOpenClaw(options.home, python);
+    } else {
+      const compatibility =
+        'import inspect;from run_agent import AIAgent;assert all(k in inspect.signature(AIAgent).parameters for k in ["skip_context_files","skip_memory","skip_background_review","ephemeral_system_prompt","enabled_toolsets"])';
+      if (!python && options.container) {
+        for (const candidate of [
+          "/opt/hermes-latest/bin/python",
+          "/opt/hermes/.venv/bin/python",
+          "python3",
+        ]) {
+          try {
+            execFileSync(
+              "docker",
+              ["exec", options.container, candidate, "-c", compatibility],
+              { stdio: "pipe", timeout: 60000 },
+            );
+            python = candidate;
+            break;
+          } catch {
+            /* try the next compatible installed interpreter */
+          }
+        }
+        if (!python)
+          throw new CommerceError(
+            "setup_runtime",
+            "No compatible Hermes interpreter found in this container. Update Hermes or pass --python PATH.",
+          );
+      }
+      if (!python && options.automatic) {
+        for (const candidate of [process.env.VIRTUAL_ENV && join(process.env.VIRTUAL_ENV, "bin/python"), "/opt/hermes-latest/bin/python", "/opt/hermes/.venv/bin/python", join(homedir(), "hermes-agent/.venv/bin/python"), "python3"].filter(Boolean) as string[]) {
+          try { execFileSync(candidate, ["-c", compatibility], {stdio:"pipe",timeout:30000}); python=candidate;break; } catch {}
+        }
+        if (!python) throw new CommerceError("setup_runtime", "No compatible Hermes Python found. Pass its executable using --python.");
+      }
+      python ??= await ask(
+        "Hermes Python executable",
+        join(homedir(), "hermes-agent", ".venv", "bin", "python"),
+      );
+      const probeSource = readFileSync(
+        new URL("../../examples/hermes-setup-probe.py", import.meta.url),
+        "utf8",
+      );
+      try {
+        if (options.container)
           execFileSync(
             "docker",
-            ["exec", options.container, candidate, "-c", compatibility],
+            ["exec", options.container, python, "-c", compatibility],
             { stdio: "pipe", timeout: 60000 },
           );
-          python = candidate;
-          break;
-        } catch {
-          /* try the next compatible installed interpreter */
-        }
-      }
-      if (!python)
-        throw new CommerceError(
-          "setup_runtime",
-          "No compatible Hermes interpreter found in this container. Update Hermes or pass --python PATH.",
-        );
-    }
-    if (!python && options.automatic) {
-      for (const candidate of [process.env.VIRTUAL_ENV && join(process.env.VIRTUAL_ENV, "bin/python"), "/opt/hermes-latest/bin/python", "/opt/hermes/.venv/bin/python", join(homedir(), "hermes-agent/.venv/bin/python"), "python3"].filter(Boolean) as string[]) {
-        try { execFileSync(candidate, ["-c", compatibility], {stdio:"pipe",timeout:30000}); python=candidate;break; } catch {}
-      }
-      if (!python) throw new CommerceError("setup_runtime", "No compatible Hermes Python found. Pass its executable using --python.");
-    }
-    python ??= await ask(
-      "Hermes Python executable",
-      join(homedir(), "hermes-agent", ".venv", "bin", "python"),
-    );
-    const probeSource = readFileSync(
-      new URL("../../examples/hermes-setup-probe.py", import.meta.url),
-      "utf8",
-    );
-    let probe: Probe;
-    try {
-      if (options.container)
-        execFileSync(
-          "docker",
-          ["exec", options.container, python, "-c", compatibility],
-          { stdio: "pipe", timeout: 60000 },
-        );
-      else
-        execFileSync(python, ["-c", compatibility], {
-          stdio: "pipe",
-          timeout: 60000,
-        });
-      const args = ["-c", probeSource, ...(options.home ? [options.home] : [])];
-      const data = options.container
-        ? execFileSync("docker", ["exec", options.container, python, ...args], {
+        else
+          execFileSync(python, ["-c", compatibility], {
             stdio: "pipe",
-            timeout: 30000,
-            maxBuffer: 2 * 1024 * 1024,
-          })
-        : execFileSync(python, args, {
-            stdio: "pipe",
-            timeout: 30000,
-            maxBuffer: 2 * 1024 * 1024,
+            timeout: 60000,
           });
-      probe = JSON.parse(data.toString());
-    } catch {
-      throw new CommerceError(
-        "setup_model",
-        "Could not read Hermes. Check the container/Python path and configure an OpenAI-compatible model in Hermes first.",
-      );
+        const args = ["-c", probeSource, ...(options.home ? [options.home] : [])];
+        const data = options.container
+          ? execFileSync("docker", ["exec", options.container, python, ...args], {
+              stdio: "pipe",
+              timeout: 30000,
+              maxBuffer: 2 * 1024 * 1024,
+            })
+          : execFileSync(python, args, {
+              stdio: "pipe",
+              timeout: 30000,
+              maxBuffer: 2 * 1024 * 1024,
+            });
+        probe = JSON.parse(data.toString());
+      } catch {
+        throw new CommerceError(
+          "setup_model",
+          "Could not read Hermes. Check the container/Python path and configure an OpenAI-compatible model in Hermes first.",
+        );
+      }
     }
     const candidates = probe.skills.filter(
       (s) => s.textPackage && ID.test(s.name),
@@ -264,7 +277,7 @@ export async function setupHermes(options: {
         "Choose installed skill names from the list",
       );
     output(
-      "This adapter supplies buyer text and bundled Markdown references. Browser, script, file and API tools are disabled. Original Hermes skills are preserved; a service copy is created.",
+      "This adapter supplies buyer text and bundled Markdown references. Browser, script, file and API tools are disabled. Original Agent skills are preserved; a service copy is created.",
     );
     if (selected.length &&
       (
@@ -385,6 +398,12 @@ export async function setupHermes(options: {
     );
     const access = randomBytes(36).toString("base64url");
     let apiKeyFile = probe.apiKeyFile;
+    if (options.managed && apiKeyFile) {
+      const stat = lstatSync(apiKeyFile);
+      if (!stat.isFile() || stat.isSymbolicLink() || stat.size > 16384) throw new CommerceError("setup_model", "Invalid local model key file");
+      probe.apiKey = readFileSync(apiKeyFile, "utf8");
+      apiKeyFile = null;
+    }
     if (!apiKeyFile) {
       if (options.container) {
         apiKeyFile = join(
@@ -444,8 +463,9 @@ export async function setupHermes(options: {
       callers: { [access]: "owner" },
       upstreams: {},
       skills: {
-        framework: "hermes",
-        discovery:{hermesHome:probe.home,enabledFromWeb:true},
+        framework,
+        ...(probe.command ? {command: probe.command} : {}),
+        discovery:{hermesHome:probe.home,enabledFromWeb:true,...(probe.skillRoots ? {roots:probe.skillRoots} : {})},
         skillsDirectory: join(directory, "skills"),
         freeSkills: [],
         stateDirectory,
@@ -525,3 +545,6 @@ export async function setupHermes(options: {
     if (staging) rmSync(staging, { recursive: true, force: true });
   }
 }
+
+// Preserve the existing SDK helper name for callers using Hermes explicitly.
+export const setupHermes = (options: Parameters<typeof setupAgent>[0]) => setupAgent({ ...options, framework: "hermes" });

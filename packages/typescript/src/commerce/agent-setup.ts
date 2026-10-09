@@ -4,7 +4,8 @@ import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { createServer } from 'node:net';
 import { spawn } from 'node:child_process';
-import { setupHermes, parseSetupBundle } from './setup.js';
+import { activateManagedProfile, managedProfile } from './managed.js';
+import { setupAgent, parseSetupBundle } from './setup.js';
 import { CommerceError } from './types.js';
 
 interface Invitation { version:1; agentId:string; platformOrigin:string; setupToken:string; }
@@ -60,9 +61,19 @@ async function publicOrigin(root:string,port:number,agentId:string,supplied?:str
  throw new CommerceError('setup_https','Install cloudflared from its official distribution, or supply --origin with an existing HTTPS forwarder. Preserve other tunnels.');
 }
 function privateLog(file:string){const s=lstatSync(file);if(!s.isFile()||s.isSymbolicLink()||(s.mode&0o077))throw new CommerceError('setup_private_file','Runtime log must be an owner-only regular file.');}
-export async function agentSetup(options:{file:string;directory?:string;python?:string;home?:string;container?:string;origin?:string;port?:number;checkOnly?:boolean}):Promise<void>{
+export async function agentSetup(options:{file:string;directory?:string;python?:string;home?:string;container?:string;origin?:string;port?:number;checkOnly?:boolean;framework?:"hermes"|"openclaw"}):Promise<void>{
  const invite=invitation(privateJson(resolve(options.file)));
- const profile=resolve(options.directory??join(homedir(),'.envarpay',invite.agentId));
+ const managedRoot=process.env.ENVARPAY_MANAGED_ROOT ? resolve(process.env.ENVARPAY_MANAGED_ROOT) : undefined;
+ const managedDirectory=managedRoot ? join(managedRoot,'profiles',invite.agentId) : undefined;
+ const profile=resolve(options.directory??managedDirectory??join(homedir(),'.envarpay',invite.agentId));
+ if(managedRoot){
+  if(options.container || profile!==managedDirectory)throw new CommerceError('managed_profile','Use this managed runtime and its existing profile location');
+  const active=managedProfile(managedRoot);
+  if(active!==managedRoot&&active!==profile)throw new CommerceError('managed_bound','This runtime belongs to another Agent; preserve its original profile');
+  const origin=process.env.ENVARPAY_ORIGIN,port=Number(process.env.ENVARPAY_PORT??'4020');
+  if(!origin||new URL(origin).protocol!=='https:'||new URL(origin).origin!==origin||!Number.isInteger(port)||port<1024||port>65535||(options.origin&&options.origin!==origin)||(options.port&&options.port!==port))throw new CommerceError('managed_origin','Use the managed HTTPS origin and port');
+  options={...options,origin,port};
+ }
  const root=profile+'.onboarding';
  if(options.checkOnly){const result=await request(invite,'status',{});if(result.agent_id!==invite.agentId)throw new CommerceError('setup_identity','Receipt belongs to another Agent.');console.log(JSON.stringify(result,null,2));if(result.status!=='connected')process.exitCode=1;return;}
  mkdirSync(root,{recursive:true,mode:0o700});if(lstatSync(root).isSymbolicLink()||(lstatSync(root).mode&0o077))throw new CommerceError('setup_directory','Use a private directory owned by this user.');
@@ -75,7 +86,7 @@ export async function agentSetup(options:{file:string;directory?:string;python?:
  if(!existsSync(profile)){
   let settings=existsSync(manifest)?privateJson(manifest):undefined;
   if(!settings){const port=options.port??await freePort();const origin=await publicOrigin(root,port,invite.agentId,options.origin);settings={agentId:invite.agentId,port,origin};save(manifest,settings);}
-  await setupHermes({file:bundleFile,directory:profile,python:options.python,home:options.home,container:options.container,automatic:settings});
+  await setupAgent({framework:options.framework,managed:!!managedRoot,file:bundleFile,directory:profile,python:options.python,home:options.home,container:options.container,automatic:settings});
  }
  if(lstatSync(profile).isSymbolicLink()||(lstatSync(profile).mode&0o077))throw new CommerceError('setup_directory','The runtime must be a private directory.');
  const connection=privateJson(join(profile,'connection.json'));
@@ -84,6 +95,10 @@ export async function agentSetup(options:{file:string;directory?:string;python?:
  if(connection.agentId!==invite.agentId)throw new CommerceError('setup_identity','Existing runtime belongs to another Agent.');
  const policy=privateJson(join(profile,'envar.json')).policy;
  if(policy.agentId!==invite.agentId||policy.platformOrigin!==invite.platformOrigin)throw new CommerceError('setup_identity','Existing integration belongs to another Agent.');
+ if(managedRoot){
+  if(readFileSync(join(profile,'envar.token'),'utf8')!==bundle.token)writeFileSync(join(profile,'envar.token'),bundle.token,{mode:0o600});
+  activateManagedProfile(managedRoot,invite.agentId,profile);
+ }else{
  const running=join(root,'process.json');let started=false;
  if(existsSync(running))try{process.kill(privateJson(running).pid,0);started=true}catch{}
  if(started&&readFileSync(join(profile,'envar.token'),'utf8')!==bundle.token)throw new CommerceError('setup_running','Existing runtime uses an earlier credential. Stop its recorded process, keep its ledger, then retry this invitation.');
@@ -94,6 +109,7 @@ export async function agentSetup(options:{file:string;directory?:string;python?:
   const fd=openSync(log,'a',0o600),child=spawn(process.execPath,[join(profile,'start.mjs')],{detached:true,stdio:['ignore',fd,fd]});closeSync(fd);child.unref();
   writeFileSync(running,JSON.stringify({pid:child.pid}),{mode:0o600});
  }
+ }
  let result:any;
  for(let attempt=0;attempt<12;attempt++){
   try{result=await request(invite,'connect',{agentId:invite.agentId,url:connection.url,authToken:connection.authToken});if(result.status==='connected')break;}catch(e){if(attempt===11)throw e;}
@@ -101,7 +117,7 @@ export async function agentSetup(options:{file:string;directory?:string;python?:
  }
  result=await request(invite,'status',{});
  if(result.status!=='connected'||result.agent_id!==invite.agentId||!result.verified_at)throw new CommerceError('setup_unverified','Platform did not verify this setup. Keep files and report the blocker.');
- const output={...result,local_directory:profile,receipt_file:join(root,'receipt.json'),scope:'connected; not published; no payment',restart:`node ${JSON.stringify(join(profile,'start.mjs'))}`,temporary_tunnel:!options.origin,automatic_restart:false};
+ const output={...result,local_directory:profile,receipt_file:join(root,'receipt.json'),scope:'connected; not published; no payment',restart:managedRoot?'managed by the deployment':`node ${JSON.stringify(join(profile,'start.mjs'))}`,temporary_tunnel:!options.origin,automatic_restart:!!managedRoot};
  if(existsSync(join(root,'receipt.json')))privateJson(join(root,'receipt.json'));
  writeFileSync(join(root,'receipt.json'),JSON.stringify(output,null,2)+'\n',{mode:0o600});
  console.log(JSON.stringify(output,null,2));

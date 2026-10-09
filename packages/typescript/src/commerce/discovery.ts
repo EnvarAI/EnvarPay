@@ -1,3 +1,4 @@
+import { readSkillInventory } from "./native-inventory.js";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import {
@@ -46,6 +47,7 @@ interface FoundSkill {
 export interface DiscoverySettings {
   hermesHome: string;
   enabledFromWeb: true;
+  roots?: string[];
 }
 export class SkillDiscovery {
   private enabled: Record<string, string>;
@@ -64,6 +66,7 @@ export class SkillDiscovery {
       : {};
   }
   private async scan(): Promise<FoundSkill[]> {
+    if (this.discovery.roots && !this.settings.dockerContainer) return readSkillInventory(this.discovery.roots);
     const code = readFileSync(
       new URL("../../examples/hermes-skill-inventory.py", import.meta.url),
       "utf8",

@@ -22,7 +22,8 @@ import { evmReceiptVerifier, evmSettlementRecovery } from './chain.js';
 import { CommerceError } from './types.js';
 import { createNativeSkillExecutor, type NativeSkillSettings } from './native-skills.js';
 import { inspectLedger, inspectLocalAlerts } from './operations.js';
-import { setupHermes } from './setup.js';
+import { serveManaged } from './managed.js';
+import { setupAgent } from './setup.js';
 import { SkillDiscovery } from './discovery.js';
 import {upgradeDiscovery,configurePayments} from './configure.js';
 import {agentSetup} from './agent-setup.js';
@@ -32,9 +33,9 @@ const { values, positionals } = parseArgs({ allowPositionals: true, options: {
   version: { type: 'boolean' }, help: {type:'boolean',short:'h'}, state: { type: 'string' }, credentials: { type: 'string' }, host: { type: 'string' },
   port: { type: 'string' }, directory: { type: 'string' }, 'envar-config': {type:'string'}, 'envar-credentials': {type:'string'},
   after:{type:'string'}, limit:{type:'string'}, 'refund-review':{type:'boolean'}, alerts:{type:'boolean'}, 'fail-on-alert':{type:'boolean'}, 'integration-state':{type:'string'}, 'no-integration':{type:'boolean'},
-  file:{type:'string'},'docker-container':{type:'string'},python:{type:'string'},'hermes-home':{type:'string'},check:{type:'boolean'},
+  framework:{type:'string'},file:{type:'string'},'docker-container':{type:'string'},python:{type:'string'},'hermes-home':{type:'string'},check:{type:'boolean'},
 } });
-const usage = 'envarpay onboard --file invitation.json [--check] [--python PATH] [--docker-container NAME] [--hermes-home PATH] [--origin HTTPS_ORIGIN]\nenvarpay upgrade --directory DIR [--hermes-home PATH] | payments --directory DIR --file receiving.json\nenvarpay setup --file envar-setup.json [--docker-container NAME | --python PATH] [--hermes-home PATH] [--directory DIR]\ninit --directory DIR | inspect --state DB [--after ROW --limit 100 --refund-review] [--alerts --config buyer-policy.json --integration-state DB/--no-integration --fail-on-alert] | validate --config seller.json | card --config seller.json --service ID --offer ID --origin URL | serve/buyer-serve --config FILE --credentials FILE --state DB --origin URL';
+const usage = 'envarpay onboard --file invitation.json [--framework hermes|openclaw] [--check] [--python PATH] [--docker-container NAME] [--hermes-home PATH] [--origin HTTPS_ORIGIN]\nenvarpay upgrade --directory DIR [--hermes-home PATH] | payments --directory DIR --file receiving.json\nenvarpay setup --file envar-setup.json [--docker-container NAME | --python PATH] [--hermes-home PATH] [--directory DIR]\ninit --directory DIR | inspect --state DB [--after ROW --limit 100 --refund-review] [--alerts --config buyer-policy.json --integration-state DB/--no-integration --fail-on-alert] | validate --config seller.json | card --config seller.json --service ID --offer ID --origin URL | serve/buyer-serve --config FILE --credentials FILE --state DB --origin URL';
 const closers: (() => void | Promise<void>)[] = [];
 function privateFile(path: string): Buffer {
   const stat = lstatSync(path);
@@ -71,15 +72,20 @@ async function run(): Promise<void> {
   if(values.help||positionals.length===0&&!values.version){console.log(usage);return;}
   if (values.version) { console.log(createRequire(import.meta.url)('../../package.json').version); return; }
   const command = positionals[0];
+  if(values.framework && !['hermes','openclaw'].includes(values.framework))throw new CommerceError('setup_runtime','Use hermes or openclaw');
+  if(command==='managed-serve'){
+    if(!values.directory||!values.origin)throw new CommerceError('managed_configuration','Managed serve requires its directory and HTTPS origin');
+    await serveManaged(values.directory,values.origin,values.host??'127.0.0.1',port(4020));return;
+  }
   if(command==='onboard'){
     if(!values.file)throw new CommerceError('setup_file','Save the private invitation and pass --file PATH.');
-    await agentSetup({file:values.file,directory:values.directory,python:values.python,home:values['hermes-home'],container:values['docker-container'],origin:values.origin,port:values.port?port(4020):undefined,checkOnly:values.check});return;
+    await agentSetup({framework:values.framework as 'hermes'|'openclaw'|undefined,file:values.file,directory:values.directory,python:values.python,home:values['hermes-home'],container:values['docker-container'],origin:values.origin,port:values.port?port(4020):undefined,checkOnly:values.check});return;
   }
   if(command==='upgrade'&&values.directory){upgradeDiscovery(values.directory,values['hermes-home']);return;}
   if(command==='payments'&&values.directory&&values.file){await configurePayments(values.directory,values.file);return;}
   if(command==='setup'){
     if(!values.file)throw new CommerceError('setup_file','Download the setup file from your Agent service page and pass --file PATH');
-    await setupHermes({file:values.file,directory:values.directory,container:values['docker-container'],python:values.python,home:values['hermes-home']});return;
+    await setupAgent({framework:values.framework as 'hermes'|'openclaw'|undefined,file:values.file,directory:values.directory,container:values['docker-container'],python:values.python,home:values['hermes-home']});return;
   }
   if(values.alerts||values['fail-on-alert']||values['integration-state']||values['no-integration']) {
     if(command!=='inspect'||!values.state||!values.alerts||values['refund-review']||values.after||values.limit||(values['no-integration']&&values['integration-state']))throw new CommerceError('inspection_view','Alert inspection needs inspect --state and --alerts, without pagination or refund review; choose at most one integration source');

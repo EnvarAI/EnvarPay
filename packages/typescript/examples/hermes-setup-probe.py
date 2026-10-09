@@ -18,7 +18,8 @@ def inspect(home):
     model = config.get("model", {})
     if isinstance(model, str):
         model = {"default": model}
-    provider = config.get("providers", {}).get(model.get("provider"), {})
+    provider_id = str(model.get("provider", "")).removeprefix("custom:")
+    provider = config.get("providers", {}).get(provider_id, {})
     dotenv = {}
     if (home / ".env").exists():
         for line in (home / ".env").read_text().splitlines():
@@ -32,6 +33,8 @@ def inspect(home):
     key = (
         provider.get("api_key")
         or provider.get("key")
+        or dotenv.get(provider.get("key_env", ""))
+        or os.environ.get(provider.get("key_env", ""))
         or dotenv.get("OPENAI_API_KEY")
         or os.environ.get("OPENAI_API_KEY")
     )
@@ -90,6 +93,7 @@ def inspect(home):
         "apiKeyFile": key_file,
         "apiKey": None if key_file else key,
         "skills": skills,
+        "skillRoots": [str(root) for root in roots],
     }
 
 
