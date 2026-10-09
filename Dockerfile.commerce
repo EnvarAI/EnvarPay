@@ -1,0 +1,18 @@
+FROM node:24-alpine@sha256:ebfe2f90462722a7a4de65e91990e97fe0d401c70e0e762c5b53302f905ec1c1 AS build
+WORKDIR /src
+COPY packages/typescript/package.json packages/typescript/package-lock.json ./
+RUN npm ci --ignore-scripts --no-audit --no-fund
+COPY packages/typescript/tsconfig.json ./
+COPY packages/typescript/src ./src
+RUN npm run build && npm prune --omit=dev --ignore-scripts --no-audit --no-fund
+
+FROM node:24-alpine@sha256:ebfe2f90462722a7a4de65e91990e97fe0d401c70e0e762c5b53302f905ec1c1
+WORKDIR /opt/envarpay
+COPY --from=build /src/package.json ./package.json
+COPY --from=build /src/dist ./dist
+COPY --from=build /src/node_modules ./node_modules
+COPY packages/typescript/schemas ./schemas
+COPY packages/typescript/examples ./examples
+RUN addgroup -g 10001 envarpay && adduser -D -u 10001 -G envarpay envarpay
+USER 10001:10001
+ENTRYPOINT ["node", "/opt/envarpay/dist/commerce/cli.js"]

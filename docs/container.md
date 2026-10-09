@@ -5,7 +5,7 @@ The 0.2 container runs the TypeScript A2A commerce service on Node 24 as UID/GID
 reviewed source while the immutable registry release is being accepted:
 
 ```sh
-docker build -t envarpay:commerce .
+docker build -f Dockerfile.commerce -t envarpay:commerce .
 docker run --rm --network none envarpay:commerce --version
 ```
 
@@ -43,3 +43,12 @@ The previous Python/MCP containers remain addressable by their old immutable
 tags for recovery of existing experimental operations. They are not the new
 A2A commerce runtime. Never overwrite a released tag or migrate an unknown
 purchase by signing another payment.
+
+For AceDataCloud managed Hermes/OpenClaw deployments, this image runs only the
+optional seller process. The chart mounts a per-Application persistent catalog
+and ledger; initial catalog and payment profiles are empty. A2A connection can
+be active without a paid offer. The buyer signer and its budget always remain
+in a separate owner-controlled environment. The `commerce-image.yml` workflow
+builds the same Dockerfile on PRs. After merging, dispatch it from `main` with
+`publish=true` once; it refuses an existing release tag. Make that GHCR package
+pullable before promoting the consuming charts.
