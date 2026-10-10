@@ -54,8 +54,8 @@ test("new Hermes install is discovered without restart, remains private, and onl
     const original =
       "---\nname: copywriting\ndescription: Write product copy\n---\nWrite supplied text.";
     writeFileSync(join(source, "SKILL.md"), original);
-    mkdirSync(join(source, ".clawhub"));
-    writeFileSync(join(source, ".clawhub/origin.json"), '{"source":"native installer"}');
+    mkdirSync(join(source, ".openclaw"));
+    writeFileSync(join(source, ".openclaw/source-origin.json"), '{"source":"native installer"}');
     discovery.nextScan = 0;
     await discovery.sync(integration, []);
     assert.equal(value.skills[0].status, "available");
@@ -67,8 +67,8 @@ test("new Hermes install is discovered without restart, remains private, and onl
     await discovery.sync(integration, []);
     assert.equal(existsSync(join(skills, "copywriting/SKILL.md")), true);
     assert.equal(readFileSync(join(source, "SKILL.md"), "utf8"), original);
-    assert.equal(existsSync(join(skills, "copywriting/.clawhub/origin.json")), false);
-    assert.equal(existsSync(join(source, ".clawhub/origin.json")), true);
+    assert.equal(existsSync(join(skills, "copywriting/.openclaw/source-origin.json")), false);
+    assert.equal(existsSync(join(source, ".openclaw/source-origin.json")), true);
     assert.ok(granted.includes("copywriting"));
     assert.equal(
       readInstalledSkills(
