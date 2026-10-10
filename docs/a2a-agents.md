@@ -92,7 +92,7 @@ The inspected bundled `@openclaw/a2a` implementation exposes `sendA2aChannelText
 
 Merge [`openclaw.json`](../examples/native-a2a/openclaw.json) into the private profile and send JSON envelope text through the native message tool/channel addressed to `a2a:approved_research`. Keep the inbound peer token and outbound proxy token distinct.
 
-This native adapter currently returns the Task ID rather than delivering the returned artifact text to the calling model. Poll that Task with the standard helper below. Do not report “work completed” from the send acknowledgment.
+This native adapter returns the proxy Task ID in its `messageId` field. Use that exact value as `--task-id` with the standard helper below to read the artifacts and payment state. A send acknowledgment such as `sent` or `settled` does not prove payment or completed work.
 
 ## Results, clarification and owner approval
 

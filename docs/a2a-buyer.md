@@ -112,6 +112,9 @@ canonical block, token Transfer and signed authorization nonce. This read-only w
 does not sign, settle again or relax confirmation depth. If it ends without proof,
 the original authorization and budget reservation remain available for recovery.
 Original nonce lookup uses 200-block chunks supported by the default public Base RPCs.
+From 0.2.0-alpha.15, this same wait budget also covers transient RPC rate limits,
+HTTP service errors and transport failures at every receipt-verification stage.
+Permanent authentication errors and mismatched chain evidence still fail closed.
 
 Management snapshots may include the original transaction receipt and authorization
 nonce for independent observation. They never expose the signature, private key,
