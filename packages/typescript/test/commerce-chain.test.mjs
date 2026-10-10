@@ -13,9 +13,15 @@ const transferLog=()=>log(encodeEventTopics({abi:transfer,eventName:'Transfer',a
 const authLog=()=>log(encodeEventTopics({abi:authorization,eventName:'AuthorizationUsed',args:{authorizer:payer,nonce}}),'0x',1);
 
 test('chain receipt must match canonical block, confirmations, Transfer and signed nonce',async()=>{
- let mode='valid',receiptReads=0;const ranges=[];
+ let mode='valid',receiptReads=0;const ranges=[],failures=[],requests=[];
  const server=createServer(async(req,res)=>{
   let text='';for await(const c of req)text+=c;const rpc=JSON.parse(text);let result;
+  requests.push(rpc);
+  if(failures[0]?.method===rpc.method){
+   const failure=failures.shift();res.setHeader('Content-Type','application/json');
+   if(failure.status){res.statusCode=failure.status;res.end(JSON.stringify({error:'RPC temporarily unavailable'}));return;}
+   res.end(JSON.stringify({jsonrpc:'2.0',id:rpc.id,error:{code:failure.code??-32000,message:'RPC temporarily unavailable'}}));return;
+  }
   if(rpc.method==='eth_chainId')result='0x14a34';
   else if(rpc.method==='eth_blockNumber')result=mode==='bounded-recovery'?'0x190':mode==='unconfirmed'||mode==='delayed'&&receiptReads<3?'0xa':'0xc';
   else if(rpc.method==='eth_getLogs'){
@@ -56,6 +62,18 @@ test('chain receipt must match canonical block, confirmations, Transfer and sign
   mode='unconfirmed';receiptReads=0;
   assert.equal(await evmReceiptVerifier(urls,2,50)(receipt,payload,requirements),false);
   assert.equal(receiptReads,1,'bounded wait does not relax the required depth');
+  mode='valid';receiptReads=0;requests.length=0;
+  failures.push({method:'eth_chainId',code:-32011},{method:'eth_getTransactionReceipt',status:429},{method:'eth_getBlockByNumber',status:503},{method:'eth_blockNumber',code:-32005});
+  assert.equal(await evmReceiptVerifier(urls,2,6000)(receipt,payload,requirements),true);
+  assert.equal(failures.length,0,'transient failures at every receipt-verification stage are retried');
+  assert.ok(requests.every(r=>['eth_chainId','eth_getTransactionReceipt','eth_getBlockByNumber','eth_blockNumber'].includes(r.method)),'retries only read chain data');
+  assert.ok(requests.filter(r=>r.method==='eth_getTransactionReceipt').every(r=>r.params[0]===tx),'retries keep the exact original transaction');
+  requests.length=0;failures.push({method:'eth_chainId',status:401});
+  await assert.rejects(evmReceiptVerifier(urls,2,6000)(receipt,payload,requirements));
+  assert.equal(requests.length,1,'permanent authentication errors are not retried');
+  requests.length=0;failures.push({method:'eth_chainId',code:-32011});
+  await assert.rejects(evmReceiptVerifier(urls,2,50)(receipt,payload,requirements));
+  assert.equal(requests.length,1,'the shared wait budget bounds rate-limit retries');
   for(const duration of [-1,30001,NaN])assert.throws(()=>evmReceiptVerifier(urls,2,duration),{code:'confirmation_policy'});
  }finally{await new Promise(r=>server.close(r));}
 });

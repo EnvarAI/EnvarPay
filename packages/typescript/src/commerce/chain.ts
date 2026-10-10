@@ -10,6 +10,15 @@ const officialUsdc:Readonly<Record<string,string>>={
   'eip155:84532':'0x036cbd53842c5426634e7929541ec2318f3dcf7e',
   'eip155:8453':'0x833589fcd6edb6e08f4c7c32d4f71b54bda02913',
 };
+function transientRpcRead(error:unknown):boolean {
+  for(let cause=error,depth=0;cause&&typeof cause==='object'&&depth<8;depth++){
+    const value=cause as {name?:string;status?:number;code?:number;cause?:unknown};
+    if(value.name==='TimeoutError'||[408,429,500,502,503,504].includes(value.status??0)||[-32005,-32011].includes(value.code??0))return true;
+    if(value.name==='HttpRequestError'&&value.status===undefined)return true;
+    cause=value.cause;
+  }
+  return false;
+}
 export interface ExpiredUnusedProof {
   expiredUnused:true; network:string; asset:string; payer:string; nonce:string;
   validAfter:string; validBefore:string; blockNumber:string; blockHash:string; blockTimestamp:string;
@@ -26,23 +35,28 @@ export function evmReceiptVerifier(rpcUrls:Readonly<Record<string,string>>,confi
     const chainId=Number(requirements.network.split(':')[1]);
     if(!Number.isSafeInteger(chainId)||!/^0x[0-9a-fA-F]{64}$/.test(receipt.transaction)||receipt.network!==requirements.network)return false;
     const client=createPublicClient({transport:http(rpc,{timeout:15000,retryCount:0})});
-    if(await client.getChainId()!==chainId)return false;
     const deadline=Date.now()+confirmationWaitMs;
     const wait=async()=>{
       const remaining=deadline-Date.now();if(remaining<=0)return false;
       await new Promise(resolve=>setTimeout(resolve,Math.min(1000,remaining)));return Date.now()<deadline;
     };
+    // All retries read the original transaction on the configured RPC. A rate
+    // limit at any verification stage must not be mistaken for chain evidence.
+    const read=async<T>(operation:()=>Promise<T>):Promise<T>=>{
+      for(;;){try{return await operation();}catch(error){if(!transientRpcRead(error)||!await wait())throw error;}}
+    };
+    if(await read(()=>client.getChainId())!==chainId)return false;
     let mined:Awaited<ReturnType<typeof client.getTransactionReceipt>>;
     for(;;){
-      try{mined=await client.getTransactionReceipt({hash:receipt.transaction as Hex});}
+      try{mined=await read(()=>client.getTransactionReceipt({hash:receipt.transaction as Hex}));}
       catch(error){
         if(error instanceof TransactionReceiptNotFoundError){if(await wait())continue;return false;}
         throw error;
       }
       if(mined.status!=='success'||mined.transactionHash.toLowerCase()!==receipt.transaction.toLowerCase())return false;
-      const block=await client.getBlock({blockNumber:mined.blockNumber});
+      const block=await read(()=>client.getBlock({blockNumber:mined.blockNumber}));
       if(block.hash!==mined.blockHash)return false;
-      const latest=await client.getBlockNumber({cacheTime:0});
+      const latest=await read(()=>client.getBlockNumber({cacheTime:0}));
       if(latest-mined.blockNumber+1n>=BigInt(confirmations))break;
       if(!await wait())return false;
     }
