@@ -6,7 +6,7 @@ import { parse } from 'yaml';
 const namePattern = /^[a-z][a-z0-9-]{0,63}$/;
 // Native installer provenance is included in the source digest, but never
 // copied into the executable service package or supplied to the model.
-export const isSkillInstallerMetadata = (path: string) => path === '.clawhub/origin.json';
+export const isSkillInstallerMetadata = (path: string) => path === '.clawhub/origin.json' || path === '.openclaw/source-origin.json';
 
 export function readSkillInventory(roots: string[]) {
   const found: { name: string; path: string; description: string; supported: boolean; digest: string; files: number }[] = [];

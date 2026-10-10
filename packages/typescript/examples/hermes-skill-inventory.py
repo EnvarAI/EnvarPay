@@ -74,7 +74,7 @@ def inventory(home):
                         supported = False
                         break
                     if (file.suffix.lower() not in {".md", ".txt"} and file.name != "LICENSE"
-                            and str(file.relative_to(entry.parent)) != ".clawhub/origin.json"):
+                            and str(file.relative_to(entry.parent)) not in {".clawhub/origin.json", ".openclaw/source-origin.json"}):
                         supported = False
                     package.append(
                         [

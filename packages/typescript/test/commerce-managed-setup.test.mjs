@@ -57,6 +57,8 @@ test('native inventory and web enablement share the same package digest', async 
     writeFileSync(join(source,'参考.md'),'Reference text.');
     mkdirSync(join(source,'.clawhub'));
     writeFileSync(join(source,'.clawhub/origin.json'),'{"source":"clawhub","untrusted":"not model instructions"}');
+    mkdirSync(join(source,'.openclaw'));
+    writeFileSync(join(source,'.openclaw/source-origin.json'),'{"source":"openclaw native source installer"}');
     const inventory=readSkillInventory([installed]); assert.equal(inventory.length,1);assert.equal(inventory[0].supported,true);
     const discovery=new SkillDiscovery({framework:'openclaw',skillsDirectory:enabled,freeSkills:[],stateDirectory:join(root,'tasks'),python:'python3',model:'test',baseUrl:'https://model.example',apiKeyFile:join(root,'key')},{hermesHome:root,roots:[installed],enabledFromWeb:true},'https://seller.example');
     const allowed=[];
@@ -65,6 +67,17 @@ test('native inventory and web enablement share the same package digest', async 
     assert.deepEqual(allowed,['copywriting']);
     assert.equal(existsSync(join(enabled,'copywriting/.clawhub/origin.json')),false,'installer metadata is never supplied to execution');
     assert.equal(existsSync(join(source,'.clawhub/origin.json')),true,'native installer provenance remains intact');
+    assert.equal(existsSync(join(enabled,'copywriting/.openclaw/source-origin.json')),false);
+    assert.equal(existsSync(join(source,'.openclaw/source-origin.json')),true);
+    writeFileSync(join(source,'.openclaw/source-origin.json'),'{"source":"updated"}');
+    assert.notEqual(readSkillInventory([installed])[0].digest,inventory[0].digest);
+    writeFileSync(join(source,'.openclaw/execute.json'),'{}');
+    assert.equal(readSkillInventory([installed])[0].supported,false);
+    rmSync(join(source,'.openclaw/execute.json'));
+    rmSync(join(source,'.openclaw/source-origin.json'));
+    symlinkSync(join(source,'参考.md'),join(source,'.openclaw/source-origin.json'));
+    assert.equal(readSkillInventory([installed])[0].supported,false);
+    rmSync(join(source,'.openclaw/source-origin.json'));
     writeFileSync(join(source,'.clawhub/origin.json'),'{"source":"updated"}');
     assert.notEqual(readSkillInventory([installed])[0].digest,inventory[0].digest,'metadata remains in the owner-approved source digest');
     writeFileSync(join(source,'.clawhub/execute.json'),'{}');
