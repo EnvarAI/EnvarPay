@@ -64,6 +64,11 @@ Invitations expire in one hour and can be replaced in Envar. They can bind only 
 7. Import the generated `connection.json` into the Envar setup page. It updates this same Agent's A2A endpoint and reads its real Skill inventory. Wrong-Agent files are rejected. If the endpoint is unavailable, keep the service online and import the same file again to retry.
 8. New Skills show **New · not listed**. Review text-only compatibility and select **Enable text Skill**. EnvarPay prepares that exact source version; the page checks its A2A Card and makes it selectable. Describe the output, build the buyer form and save an offer. Request publication, wait for the running EnvarPay process to apply it, then choose **Check and publish**. Discovery and enablement never publish automatically.
 
+Native ClawHub installs may include `.clawhub/origin.json`. This provenance file
+stays in the original Skill and its approval digest, and is omitted from the
+service copy. It does not make a text Skill require a code adapter. Other scripts,
+binaries, unsupported files and symlinks still require separate review.
+
 ## Upgrade an existing setup
 
 Run `envarpay upgrade --directory ~/.envarpay/AGENT_ID` with alpha.11. Custom directories and local profiles are supported with `--directory` and `--hermes-home`. Stop the original foreground process and run its updated `start.mjs`. The original port, access tokens, ledger and service copies remain intact. Newly installed Skills are scanned without another restart. Updated source files are marked separately; an existing service keeps its pinned copy until a deliberate new version is prepared.
