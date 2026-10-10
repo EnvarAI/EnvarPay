@@ -1,4 +1,4 @@
-import {createPublicClient,http,decodeEventLog,parseAbi,type Hex} from 'viem';
+import {createPublicClient,http,decodeEventLog,parseAbi,TransactionReceiptNotFoundError,type Hex} from 'viem';
 import type {PaymentPayload,PaymentRequirements,SettleResponse} from '@x402/core/types';
 import {CommerceError} from './types.js';
 import {validateUrl} from './config.js';
@@ -17,8 +17,9 @@ export interface ExpiredUnusedProof {
 }
 
 /** Checks the canonical chain receipt and exact official-token Transfer. */
-export function evmReceiptVerifier(rpcUrls:Readonly<Record<string,string>>,confirmations=2){
+export function evmReceiptVerifier(rpcUrls:Readonly<Record<string,string>>,confirmations=2,confirmationWaitMs=12000){
   if(!Number.isInteger(confirmations)||confirmations<1)throw new CommerceError('confirmation_policy','Positive confirmation depth required');
+  if(!Number.isInteger(confirmationWaitMs)||confirmationWaitMs<0||confirmationWaitMs>30000)throw new CommerceError('confirmation_policy','Confirmation wait must be between 0 and 30000 milliseconds');
   return async(receipt:SettleResponse,payload:PaymentPayload,requirements:PaymentRequirements):Promise<boolean>=>{
     const rpc=rpcUrls[requirements.network];if(!rpc)throw new CommerceError('rpc_missing','Configure the settlement network RPC');
     validateUrl(rpc,true);
@@ -26,11 +27,25 @@ export function evmReceiptVerifier(rpcUrls:Readonly<Record<string,string>>,confi
     if(!Number.isSafeInteger(chainId)||!/^0x[0-9a-fA-F]{64}$/.test(receipt.transaction)||receipt.network!==requirements.network)return false;
     const client=createPublicClient({transport:http(rpc,{timeout:15000,retryCount:0})});
     if(await client.getChainId()!==chainId)return false;
-    const mined=await client.getTransactionReceipt({hash:receipt.transaction as Hex});
-    if(mined.status!=='success')return false;
-    const block=await client.getBlock({blockNumber:mined.blockNumber});
-    if(block.hash!==mined.blockHash)return false;
-    const latest=await client.getBlockNumber();if(latest-mined.blockNumber+1n<BigInt(confirmations))return false;
+    const deadline=Date.now()+confirmationWaitMs;
+    const wait=async()=>{
+      const remaining=deadline-Date.now();if(remaining<=0)return false;
+      await new Promise(resolve=>setTimeout(resolve,Math.min(1000,remaining)));return Date.now()<deadline;
+    };
+    let mined:Awaited<ReturnType<typeof client.getTransactionReceipt>>;
+    for(;;){
+      try{mined=await client.getTransactionReceipt({hash:receipt.transaction as Hex});}
+      catch(error){
+        if(error instanceof TransactionReceiptNotFoundError){if(await wait())continue;return false;}
+        throw error;
+      }
+      if(mined.status!=='success'||mined.transactionHash.toLowerCase()!==receipt.transaction.toLowerCase())return false;
+      const block=await client.getBlock({blockNumber:mined.blockNumber});
+      if(block.hash!==mined.blockHash)return false;
+      const latest=await client.getBlockNumber({cacheTime:0});
+      if(latest-mined.blockNumber+1n>=BigInt(confirmations))break;
+      if(!await wait())return false;
+    }
     const auth=(payload.payload as {authorization?:{from?:string;to?:string;value?:string;nonce?:string}}).authorization;
     if(!auth?.from||!auth.nonce||auth.to?.toLowerCase()!==requirements.payTo.toLowerCase()||auth.value!==requirements.amount)return false;
     if(receipt.payer&&receipt.payer.toLowerCase()!==auth.from.toLowerCase())return false;
@@ -101,8 +116,9 @@ export function evmSettlementRecovery(rpcUrls:Readonly<Record<string,string>>) {
       // Bounded per reconciliation. Very old operations need an operator/archive
       // RPC lookup; never reinterpret incomplete search as proof of non-payment.
       if(latest-BigInt(fromBlock)>100000n)throw new CommerceError('archive_reconciliation_required','Original authorization requires an archive log lookup');
-      for(let start=BigInt(fromBlock);start<=latest;start+=2000n){
-        const end=start+1999n<latest?start+1999n:latest;
+      // The default public Base RPCs limit eth_getLogs to 200-block ranges.
+      for(let start=BigInt(fromBlock);start<=latest;start+=200n){
+        const end=start+199n<latest?start+199n:latest;
         const logs=await client.getLogs({address:requirements.asset as Hex,event:authorizationAbi[0],args:{authorizer:auth!.from as Hex,nonce:auth!.nonce as Hex},fromBlock:start,toBlock:end,strict:true});
         const settled=logs.filter(log=>!log.removed&&log.transactionHash);
         if(settled.length>1)throw new CommerceError('ambiguous_receipt','Multiple authorization events require manual reconciliation');

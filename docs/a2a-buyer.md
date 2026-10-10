@@ -105,6 +105,14 @@ EIP-3009 authorization nonce. A server's success response alone is insufficient.
 Task results and payment verification are separate: work can be complete while
 payment verification remains unknown, and payment can succeed while execution fails.
 
+From 0.2.0-alpha.14, the default receipt verifier polls the same transaction for up to 12 seconds when
+its receipt is not yet visible or the required confirmation depth has not arrived.
+RPC calls retain their own timeout. It still requires the exact transaction hash,
+canonical block, token Transfer and signed authorization nonce. This read-only wait
+does not sign, settle again or relax confirmation depth. If it ends without proof,
+the original authorization and budget reservation remain available for recovery.
+Original nonce lookup uses 200-block chunks supported by the default public Base RPCs.
+
 Management snapshots may include the original transaction receipt and authorization
 nonce for independent observation. They never expose the signature, private key,
 vault path, management token, seller token or Stripe authentication action.

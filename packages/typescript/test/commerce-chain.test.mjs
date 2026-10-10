@@ -13,24 +13,32 @@ const transferLog=()=>log(encodeEventTopics({abi:transfer,eventName:'Transfer',a
 const authLog=()=>log(encodeEventTopics({abi:authorization,eventName:'AuthorizationUsed',args:{authorizer:payer,nonce}}),'0x',1);
 
 test('chain receipt must match canonical block, confirmations, Transfer and signed nonce',async()=>{
- let mode='valid';
+ let mode='valid',receiptReads=0;const ranges=[];
  const server=createServer(async(req,res)=>{
   let text='';for await(const c of req)text+=c;const rpc=JSON.parse(text);let result;
   if(rpc.method==='eth_chainId')result='0x14a34';
-  else if(rpc.method==='eth_blockNumber')result=mode==='unconfirmed'?'0xa':'0xc';
-  else if(rpc.method==='eth_getLogs')result=mode==='missing-nonce'?[]:[authLog()];
+  else if(rpc.method==='eth_blockNumber')result=mode==='bounded-recovery'?'0x190':mode==='unconfirmed'||mode==='delayed'&&receiptReads<3?'0xa':'0xc';
+  else if(rpc.method==='eth_getLogs'){
+   if(mode==='bounded-recovery'){
+    const from=BigInt(rpc.params[0].fromBlock),to=BigInt(rpc.params[0].toBlock);ranges.push([Number(from),Number(to)]);
+    if(to-from>=200n){res.setHeader('Content-Type','application/json');res.end(JSON.stringify({jsonrpc:'2.0',id:rpc.id,error:{code:-32614,message:'eth_getLogs is limited to a 200 range'}}));return;}
+    result=from<=300n&&to>=300n?[{...authLog(),blockNumber:'0x12c'}]:[];
+   }else result=mode==='missing-nonce'?[]:[authLog()];
+  }
   else if(rpc.method==='eth_getBlockByNumber')result={number:'0xa',hash:mode==='reorg'?'0x'+'6'.repeat(64):block,transactions:[],timestamp:'0x1234',gasLimit:'0x1',gasUsed:'0x1',extraData:'0x',miner:payee};
   else if(rpc.method==='eth_getTransactionReceipt'){
+   receiptReads++;
    const logs=[transferLog(),authLog()];
    if(mode==='wrong-amount')logs[0].data=encodeAbiParameters([{type:'uint256'}],[1n]);
    if(mode==='wrong-asset')logs[0].address=payee;
    if(mode==='missing-nonce')logs.pop();
-   result={transactionHash:tx,transactionIndex:'0x0',blockHash:block,blockNumber:'0xa',from:payer,to:asset,cumulativeGasUsed:'0x1',gasUsed:'0x1',effectiveGasPrice:'0x1',contractAddress:null,logs,logsBloom:'0x'+'0'.repeat(512),status:mode==='reverted'?'0x0':'0x1',type:'0x2'};
+   result=mode==='delayed'&&receiptReads===1?null:{transactionHash:mode==='wrong-hash'?'0x'+'7'.repeat(64):tx,transactionIndex:'0x0',blockHash:block,blockNumber:'0xa',from:payer,to:asset,cumulativeGasUsed:'0x1',gasUsed:'0x1',effectiveGasPrice:'0x1',contractAddress:null,logs,logsBloom:'0x'+'0'.repeat(512),status:mode==='reverted'?'0x0':'0x1',type:'0x2'};
   }else throw new Error('Unexpected RPC '+rpc.method);
   res.setHeader('Content-Type','application/json');res.end(JSON.stringify({jsonrpc:'2.0',id:rpc.id,result}));
  });server.listen(0,'127.0.0.1');await once(server,'listening');
  try{
-  const verify=evmReceiptVerifier({'eip155:84532':`http://127.0.0.1:${server.address().port}`});
+  const urls={'eip155:84532':`http://127.0.0.1:${server.address().port}`};
+  const verify=evmReceiptVerifier(urls,2,0);
   const receipt={success:true,payer,transaction:tx,network:'eip155:84532'};
   const payload={payload:{authorization:{from:payer,to:payee,value:'3000000',nonce}}};
   const requirements={network:'eip155:84532',asset,payTo:payee,amount:'3000000'};
@@ -39,7 +47,16 @@ test('chain receipt must match canonical block, confirmations, Transfer and sign
   assert.equal(await recovery.checkpoint(requirements),'0');
   assert.equal((await recovery.findOriginalReceipt(payload,requirements,'0')).transaction,tx);
   mode='missing-nonce';assert.equal(await recovery.findOriginalReceipt(payload,requirements,'0'),undefined);
-  for(const bad of ['wrong-amount','wrong-asset','missing-nonce','reorg','unconfirmed','reverted']){mode=bad;assert.equal(await verify(receipt,payload,requirements),false,bad);}
+  mode='bounded-recovery';assert.equal((await recovery.findOriginalReceipt(payload,requirements,'0')).transaction,tx);
+  assert.deepEqual(ranges,[[0,199],[200,399]],'original nonce lookup respects the public RPC range limit');
+  for(const bad of ['wrong-amount','wrong-asset','wrong-hash','missing-nonce','reorg','unconfirmed','reverted']){mode=bad;assert.equal(await verify(receipt,payload,requirements),false,bad);}
+  mode='delayed';receiptReads=0;
+  assert.equal(await evmReceiptVerifier(urls,2,4000)(receipt,payload,requirements),true);
+  assert.equal(receiptReads,3,'waits for visibility and confirmation depth using the same transaction');
+  mode='unconfirmed';receiptReads=0;
+  assert.equal(await evmReceiptVerifier(urls,2,50)(receipt,payload,requirements),false);
+  assert.equal(receiptReads,1,'bounded wait does not relax the required depth');
+  for(const duration of [-1,30001,NaN])assert.throws(()=>evmReceiptVerifier(urls,2,duration),{code:'confirmation_policy'});
  }finally{await new Promise(r=>server.close(r));}
 });
 
