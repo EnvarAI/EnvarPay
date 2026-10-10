@@ -12,7 +12,7 @@ import {
   rmSync,
 } from "node:fs";
 import { homedir } from "node:os";
-import { join, resolve } from "node:path";
+import { join, resolve, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { randomBytes } from "node:crypto";
 import { execFileSync } from "node:child_process";
@@ -21,6 +21,7 @@ import { probeOpenClaw } from "./openclaw-setup.js";
 import { readInstalledSkills } from "./native-skills.js";
 import { loadCommerceConfig, validateUrl } from "./config.js";
 import { CommerceError } from "./types.js";
+import { isSkillInstallerMetadata } from './native-inventory.js';
 
 const ID = /^[a-z][a-z0-9-]{0,63}$/,
   CONTAINER = /^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$/;
@@ -74,6 +75,7 @@ export function prepareTextSkill(
           "setup_skill",
           "Skill symlinks are unsupported",
         );
+      if (item.isFile() && isSkillInstallerMetadata(relative(source, path).split(sep).join('/'))) return false;
       if (
         item.isFile() &&
         !/\.(md|txt)$/i.test(path) &&

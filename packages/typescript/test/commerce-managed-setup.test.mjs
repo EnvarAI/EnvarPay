@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, symlinkSync, realpathSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, symlinkSync, realpathSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
@@ -55,12 +55,25 @@ test('native inventory and web enablement share the same package digest', async 
     mkdirSync(source,{recursive:true}); mkdirSync(enabled);
     writeFileSync(join(source,'SKILL.md'),'---\nname: copywriting\ndescription: >\n  Write a concise description.\n---\nWrite only the requested text.\n');
     writeFileSync(join(source,'参考.md'),'Reference text.');
+    mkdirSync(join(source,'.clawhub'));
+    writeFileSync(join(source,'.clawhub/origin.json'),'{"source":"clawhub","untrusted":"not model instructions"}');
     const inventory=readSkillInventory([installed]); assert.equal(inventory.length,1);assert.equal(inventory[0].supported,true);
     const discovery=new SkillDiscovery({framework:'openclaw',skillsDirectory:enabled,freeSkills:[],stateDirectory:join(root,'tasks'),python:'python3',model:'test',baseUrl:'https://model.example',apiKeyFile:join(root,'key')},{hermesHome:root,roots:[installed],enabledFromWeb:true},'https://seller.example');
     const allowed=[];
     await discovery.sync({reportRuntime:async report=>{assert.equal(report.skills[0].digest,inventory[0].digest);return [{name:'copywriting',digest:inventory[0].digest}]},allowInstalledService:name=>allowed.push(name)},[]);
     assert.ok(readFileSync(join(enabled,'copywriting','SKILL.md'),'utf8').includes('envar-runtime: instruction-only'));
     assert.deepEqual(allowed,['copywriting']);
+    assert.equal(existsSync(join(enabled,'copywriting/.clawhub/origin.json')),false,'installer metadata is never supplied to execution');
+    assert.equal(existsSync(join(source,'.clawhub/origin.json')),true,'native installer provenance remains intact');
+    writeFileSync(join(source,'.clawhub/origin.json'),'{"source":"updated"}');
+    assert.notEqual(readSkillInventory([installed])[0].digest,inventory[0].digest,'metadata remains in the owner-approved source digest');
+    writeFileSync(join(source,'.clawhub/execute.json'),'{}');
+    assert.equal(readSkillInventory([installed])[0].supported,false,'other metadata-like files remain unsupported');
+    rmSync(join(source,'.clawhub/execute.json'));
+    rmSync(join(source,'.clawhub/origin.json'));
+    symlinkSync(join(source,'参考.md'),join(source,'.clawhub/origin.json'));
+    assert.equal(readSkillInventory([installed])[0].supported,false,'allowlisted metadata cannot be a symlink');
+    rmSync(join(source,'.clawhub/origin.json'));
     symlinkSync(join(root,'key'),join(source,'key-link'));
     assert.equal(readSkillInventory([installed])[0].supported,false);
   } finally { rmSync(root,{recursive:true,force:true}); }

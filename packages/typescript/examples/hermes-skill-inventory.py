@@ -73,7 +73,8 @@ def inventory(home):
                     if size > 1024 * 1024 or len(package) >= 128:
                         supported = False
                         break
-                    if file.suffix.lower() not in {".md", ".txt"} and file.name != "LICENSE":
+                    if (file.suffix.lower() not in {".md", ".txt"} and file.name != "LICENSE"
+                            and str(file.relative_to(entry.parent)) != ".clawhub/origin.json"):
                         supported = False
                     package.append(
                         [
