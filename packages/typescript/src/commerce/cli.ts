@@ -27,6 +27,7 @@ import { setupAgent } from './setup.js';
 import { SkillDiscovery } from './discovery.js';
 import {upgradeDiscovery,configurePayments} from './configure.js';
 import {agentSetup} from './agent-setup.js';
+import {setupExternalAgent,serveExternalAgent} from './external-runtime.js';
 
 const { values, positionals } = parseArgs({ allowPositionals: true, options: {
   config: { type: 'string' }, service: { type: 'string' }, offer: { type: 'string' }, origin: { type: 'string' },
@@ -35,7 +36,7 @@ const { values, positionals } = parseArgs({ allowPositionals: true, options: {
   after:{type:'string'}, limit:{type:'string'}, 'refund-review':{type:'boolean'}, alerts:{type:'boolean'}, 'fail-on-alert':{type:'boolean'}, 'integration-state':{type:'string'}, 'no-integration':{type:'boolean'},
   framework:{type:'string'},file:{type:'string'},'docker-container':{type:'string'},python:{type:'string'},'hermes-home':{type:'string'},check:{type:'boolean'},
 } });
-const usage = 'envarpay onboard --file invitation.json [--framework hermes|openclaw] [--check] [--python PATH] [--docker-container NAME] [--hermes-home PATH] [--origin HTTPS_ORIGIN]\nenvarpay upgrade --directory DIR [--hermes-home PATH] | payments --directory DIR --file receiving.json\nenvarpay setup --file envar-setup.json [--docker-container NAME | --python PATH] [--hermes-home PATH] [--directory DIR]\ninit --directory DIR | inspect --state DB [--after ROW --limit 100 --refund-review] [--alerts --config buyer-policy.json --integration-state DB/--no-integration --fail-on-alert] | validate --config seller.json | card --config seller.json --service ID --offer ID --origin URL | serve/buyer-serve --config FILE --credentials FILE --state DB --origin URL';
+const usage = 'envarpay external-setup --directory DIR --origin HTTPS_ORIGIN | external-serve --config FILE --credentials FILE --state DB --origin HTTPS_ORIGIN\nenvarpay onboard --file invitation.json [--framework hermes|openclaw] [--check] [--python PATH] [--docker-container NAME] [--hermes-home PATH] [--origin HTTPS_ORIGIN]\nenvarpay upgrade --directory DIR [--hermes-home PATH] | payments --directory DIR --file receiving.json\nenvarpay setup --file envar-setup.json [--docker-container NAME | --python PATH] [--hermes-home PATH] [--directory DIR]\ninit --directory DIR | inspect --state DB [--after ROW --limit 100 --refund-review] [--alerts --config buyer-policy.json --integration-state DB/--no-integration --fail-on-alert] | validate --config seller.json | card --config seller.json --service ID --offer ID --origin URL | serve/buyer-serve --config FILE --credentials FILE --state DB --origin URL';
 const closers: (() => void | Promise<void>)[] = [];
 function privateFile(path: string): Buffer {
   const stat = lstatSync(path);
@@ -72,6 +73,8 @@ async function run(): Promise<void> {
   if(values.help||positionals.length===0&&!values.version){console.log(usage);return;}
   if (values.version) { console.log(createRequire(import.meta.url)('../../package.json').version); return; }
   const command = positionals[0];
+  if(command==='external-setup'){if(!values.directory||!values.origin)throw new CommerceError('external_setup','Provide directory and public HTTPS origin');console.log(JSON.stringify(setupExternalAgent(values.directory,values.origin)));return;}
+  if(command==='external-serve'){if(!values.config||!values.credentials||!values.state||!values.origin)throw new CommerceError('external_serve','Provide config, credentials, state and origin');const runtime=serveExternalAgent({configFile:values.config,credentialsFile:values.credentials,stateFile:values.state,origin:values.origin,host:values.host??'127.0.0.1',port:port(4020)});closers.push(()=>runtime.close());await once(runtime.http,'listening');signals();console.log(JSON.stringify({listening:port(4020),role:'external-agent',paymentsEnabled:false}));return;}
   if(values.framework && !['hermes','openclaw'].includes(values.framework))throw new CommerceError('setup_runtime','Use hermes or openclaw');
   if(command==='managed-serve'){
     if(!values.directory||!values.origin)throw new CommerceError('managed_configuration','Managed serve requires its directory and HTTPS origin');
