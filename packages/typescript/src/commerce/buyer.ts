@@ -31,7 +31,7 @@ export interface BuyerPreviewInput { cardUrl: string; messageId: string; input: 
 export interface BuyerConfirmInput { previewId: string; quoteToken: string; messageId: string; }
 export interface BuyerAuthentication { purchaseId: string; action: MppAuthenticationAction | null; }
 export interface CommerceBuyerOptions {
-  policy: BuyerPolicy; store: BuyerStore; vault?: CredentialVault; signer?: ClientEvmSigner; mpp?: MppBuyerOptions;
+  policy: BuyerPolicy; store: BuyerStore; vault?: Pick<CredentialVault,'get'|'put'>; signer?: ClientEvmSigner; mpp?: MppBuyerOptions;
   wallet?: EnvarWalletClient;
   peerTokens: Readonly<Record<string, string>>;
   /** Override sibling /a2a only when the local wallet owner explicitly allows it. */
@@ -169,6 +169,11 @@ export class CommerceBuyer {
     return structuredClone({ id: record.id, quoteToken: record.quoteToken, messageId: record.messageId, payer: record.quote.payer, state: record.state, quote: record.quote, ...(record.mppMethod==='envar'?{paymentMethod:'envar' as const,walletState:record.walletState}:{}), paymentState: record.paymentState, executionState: record.executionState, ...(record.task ? { task: record.task } : {}), ...(record.result !== undefined ? { result: record.result } : {}), ...(record.errorCode ? { errorCode: record.errorCode } : {}), ...(record.receipt ? { receipt: record.mppMethod === 'envar' ? publicWalletReceipt(record.receipt as WalletReceipt) : record.protocol === 'mpp' ? publicMppReceipt(record.receipt as MppReceipt) : { success: (record.receipt as SettleResponse).success, transaction: (record.receipt as SettleResponse).transaction, network: (record.receipt as SettleResponse).network, ...((record.receipt as SettleResponse).payer ? { payer: (record.receipt as SettleResponse).payer } : {}) } } : {}), ...(record.nonce ? { nonce: record.nonce } : {}), ...(record.continuations?.length ? { continuation: { messageId: record.continuations.at(-1)!.messageId, state: record.continuations.at(-1)!.state, input: record.continuations.at(-1)!.input } } : {}), createdAt: record.createdAt, updatedAt: record.updatedAt });
   }
   get(caller: string, id: string): BuyerSnapshot { return this.snapshot(this.record(caller, id)); }
+  /** Read original Task state only. Never creates/replays a payment authorization. */
+  async poll(caller:string,id:string):Promise<BuyerSnapshot> {
+    const record=this.record(caller,id);
+    return record.task?.id?this.exclusive(id,()=>this.observe(record)):this.snapshot(record);
+  }
   async preview(caller: string, input: BuyerPreviewInput): Promise<BuyerSnapshot> {
     if (!caller || caller.length > 256 || typeof input.messageId !== 'string' || !input.messageId || input.messageId.length > 128 || typeof input.offerId !== 'string' || !input.offerId || !input.input || typeof input.input !== 'object' || Array.isArray(input.input)) throw new CommerceError('invalid_purchase', 'Caller, stable message ID, offer and object input are required');
     const fingerprint = digest(input); const key = input.messageId;

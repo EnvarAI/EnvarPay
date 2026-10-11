@@ -83,3 +83,5 @@ Existing experimental purchases must be recovered with their original version,
 ledger and authorization. Do not convert unresolved old MCP/escrow operations into
 new A2A purchases. [Runtime recovery](docs/a2a-runtime-recovery.md) explains the new
 runtime's restart and unknown-state behavior. [License](LICENSE).
+
+The optional [hosted wallet buyer](docs/hosted-wallet-buyer.md) runs an explicitly approved website purchase with encrypted PostgreSQL checkpoints. It shares the A2A buyer implementation and does not host an Agent runtime or create a second funds ledger.
