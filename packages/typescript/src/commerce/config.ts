@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import { Ajv2020 } from 'ajv/dist/2020.js';
 import addFormatsImport from 'ajv-formats';
 import canonicalizeImport from 'canonicalize';
-import { CommerceError, type BuyerPolicy, type CommerceConfig, type Offer, type PaymentProfile, type Service } from './types.js';
+import { CommerceError, isEnvarPeer, type BuyerPolicy, type CommerceConfig, type Offer, type PaymentProfile, type Service } from './types.js';
 
 const canonicalize = canonicalizeImport as unknown as (data: unknown) => string | undefined;
 const addFormats = addFormatsImport as unknown as (ajv: Ajv2020) => void;
@@ -39,6 +39,11 @@ export function validateUrl(value: string, allowPrivate = false): URL {
   return url;
 }
 
+export function validateWalletUrl(value:string,environment:'sandbox'|'live'):URL {
+  const url=new URL(value);
+  return validateUrl(value,environment==='sandbox'&&['127.0.0.1','localhost','[::1]'].includes(url.hostname));
+}
+
 export function currencyOf(profile: PaymentProfile): string {
   return profile.adapter === 'x402' ? `${profile.network}/erc20:${profile.asset.toLowerCase()}` : profile.currency;
 }
@@ -57,12 +62,14 @@ function assertJson(value: unknown): void {
   }
 }
 
-export function digest(value: unknown): string {
+export function canonicalJson(value:unknown):string {
   assertJson(value);
   const serialized = canonicalize(value);
   if (serialized === undefined) throw new CommerceError('invalid_json', 'Cannot canonicalize input');
-  return createHash('sha256').update(serialized).digest('hex');
+  return serialized;
 }
+
+export function digest(value: unknown): string {return createHash('sha256').update(canonicalJson(value)).digest('hex');}
 
 /** Keep legacy quotes unchanged; skill-bound quotes freeze the installed skill revision too. */
 export function serviceTermsDigest(configVersion: 1 | 2, service: Service, offer: Offer, profile: PaymentProfile | null): string {
@@ -80,6 +87,9 @@ export function loadCommerceConfig(value: unknown): CommerceConfig {
     if (profile.adapter === 'x402') {
       if (USDC[profile.network] !== profile.asset.toLowerCase() || BigInt(profile.payTo) === 0n) throw new CommerceError('unsupported_payment_profile', 'MVP accepts official Base or Base Sepolia USDC and a nonzero receiving address');
       validateUrl(profile.facilitatorUrl);
+    } else if(profile.method==='envar') {
+      const issuer=validateWalletUrl(profile.issuer,profile.environment);
+      if(issuer.origin!==profile.issuer||issuer.pathname!=='/'||issuer.search)throw new CommerceError('wallet_issuer','Wallet issuer must be an exact origin');
     }
   }
   for (const service of config.services) {
@@ -119,7 +129,8 @@ export function loadCommerceConfig(value: unknown): CommerceConfig {
         high = atomic(offer.pricing.unitAmount) * BigInt(q.max);
       }
       if (high >= 2n ** 256n) throw new CommerceError('invalid_amount', 'Maximum total exceeds supported integer range');
-      if (profile.adapter === 'mpp' && low < 50n) throw new CommerceError('card_minimum', 'USD card orders must be at least 50 cents');
+      if (profile.adapter === 'mpp' && profile.method==='stripe' && low < 50n) throw new CommerceError('card_minimum', 'USD card orders must be at least 50 cents');
+      if (profile.adapter === 'mpp' && profile.method==='envar' && high > 1000000000000n) throw new CommerceError('wallet_amount','CNY order exceeds the wallet limit');
     }
   }
   return config;
@@ -129,7 +140,7 @@ export function loadBuyerPolicy(value: unknown): BuyerPolicy {
   if (!buyerValidator(value)) throw new CommerceError('invalid_policy', ajv.errorsText(buyerValidator.errors));
   const policy = structuredClone(value) as BuyerPolicy;
   const normalizedCurrency = (currency: string) => {
-    if (currency === 'usd') return currency;
+    if (currency === 'usd' || currency === 'cny') return currency;
     const match = /^(eip155:[1-9][0-9]*)\/erc20:(0x[0-9a-fA-F]{40})$/.exec(currency);
     if (!match || USDC[match[1]!] !== match[2]!.toLowerCase()) throw new CommerceError('unsupported_currency', 'Buyer budget must use USD or an official supported USDC asset');
     return `${match[1]}/erc20:${match[2]!.toLowerCase()}`;
@@ -142,7 +153,11 @@ export function loadBuyerPolicy(value: unknown): BuyerPolicy {
   }
   const ids = new Set<string>();
   for (const peer of policy.peers) {
-    validateUrl(peer.cardUrl);
+    if(isEnvarPeer(peer)){
+      validateWalletUrl(peer.cardUrl,peer.environment);
+      const issuer=validateWalletUrl(peer.issuer,peer.environment);
+      if(issuer.origin!==peer.issuer||issuer.search)throw new CommerceError('wallet_issuer','Use an explicit wallet issuer origin');
+    }else validateUrl(peer.cardUrl);
     if (peer.mode === 'standard-a2a') {
       const endpoint = validateUrl(peer.endpoint), card = validateUrl(peer.cardUrl);
       if (endpoint.origin !== card.origin || endpoint.search || endpoint.href !== peer.endpoint || card.href !== peer.cardUrl) throw new CommerceError('standard_peer_endpoint', 'Review an exact same-origin HTTPS A2A endpoint without query parameters');
@@ -156,9 +171,9 @@ export function loadBuyerPolicy(value: unknown): BuyerPolicy {
     if (peer.protocol === 'free') continue;
     peer.currency = normalizedCurrency(peer.currency);
     if (peer.protocol === 'x402') {
-      if (!/^0x[0-9a-fA-F]{40}$/.test(peer.recipient) || BigInt(peer.recipient) === 0n || peer.currency === 'usd') throw new CommerceError('invalid_recipient', 'x402 peers require a nonzero EVM recipient and USDC asset');
+      if (!/^0x[0-9a-fA-F]{40}$/.test(peer.recipient) || BigInt(peer.recipient) === 0n || peer.currency === 'usd'||peer.currency==='cny') throw new CommerceError('invalid_recipient', 'x402 peers require a nonzero EVM recipient and USDC asset');
       peer.recipient = peer.recipient.toLowerCase();
-    } else if (peer.currency !== 'usd' || !isStripeProfileId(peer.recipient)) throw new CommerceError('invalid_recipient', 'MPP peers require USD and a verified Stripe merchant profile');
+    } else if (!isEnvarPeer(peer)&&(peer.currency !== 'usd' || !isStripeProfileId(peer.recipient))) throw new CommerceError('invalid_recipient', 'MPP Stripe peers require USD and a verified Stripe merchant profile');
     const limit = limits.get(peer.currency);
     if (limit === undefined || atomic(peer.maxPerPurchase) > limit) throw new CommerceError('invalid_budget', 'Each peer needs a cumulative budget at least as large as its per-purchase limit');
   }

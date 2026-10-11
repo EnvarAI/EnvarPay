@@ -15,7 +15,8 @@ import {
 } from "node:fs";
 import { join, resolve } from "node:path";
 import { DatabaseSync } from "node:sqlite";
-import { atomic, currencyOf, digest, loadCommerceConfig } from "./config.js";
+import { atomic, currencyOf, digest, loadCommerceConfig, validateWalletUrl } from "./config.js";
+import type { WalletReceipt } from "./wallet-client.js";
 import {
   CommerceError,
   type CommerceConfig,
@@ -51,6 +52,7 @@ export interface EnvarPolicy {
     facilitatorOrigin: string;
   }[];
   allowedMppAccounts: string[];
+  allowedEnvarWallets?: { accountRef:string; merchantId:string; issuer:string; environment:'sandbox'|'live' }[];
 }
 export interface EnvarCandidate {
   id: string;
@@ -228,6 +230,10 @@ export class EnvarIntegration {
     });
     if (this.policy.allowedMppAccounts.some((id) => !ID.test(id)))
       fail("envar_policy", "Configure explicit merchant account references");
+    for(const entry of this.policy.allowedEnvarWallets??[]){
+      uuid(entry.merchantId);
+      if(!ID.test(entry.accountRef)||!['sandbox','live'].includes(entry.environment)||validateWalletUrl(entry.issuer,entry.environment).origin!==entry.issuer)fail('envar_policy','Configure explicit wallet merchant, issuer and environment bindings');
+    }
     this.timeoutMs = options.timeoutMs ?? 10000;
     this.limitBytes = options.responseLimitBytes ?? 1048576;
     if (
@@ -508,6 +514,8 @@ export class EnvarIntegration {
             "envar_recipient_denied",
             "Receiving identity or facilitator is outside the local update grant",
           );
+      } else if(profile.method==='envar'){
+        if(!(this.policy.allowedEnvarWallets??[]).some(entry=>entry.accountRef===profile.accountRef&&entry.merchantId===profile.merchantId&&entry.issuer===profile.issuer&&entry.environment===profile.environment))fail('envar_merchant_denied','Wallet merchant is outside the local update grant');
       } else if (!this.policy.allowedMppAccounts.includes(profile.accountRef))
         fail(
           "envar_merchant_denied",
@@ -856,6 +864,7 @@ export class EnvarIntegration {
     const { quote, payment: p } = report;
     if (
       quote.paymentProfile?.adapter !== "mpp" ||
+      quote.paymentProfile.method !== "stripe" ||
       p.amount !== quote.amount ||
       p.currency !== quote.currency ||
       p.currency !== "usd" ||
@@ -878,6 +887,13 @@ export class EnvarIntegration {
         },
       },
     });
+  }
+  enqueueWalletPayment(dedupeKey:string,report:{orderId:string;quote:PriceQuote;payment:WalletReceipt}):string {
+    uuid(report.orderId);
+    const {quote,payment}=report,profile=quote.paymentProfile;
+    if(profile?.adapter!=='mpp'||profile.method!=='envar'||payment.method!=='envar'||payment.amount!==quote.amount||payment.currency!=='cny'||payment.recipient!==quote.recipient||payment.issuer!==profile.issuer||payment.environment!==profile.environment)fail('envar_payment_binding','Report the original wallet charge matching the frozen quote');
+    uuid(payment.reference);
+    return this.enqueue(`report:${dedupeKey}`,'report',{order_id:report.orderId,kind:'payment_observed',payload:{protocol:'mpp',method:'envar',payment:{reference:payment.reference,amount:payment.amount,currency:'cny',recipient:payment.recipient,issuer:payment.issuer,environment:payment.environment,binding_digest:payment.bindingDigest}}});
   }
   queueStatus(): {
     pending: number;

@@ -6,6 +6,7 @@ import type { PaymentRequired, PaymentRequirements, SettleResponse } from '@x402
 import { atomic } from './config.js';
 import type { Challenge } from 'mppx';
 import type { MppReceipt } from './mpp-client.js';
+import type { WalletPayment, WalletReceipt } from './wallet-client.js';
 import { CommerceError, type BuyerPolicy, type Input } from './types.js';
 
 export interface BuyerQuote {
@@ -23,10 +24,11 @@ export interface BuyerRecord {
   standardBinding?: { policyDigest: string; bodyDigest: string; challengeDigest: string };
   continuations?: { messageId: string; input: Input; body?: string; state: 'pending' | 'unknown' | 'resolved'; beforeDigest: string }[];
   protocol?: 'x402' | 'mpp' | 'free'; mppChallenge?: Challenge.Challenge; tokenOperationId?: string; tokenRef?: string; mppMode?: 'test' | 'live'; mppPaymentMethod?: string;
+  mppMethod?: 'stripe'|'envar'; walletIssuer?:string; walletEnvironment?:'sandbox'|'live'; walletState?:WalletPayment['state'];
   required?: PaymentRequired; requirements?: PaymentRequirements; createdAt: string; updatedAt: string;
   state: 'previewed' | 'signing' | 'submitted' | 'unknown' | 'completed' | 'failed';
   paymentState: 'quoted' | 'reserved' | 'unknown' | 'confirmed' | 'rejected' | 'not_required'; executionState: string;
-  credentialRef?: string; nonce?: string; fromBlock?: string; receipt?: SettleResponse | MppReceipt;
+  credentialRef?: string; nonce?: string; fromBlock?: string; receipt?: SettleResponse | MppReceipt | WalletReceipt;
   task?: Record<string, unknown>; result?: unknown; errorCode?: string;
   rejectionEvidence?: { kind: 'finalized_expired_unused'; checkedAt: string; nonce: string };
 }
@@ -94,7 +96,7 @@ export class BuyerStore {
       return record;
     });
   }
-  update(id: string, patch: Partial<Pick<BuyerRecord, 'state' | 'paymentState' | 'executionState' | 'credentialRef' | 'nonce' | 'fromBlock' | 'receipt' | 'task' | 'result' | 'errorCode' | 'continuations' | 'tokenOperationId' | 'tokenRef' | 'rejectionEvidence'>>): BuyerRecord {
+  update(id: string, patch: Partial<Pick<BuyerRecord, 'state' | 'paymentState' | 'executionState' | 'credentialRef' | 'nonce' | 'fromBlock' | 'receipt' | 'task' | 'result' | 'errorCode' | 'continuations' | 'tokenOperationId' | 'tokenRef' | 'rejectionEvidence' | 'walletState'>>): BuyerRecord {
     const row = this.db.prepare('SELECT record_json FROM buyer_purchases WHERE id=?').get(id);
     if (!row) throw new CommerceError('purchase_not_found', 'Purchase not found');
     const record = { ...JSON.parse(String(row.record_json)), ...patch, updatedAt: new Date().toISOString() } as BuyerRecord;
@@ -150,7 +152,15 @@ export class BuyerStore {
       return this.update(id, { state: 'failed', paymentState: 'rejected', errorCode: 'authorization_expired_unused', rejectionEvidence: { kind: 'finalized_expired_unused', checkedAt: new Date().toISOString(), nonce: record.nonce } });
     });
   }
-  confirmed(id: string, receipt: SettleResponse | MppReceipt): BuyerRecord {
+  rejectWalletAuthorization(id:string,caller:string,payment:WalletPayment):BuyerRecord {
+    return this.transaction(()=>{
+      const record=this.get(id,caller);
+      if(!record||record.mppMethod!=='envar'||!['voided','expired'].includes(payment.state)||payment.receipt||payment.challengeId!==record.mppChallenge?.id||payment.amount!==record.quote.amount||payment.recipient!==record.quote.recipient||record.paymentState==='confirmed')throw new CommerceError('wallet_rejection_evidence','A verified uncaptured original wallet operation is required');
+      this.db.prepare("UPDATE buyer_purchases SET budget_state='none' WHERE id=? AND budget_state='reserved'").run(id);
+      return this.update(id,{state:'failed',paymentState:'rejected',walletState:payment.state,errorCode:'wallet_authorization_inactive'});
+    });
+  }
+  confirmed(id: string, receipt: SettleResponse | MppReceipt | WalletReceipt): BuyerRecord {
     return this.transaction(() => {
       this.db.prepare("UPDATE buyer_purchases SET budget_state='spent' WHERE id=? AND budget_state IN ('reserved','spent')").run(id);
       return this.update(id, { paymentState: 'confirmed', receipt });

@@ -31,8 +31,8 @@ export function buildQuote(config: CommerceConfig, args: {
   }
   if (amount >= 2n ** 256n) throw new CommerceError('invalid_amount', 'Quoted amount is too large');
   const profile = offer.paymentProfile ? config.paymentProfiles[offer.paymentProfile]! : null;
-  const recipient = profile?.adapter === 'x402' ? profile.payTo : profile ? args.stripeRecipient : null;
-  if (profile?.adapter === 'mpp' && !recipient) throw new CommerceError('merchant_not_ready', 'Resolve and verify the Stripe merchant before quoting');
+  const recipient = profile?.adapter === 'x402' ? profile.payTo : profile?.method === 'envar' ? profile.merchantId : profile ? args.stripeRecipient : null;
+  if (profile?.adapter === 'mpp' && !recipient) throw new CommerceError('merchant_not_ready', 'Resolve and verify the merchant before quoting');
   const now = args.now ?? new Date(); const ttl = args.ttlSeconds ?? 600;
   if (!Number.isInteger(ttl) || ttl < 1 || ttl > 3600 || !Number.isFinite(now.getTime())) throw new CommerceError('invalid_expiry', 'Quote lifetime must be 1–3600 seconds');
   const quote: PriceQuote = {

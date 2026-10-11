@@ -46,7 +46,7 @@
           "cardUrl": {
             "type": "string",
             "format": "uri",
-            "pattern": "^https://"
+            "pattern": "^https?://"
           },
           "protocol": {
             "enum": [
@@ -118,6 +118,22 @@
                 "const": true
               }
             }
+          },
+          "method": {
+            "enum": [
+              "stripe",
+              "envar"
+            ]
+          },
+          "issuer": {
+            "type": "string",
+            "format": "uri"
+          },
+          "environment": {
+            "enum": [
+              "sandbox",
+              "live"
+            ]
           }
         },
         "allOf": [
@@ -209,6 +225,66 @@
                     ],
                     "properties": {
                       "localContract": {}
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "if": {
+              "required": [
+                "method"
+              ],
+              "properties": {
+                "method": {
+                  "const": "envar"
+                }
+              }
+            },
+            "then": {
+              "required": [
+                "issuer",
+                "environment"
+              ],
+              "properties": {
+                "protocol": {
+                  "const": "mpp"
+                },
+                "currency": {
+                  "const": "cny"
+                },
+                "recipient": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "issuer": {},
+                "environment": {}
+              }
+            },
+            "else": {
+              "properties": {
+                "cardUrl": {
+                  "pattern": "^https://",
+                  "type": "string"
+                }
+              },
+              "not": {
+                "anyOf": [
+                  {
+                    "required": [
+                      "issuer"
+                    ],
+                    "properties": {
+                      "issuer": {}
+                    }
+                  },
+                  {
+                    "required": [
+                      "environment"
+                    ],
+                    "properties": {
+                      "environment": {}
                     }
                   }
                 ]

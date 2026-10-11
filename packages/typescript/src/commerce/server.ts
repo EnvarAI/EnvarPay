@@ -272,6 +272,7 @@ export class CommerceServer {
     const order=this.store.orderForTask(m.taskId,caller,context.tenant??'');
     const original=order?await this.store.load(order.taskId,context):undefined;
     if(!order||!original||order.offerId!==offerId)throw new TaskNotFoundError('Original Task not found on this offer');
+    if(this.store.walletBlocked(order.id))throw new CommerceError('wallet_refunded','This order no longer permits additional execution');
     if(m.contextId&&m.contextId!==original.contextId)throw new RequestMalformedError('Context does not match the original Task');
     const existing=this.store.continuationFor(order.id,m.messageId);
     if(existing){if(existing.requestDigest!==digest(input))throw new RequestMalformedError('Clarification message ID already identifies different input');return original;}

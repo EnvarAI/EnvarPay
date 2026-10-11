@@ -15,7 +15,7 @@ export function createOfferCard(config: CommerceConfig, serviceId: string, offer
   const offer = service?.offers.find(x=>x.id===offerId);
   if (!service || !offer) throw new CommerceError('offer_not_found', 'Service offer not found');
   const profile=offer.paymentProfile?config.paymentProfiles[offer.paymentProfile]!:null;
-  const payment=profile?.adapter==='x402'?{adapter:'x402',network:profile.network,asset:profile.asset,payTo:profile.payTo}:profile?{adapter:'mpp',method:'stripe',intent:'charge',currency:profile.currency}:null;
+  const payment=profile?.adapter==='x402'?{adapter:'x402',network:profile.network,asset:profile.asset,payTo:profile.payTo}:profile?{adapter:'mpp',method:profile.method,intent:'charge',currency:profile.currency,...(profile.method==='envar'?{merchantId:profile.merchantId,issuer:profile.issuer,environment:profile.environment,methodVersion:profile.methodVersion}:{})}:null;
   return AgentCard.fromJSON({
     name: service.name,
     description: `Deliverables: ${service.contract.deliverables.join(', ')}`,

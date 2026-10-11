@@ -16,7 +16,9 @@ export interface Offer {
 
 export type PaymentProfile =
   | { adapter: 'x402'; scheme: 'exact'; network: string; asset: string; payTo: string; facilitatorUrl: string }
-  | { adapter: 'mpp'; method: 'stripe'; intent: 'charge'; currency: 'usd'; accountRef: string };
+  | { adapter: 'mpp'; method: 'stripe'; intent: 'charge'; currency: 'usd'; accountRef: string }
+  | { adapter: 'mpp'; method: 'envar'; intent: 'charge'; currency: 'cny'; accountRef: string;
+      merchantId: string; issuer: string; environment: 'sandbox' | 'live'; methodVersion: '1' };
 
 export interface Service {
   id: string;
@@ -46,8 +48,17 @@ export interface BuyerPolicy {
   policyVersion: 1;
   paymentsEnabled: boolean;
   approval: 'per_purchase' | 'within_preapproved_limits';
-  peers: (StandardA2APeer | { id: string; cardUrl: string; mode?: 'envarpay'; protocol: 'x402' | 'mpp'; currency: string; recipient: string; maxPerPurchase: string } | { id: string; cardUrl: string; mode?: 'envarpay'; protocol: 'free'; currency: null; recipient: null; maxPerPurchase: '0' })[];
+  peers: (StandardA2APeer | { id: string; cardUrl: string; mode?: 'envarpay'; protocol: 'x402' | 'mpp'; method?: 'stripe'; currency: string; recipient: string; maxPerPurchase: string } | EnvarBuyerPeer | { id: string; cardUrl: string; mode?: 'envarpay'; protocol: 'free'; currency: null; recipient: null; maxPerPurchase: '0' })[];
   budgets: { currency: string; maxTotal: string; period: 'cumulative' }[];
+}
+
+export interface EnvarBuyerPeer {
+  id: string; cardUrl: string; mode?: 'envarpay'; protocol: 'mpp'; method: 'envar';
+  currency: 'cny'; recipient: string; issuer: string; environment: 'sandbox' | 'live'; maxPerPurchase: string;
+}
+
+export function isEnvarPeer(peer: BuyerPolicy['peers'][number]): peer is EnvarBuyerPeer {
+  return peer.protocol === 'mpp' && 'method' in peer && peer.method === 'envar';
 }
 
 export interface PriceQuote {

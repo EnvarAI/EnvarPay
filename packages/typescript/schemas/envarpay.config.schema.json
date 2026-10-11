@@ -12,7 +12,10 @@
   ],
   "properties": {
     "configVersion": {
-      "enum": [1, 2]
+      "enum": [
+        1,
+        2
+      ]
     },
     "agent": {
       "type": "object",
@@ -45,6 +48,9 @@
           },
           {
             "$ref": "#/$defs/mpp"
+          },
+          {
+            "$ref": "#/$defs/envarWallet"
           }
         ]
       }
@@ -169,20 +175,38 @@
             {
               "type": "object",
               "additionalProperties": false,
-              "required": ["type", "cardUrl"],
+              "required": [
+                "type",
+                "cardUrl"
+              ],
               "properties": {
-                "type": { "const": "a2a" },
-                "cardUrl": { "$ref": "#/$defs/httpUrl" }
+                "type": {
+                  "const": "a2a"
+                },
+                "cardUrl": {
+                  "$ref": "#/$defs/httpUrl"
+                }
               }
             },
             {
               "type": "object",
               "additionalProperties": false,
-              "required": ["type", "cardUrl", "skillDigest"],
+              "required": [
+                "type",
+                "cardUrl",
+                "skillDigest"
+              ],
               "properties": {
-                "type": { "const": "skill" },
-                "cardUrl": { "$ref": "#/$defs/httpUrl" },
-                "skillDigest": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+                "type": {
+                  "const": "skill"
+                },
+                "cardUrl": {
+                  "$ref": "#/$defs/httpUrl"
+                },
+                "skillDigest": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                }
               }
             }
           ]
@@ -378,6 +402,55 @@
           }
         }
       ]
+    },
+    "envarWallet": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "adapter",
+        "method",
+        "intent",
+        "currency",
+        "accountRef",
+        "merchantId",
+        "issuer",
+        "environment",
+        "methodVersion"
+      ],
+      "properties": {
+        "adapter": {
+          "const": "mpp"
+        },
+        "method": {
+          "const": "envar"
+        },
+        "intent": {
+          "const": "charge"
+        },
+        "currency": {
+          "const": "cny"
+        },
+        "accountRef": {
+          "$ref": "#/$defs/id"
+        },
+        "merchantId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "issuer": {
+          "type": "string",
+          "format": "uri"
+        },
+        "environment": {
+          "enum": [
+            "sandbox",
+            "live"
+          ]
+        },
+        "methodVersion": {
+          "const": "1"
+        }
+      }
     }
   }
 }
