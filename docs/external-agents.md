@@ -62,6 +62,12 @@ a model API. Repeat the original message ID and verify the same Task/result.
 Competing completions cannot replace the original result. Restart the adapter
 and recover that same Task; stop the event subscription when acceptance ends.
 
+The external text entry accepts Envar's ordinary A2A text Part and converts it to
+the bounded `request` input before the normal schema and order checks. It also
+accepts a JSON-text object with exactly one string `request`. Buyers see WORKING
+while the original dispatch waits for Dot's claim, so Envar can keep polling the
+same Task until its actual output arrives. This does not claim the work completed.
+
 Subscriptions and delivery attempts are persisted; retries preserve their event
 ID. Callbacks require public HTTPS on port 443, DNS validation at connection time,
 original-host TLS validation, signed challenges, and no redirect following.

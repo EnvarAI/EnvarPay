@@ -92,7 +92,80 @@ test("original free Task is claimed, completed and replayed once; scopes and ter
         JSON.stringify({ jsonrpc: "2.0", id: randomUUID(), method, params }),
       );
     });
+  const wire = async (method, params) =>
+    new Promise((resolve, reject) => {
+      const req = httpRequest(
+        {
+          host: "127.0.0.1",
+          port: r.http.address().port,
+          path: "/services/text-answer/v1/offers/free/a2a",
+          method: "POST",
+          headers: {
+            Host: "external.example",
+            Authorization: "Bearer " + buyer,
+            "Content-Type": "application/json",
+            "A2A-Version": "1.0",
+          },
+        },
+        (res) => {
+          let text = "";
+          res.on("data", (v) => (text += v));
+          res.on("end", () => {
+            try {
+              resolve(JSON.parse(text));
+            } catch (e) {
+              reject(e);
+            }
+          });
+        },
+      );
+      req.on("error", reject);
+      req.end(
+        JSON.stringify({ jsonrpc: "2.0", id: randomUUID(), method, params }),
+      );
+    });
   try {
+    const textRequest = {
+      message: {
+        messageId: "plain-text-once",
+        role: "ROLE_USER",
+        parts: [{ text: "An ordinary Envar text request" }],
+      },
+    };
+    const pending = await wire("SendMessage", textRequest);
+    const textId = pending.result.task.id;
+    while (r.server.isRunning) await new Promise((z) => setTimeout(z, 1));
+    assert.equal(
+      (await wire("GetTask", { id: textId })).result.status.state,
+      "TASK_STATE_WORKING",
+    );
+    const textClaim = JSON.parse(
+      (
+        await mcp("tools/call", {
+          name: "claim_task",
+          arguments: { taskId: textId },
+        })
+      ).body.result.content[0].text,
+    );
+    assert.deepEqual(textClaim.input, {
+      request: "An ordinary Envar text request",
+    });
+    await mcp("tools/call", {
+      name: "complete_task",
+      arguments: {
+        taskId: textId,
+        claimId: textClaim.claimId,
+        text: "Original text output",
+      },
+    });
+    assert.equal(
+      (await wire("GetTask", { id: textId })).result.status.state,
+      "TASK_STATE_COMPLETED",
+    );
+    assert.equal(
+      (await wire("SendMessage", textRequest)).result.task.id,
+      textId,
+    );
     const params = {
       message: {
         messageId: "request-once",

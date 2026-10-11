@@ -175,6 +175,77 @@ export function serveExternalAgent(options: {
     execute: executor.execute,
   });
   const expected = new URL(options.origin).host;
+  async function externalA2a(request: Request) {
+    const path = new URL(request.url).pathname;
+    let normalized = request;
+    if (request.method === "POST" && path.endsWith("/a2a")) {
+      const rawText = await request.text();
+      if (Buffer.byteLength(rawText) > 65536)
+        return Response.json({ error: "request_too_large" }, { status: 413 });
+      let raw: any;
+      try {
+        raw = JSON.parse(rawText);
+      } catch {
+        return Response.json({ error: "invalid_json" }, { status: 400 });
+      }
+      if (raw.method === "SendMessage") {
+        const message = raw.params?.message;
+        if (
+          message?.parts?.length === 1 &&
+          typeof message.parts[0]?.text === "string" &&
+          Object.keys(message.parts[0]).every((k) =>
+            ["text", "mediaType"].includes(k),
+          )
+        ) {
+          const text = message.parts[0].text;
+          // This opt-in external service advertises a bounded plain-text request.
+          // A JSON-text request with exactly that schema is also accepted.
+          let input = { request: text };
+          try {
+            const parsed = JSON.parse(text);
+            if (
+              parsed &&
+              !Array.isArray(parsed) &&
+              Object.keys(parsed).length === 1 &&
+              typeof parsed.request === "string"
+            )
+              input = parsed;
+          } catch {}
+          message.parts = [{ data: input }];
+        }
+        raw.params.configuration = {
+          ...raw.params.configuration,
+          returnImmediately: true,
+        };
+      }
+      normalized = new Request(request.url, {
+        method: "POST",
+        headers: request.headers,
+        body: JSON.stringify(raw),
+      });
+    }
+    const response = await server.handle(normalized);
+    if (response.status !== 200) return response;
+    const value = await response.json();
+    if (request.method === "GET" && path.endsWith("/agent-card.json")) {
+      value.defaultInputModes = ["application/json", "text/plain"];
+    }
+    // Internally the completed dispatch queue waits for an external claim.
+    // A2A buyers see WORKING and can poll until this original Task completes.
+    for (const task of [value.result?.task, value.result]) {
+      if (
+        task?.status?.state === "TASK_STATE_INPUT_REQUIRED" &&
+        task.metadata?.externalAgent
+      ) {
+        task.status.state = "TASK_STATE_WORKING";
+        delete task.status.message;
+      }
+    }
+    return Response.json(value, {
+      status: response.status,
+      headers: response.headers,
+    });
+  }
   const http = createServer(async (req, res) => {
     try {
       if (req.headers.host !== expected) {
@@ -197,7 +268,7 @@ export function serveExternalAgent(options: {
         response =
           new URL(request.url).pathname === "/mcp"
             ? await mcp.handle(request)
-            : await server.handle(request);
+            : await externalA2a(request);
       if (response.status === 401 && new URL(request.url).pathname === "/mcp")
         response = new Response(response.body, {
           status: 401,
