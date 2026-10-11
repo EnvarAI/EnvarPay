@@ -51,7 +51,7 @@ export class MppGate {
   }
   private provider(order: OrderRecord): StripeProvider {
     const profile = order.quote.paymentProfile;
-    if (profile?.adapter !== 'mpp') throw new CommerceError('payment_method_unavailable', 'Not an MPP offer');
+    if (profile?.adapter !== 'mpp'||profile.method!=='stripe') throw new CommerceError('payment_method_unavailable', 'Not an MPP Stripe offer');
     const provider = this.options.providers[profile.accountRef];
     if (!provider || provider.merchantProfile !== order.quote.recipient) throw new CommerceError('merchant_not_ready', 'Configured merchant must match original quote');
     return provider;

@@ -92,6 +92,12 @@ export class CommerceStore implements TaskStore {
     );
     CREATE INDEX IF NOT EXISTS commerce_tasks_owner_tenant_updated ON commerce_tasks(owner,tenant,updated_at DESC,id);
     CREATE INDEX IF NOT EXISTS commerce_continuations_order_state ON commerce_continuations(order_id,state);`);
+    this.db.exec(`CREATE TABLE IF NOT EXISTS commerce_wallet_control(
+      order_id TEXT PRIMARY KEY REFERENCES commerce_orders(id), issuer TEXT NOT NULL,
+      environment TEXT NOT NULL, reference TEXT NOT NULL,
+      blocked INTEGER NOT NULL DEFAULT 0, completion_delivered INTEGER NOT NULL DEFAULT 0,
+      UNIQUE(issuer,environment,reference)
+    );`);
   }
   private migrateV1():void {
     // Rebuild only the state constraint. Preserve original IDs, credentials and every payment row.
@@ -155,6 +161,30 @@ export class CommerceStore implements TaskStore {
   getOrder(id:string,caller:string):OrderRecord|undefined {
     return this.order(this.db.prepare('SELECT * FROM commerce_orders WHERE id=? AND caller=?').get(id,caller) as Row|undefined);
   }
+  walletBlocked(orderId:string):boolean {
+    return !!this.db.prepare('SELECT order_id FROM commerce_wallet_control WHERE order_id=? AND blocked=1').get(orderId);
+  }
+  blockWalletDispatch(orderId:string,caller:string,knownRefund=false):void {
+    this.transaction(()=>{
+      const order=this.getOrder(orderId,caller);
+      if(!order||order.quote.paymentProfile?.adapter!=='mpp'||order.quote.paymentProfile.method!=='envar')throw new CommerceError('wallet_order','Original wallet order is required');
+      if(!knownRefund&&!['not_started','queued','completed','failed'].includes(order.executionState))throw new CommerceError('refund_execution_unknown','Running or unknown work requires operator review');
+      const control=this.db.prepare('SELECT reference FROM commerce_wallet_control WHERE order_id=?').get(orderId);
+      if(!control)throw new CommerceError('wallet_payment_pending','Recover the original wallet charge before refunding');
+      this.db.prepare('UPDATE commerce_wallet_control SET blocked=1 WHERE order_id=?').run(orderId);
+      this.db.prepare("UPDATE commerce_outbox SET state='done' WHERE order_id=? AND state='ready'").run(orderId);
+      this.db.prepare("UPDATE commerce_continuations SET state='done' WHERE order_id=? AND state='ready'").run(orderId);
+      if(['not_started','queued'].includes(order.executionState)){
+        this.db.prepare("UPDATE commerce_orders SET execution_state='failed' WHERE id=?").run(orderId);
+        const row=this.db.prepare('SELECT task_json FROM commerce_tasks WHERE id=?').get(order.taskId) as Row|undefined;
+        if(row){const task=Task.fromJSON(JSON.parse(String(row.task_json)));task.status={state:TaskState.TASK_STATE_CANCELED,timestamp:new Date().toISOString(),message:undefined};task.metadata={...task.metadata,walletDispatchBlocked:true};this.db.prepare('UPDATE commerce_tasks SET task_json=?,updated_at=? WHERE id=?').run(JSON.stringify(Task.toJSON(task)),new Date().toISOString(),order.taskId);}
+      }
+    });
+  }
+  walletCompletions():{orderId:string;reference:string;issuer:string;environment:string;recipient:string}[] {
+    return (this.db.prepare("SELECT w.*,o.quote_json FROM commerce_wallet_control w JOIN commerce_orders o ON o.id=w.order_id WHERE o.execution_state='completed' AND w.completion_delivered=0 LIMIT 100").all() as Row[]).map(row=>({orderId:String(row.order_id),reference:String(row.reference),issuer:String(row.issuer),environment:String(row.environment),recipient:String(JSON.parse(String(row.quote_json)).recipient)}));
+  }
+  completeWalletNotification(orderId:string):void {this.db.prepare('UPDATE commerce_wallet_control SET completion_delivered=1 WHERE order_id=?').run(orderId);}
   paymentForOrder(orderId:string):{id:string;state:string;credentialRef:string;receipt:Record<string,unknown>|null}|undefined {
     const row=this.db.prepare('SELECT * FROM commerce_payment_attempts WHERE order_id=? ORDER BY rowid DESC LIMIT 1').get(orderId) as Row|undefined;
     return row?{id:String(row.id),state:String(row.state),credentialRef:String(row.credential_ref),receipt:row.receipt_json?JSON.parse(String(row.receipt_json)):null}:undefined;
@@ -194,6 +224,7 @@ export class CommerceStore implements TaskStore {
     });
   }
   private createTaskOnce(order:OrderRecord):Task {
+    if(this.walletBlocked(order.id))throw new CommerceError('wallet_refunded','This payment cannot start another task');
     let row=this.db.prepare('SELECT task_json FROM commerce_tasks WHERE id=?').get(order.taskId) as Row|undefined;
     if(!row){
       const task=Task.fromJSON({id:order.taskId,contextId:randomUUID(),status:{state:'TASK_STATE_SUBMITTED',timestamp:new Date().toISOString()}});
@@ -232,6 +263,12 @@ export class CommerceStore implements TaskStore {
     return this.transaction(()=>{
       const attempt=this.db.prepare('SELECT * FROM commerce_payment_attempts WHERE id=?').get(attemptId) as Row|undefined;
       if(!attempt)throw new CommerceError('attempt_not_found','Original payment attempt not found');
+      if(state==='confirmed'&&receipt.method==='envar'){
+        if(!receipt.issuer||!receipt.environment||!receipt.reference)throw new CommerceError('wallet_receipt_binding','Wallet economic identity is required');
+        const existing=this.db.prepare('SELECT order_id FROM commerce_wallet_control WHERE issuer=? AND environment=? AND reference=?').get(String(receipt.issuer),String(receipt.environment),String(receipt.reference)) as Row|undefined;
+        if(existing&&existing.order_id!==attempt.order_id)throw new CommerceError('payment_reuse','Wallet charge already belongs to another task');
+        this.db.prepare('INSERT OR IGNORE INTO commerce_wallet_control(order_id,issuer,environment,reference) VALUES (?,?,?,?)').run(String(attempt.order_id),String(receipt.issuer),String(receipt.environment),String(receipt.reference));
+      }
       if(attempt.state==='confirmed' && state!=='confirmed')throw new CommerceError('settlement_conflict','Confirmed payment cannot become unpaid');
       if(attempt.state==='rejected' && state!=='rejected')throw new CommerceError('settlement_conflict','Definitive rejection cannot be changed to another outcome');
       this.db.prepare('UPDATE commerce_payment_attempts SET state=?,receipt_json=? WHERE id=?').run(state,JSON.stringify(receipt),attemptId);
@@ -242,7 +279,7 @@ export class CommerceStore implements TaskStore {
   }
   claimReady():OrderRecord|undefined {
     return this.transaction(()=>{
-      const row=this.db.prepare("SELECT o.* FROM commerce_orders o JOIN commerce_outbox x ON x.order_id=o.id WHERE x.state='ready' ORDER BY o.rowid LIMIT 1").get() as Row|undefined;
+      const row=this.db.prepare("SELECT o.* FROM commerce_orders o JOIN commerce_outbox x ON x.order_id=o.id WHERE x.state='ready' AND NOT EXISTS(SELECT 1 FROM commerce_wallet_control w WHERE w.order_id=o.id AND w.blocked=1) ORDER BY o.rowid LIMIT 1").get() as Row|undefined;
       if(!row)return undefined;
       this.db.prepare("UPDATE commerce_outbox SET state='dispatching' WHERE order_id=?").run(String(row.id));
       this.db.prepare("UPDATE commerce_orders SET execution_state='dispatching' WHERE id=?").run(String(row.id));

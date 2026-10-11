@@ -10,7 +10,7 @@ import type { MppBuyerOptions } from './mpp-client.js';
 import { privateKeyToAccount } from 'viem/accounts';
 import { AgentCard } from '@a2a-js/sdk';
 import { loadCommerceConfig, loadBuyerPolicy, digest } from './config.js';
-import { createOfferCard } from './card.js';
+import { createOfferCard, offerPath } from './card.js';
 import { CommerceStore } from './store.js';
 import { CommerceServer, bearerAuthenticator } from './server.js';
 import { EnvarIntegration, type EnvarPolicy } from './envar.js';
@@ -19,7 +19,8 @@ import { listenCommerce } from './http.js';
 import { CredentialVault } from './vault.js';
 import { X402Gate } from './x402.js';
 import { evmReceiptVerifier, evmSettlementRecovery } from './chain.js';
-import { CommerceError } from './types.js';
+import { CommerceError, isEnvarPeer, type PaymentProfile } from './types.js';
+import type { EnvarWalletClient, EnvarMerchantClient } from './wallet-client.js';
 import { createNativeSkillExecutor, type NativeSkillSettings } from './native-skills.js';
 import { inspectLedger, inspectLocalAlerts } from './operations.js';
 import { serveManaged } from './managed.js';
@@ -112,6 +113,7 @@ async function run(): Promise<void> {
     const secrets = JSON.parse(privateFile(values.credentials).toString('utf8')) as {
       callers: Record<string, string>; peerTokens: Record<string, string>; peerEndpoints?: Record<string, string>;
       privateKeyFile?: string; vaultKeyFile?: string; rpcUrls?: Record<string, string>; mppAdapterModule?:string;
+      wallet?:{issuer:string;environment:'sandbox'|'live';principal:string;credentialFile:string};
       mppStripe?: {
         payer:string; mode:'test'|'live'; issuerAccountId:string; secretKeyFile:string; paymentMethod:string; publishableKey?:string;
         sellers:Record<string,{accountId:string;secretKeyFile:string}>;
@@ -119,8 +121,8 @@ async function run(): Promise<void> {
       };
       peerProxies?: {peerId:string;offerId:string;buyerCaller:string;origin:string;stateDirectory:string;tokens:Record<string,string>;host?:string;port:number;allowPrivateHttp?:boolean;label?:string}[];
     };
-    const needsEvm=policy.peers.some(peer=>peer.protocol==='x402'),needsMpp=policy.peers.some(peer=>peer.protocol==='mpp');
-    if (!secrets.peerTokens || (needsEvm||needsMpp)&&!secrets.vaultKeyFile) throw new CommerceError('buyer_credentials', 'Paid buyer needs private vault key and peer credentials');
+    const needsEvm=policy.peers.some(peer=>peer.protocol==='x402'),needsMpp=policy.peers.some(peer=>peer.protocol==='mpp'&&!isEnvarPeer(peer)),needsWallet=policy.peers.some(isEnvarPeer);
+    if ((needsEvm||needsMpp||needsWallet)&&!secrets.vaultKeyFile) throw new CommerceError('buyer_credentials', 'Paid buyer needs a private vault key');
     let signer:ReturnType<typeof privateKeyToAccount>|undefined;
     if(needsEvm){
       if(!secrets.privateKeyFile||!secrets.rpcUrls)throw new CommerceError('buyer_credentials','x402 peers require local signer and RPC configuration');
@@ -146,12 +148,19 @@ async function run(): Promise<void> {
       closers.push(()=>adapter.close());
       await adapter.assertReady();mpp=adapter;
     }else if(needsMpp)mpp=await loadMppAdapter(secrets.mppAdapterModule!);
+    let wallet:EnvarWalletClient|undefined;
+    if(needsWallet){
+      const {EnvarWalletClient}=await import('./wallet-client.js');
+      if(!secrets.wallet)throw new CommerceError('wallet_configuration','Wallet peers require a private scoped grant credential');
+      wallet=new EnvarWalletClient({...secrets.wallet,credential:privateFile(secrets.wallet.credentialFile).toString('utf8').trim()});
+      await wallet.check();
+    }
     const { BuyerStore } = await import('./buyer-store.js');
     const { CommerceBuyer } = await import('./buyer.js');
     const { BuyerManagement, listenBuyerManagement } = await import('./management.js');
     const store = new BuyerStore(values.state); closers.push(() => store.close());
     const buyer = new CommerceBuyer({ policy, store, vault: buyerVault,
-      signer, mpp, peerTokens: secrets.peerTokens, peerEndpoints: secrets.peerEndpoints,
+      signer, mpp, wallet, peerTokens: secrets.peerTokens??{}, peerEndpoints: secrets.peerEndpoints,
       ...(needsEvm?{verifyReceipt:evmReceiptVerifier(secrets.rpcUrls!),...evmSettlementRecovery(secrets.rpcUrls!)}:{}) });
     closers.push(() => buyer.stop());
     if(secrets.peerProxies?.length){
@@ -179,6 +188,7 @@ async function run(): Promise<void> {
     callers: Record<string, string>; upstreams: Record<string, string>; upstreamInputEncoding?:Record<string,'data'|'json-text'>; payers?: Record<string, string>; skills?:NativeSkillSettings;
     vaultKeyFile?: string; rpcUrls?: Record<string, string>; mppHmacKeyFile?: string; ownershipChallenges?:Record<string,string>;
     stripe?: Record<string, { secretKeyFile: string; accountId: string; merchantProfile: string; mode: 'test' | 'live' }>;
+    wallets?:Record<string,{issuer:string;environment:'sandbox'|'live';merchant:string;credentialFile:string}>;
     receivingProfiles?:Extract<import('./types.js').PaymentProfile,{adapter:'x402'}>[];
   };
   let integration:EnvarIntegration|undefined,syncSettings:{policy:EnvarPolicy;pollIntervalMs?:number;stateDirectory?:string;configDirectory?:string}|undefined;
@@ -200,12 +210,15 @@ async function run(): Promise<void> {
   for(const historical of store.catalogHistory())for(const profile of Object.values(historical.profiles))protocols.add(profile.adapter);
   if(syncSettings?.policy.allowedX402.length)protocols.add('x402');
   if(syncSettings?.policy.allowedMppAccounts.length)protocols.add('mpp');
+  if(Object.keys(secrets.wallets??{}).length)protocols.add('mpp');
   let vault: CredentialVault | undefined;
   if (protocols.size) {
     if (!secrets.vaultKeyFile) throw new CommerceError('vault_key', 'Paid services require a private vault key file');
     vault = new CredentialVault(join(dirname(values.state), 'authorizations'), privateFile(secrets.vaultKeyFile));
   }
   const gates: Record<string, { handle: X402Gate['handle'] }> = {};
+  const gateKey=(profile:PaymentProfile)=>profile.adapter==='x402'?'x402':profile.method==='stripe'?'mpp:stripe':`mpp:envar:${profile.accountRef}`;
+  const walletClients:Record<string,EnvarMerchantClient>={};
   let stripeRecipientFor: ((accountRef: string) => string | undefined) | undefined;
   if (protocols.has('x402')) {
     if (!secrets.payers || !secrets.rpcUrls) throw new CommerceError('x402_configuration', 'x402 requires explicit caller-payer bindings and network RPCs');
@@ -213,14 +226,25 @@ async function run(): Promise<void> {
     await gate.check([...Object.values(config.paymentProfiles).filter((p):p is Extract<import('./types.js').PaymentProfile,{adapter:'x402'}>=>p.adapter==='x402'),...(secrets.receivingProfiles??[])]);
     gates.x402=gate;
   }
-  if (protocols.has('mpp')) {
+  const allProfiles=[...Object.values(config.paymentProfiles),...store.catalogHistory().flatMap(entry=>Object.values(entry.profiles))];
+  if (allProfiles.some(profile=>profile.adapter==='mpp'&&profile.method==='stripe')||syncSettings?.policy.allowedMppAccounts.length) {
     if (!secrets.stripe || !secrets.mppHmacKeyFile) throw new CommerceError('mpp_configuration', 'MPP requires private Stripe credentials and a separate challenge key');
     const { MppGate } = await import('./mpp.js'), { stripeProvider } = await import('./stripe-provider.js');
     const providers = Object.fromEntries(Object.entries(secrets.stripe).map(([ref, p]) => [ref, stripeProvider({ ...p, secretKey: privateFile(p.secretKeyFile).toString('utf8').trim() })]));
     const hmacKey=privateFile(secrets.mppHmacKeyFile);
     if(hmacKey.length<32)throw new CommerceError('mpp_hmac_key','MPP requires a private challenge key of at least32 random bytes');
     const gate = new MppGate({ store, vault: vault!, origin: values.origin, hmacSecret: hmacKey.toString('base64'), providers });
-    await gate.check(); gates.mpp = gate; stripeRecipientFor = ref => gate.merchantRecipient(ref);
+    await gate.check(); gates['mpp:stripe'] = gate; stripeRecipientFor = ref => gate.merchantRecipient(ref);
+  }
+  if(secrets.wallets){
+    const {EnvarMerchantClient}=await import('./wallet-client.js');
+    if(!secrets.mppHmacKeyFile)throw new CommerceError('wallet_configuration','Wallet receiving needs a separate private challenge key');
+    const {EnvarWalletGate}=await import('./wallet-gate.js');
+    for(const [ref,options] of Object.entries(secrets.wallets)){
+      const client=new EnvarMerchantClient({...options,credential:privateFile(options.credentialFile).toString('utf8').trim()});
+      const gate=new EnvarWalletGate({store,vault:vault!,origin:values.origin,hmacSecret:privateFile(secrets.mppHmacKeyFile).toString('base64'),client});
+      walletClients[ref]=client;gates[`mpp:envar:${ref}`]=gate;gate.start();closers.push(()=>gate.stop());
+    }
   }
   const nativeSkills=secrets.skills?createNativeSkillExecutor(secrets.skills,values.origin,config.agent.name):undefined;
   const discovery=secrets.skills?.discovery?.enabledFromWeb?new SkillDiscovery(secrets.skills,secrets.skills.discovery,values.origin):undefined;
@@ -228,15 +252,26 @@ async function run(): Promise<void> {
   const upstreams=new PinnedUpstreams(join(dirname(values.state),'upstream-bindings.json'),secrets.upstreams??{},secrets.upstreamInputEncoding,fetch,controller.signal,nativeSkills?.execute);
   upstreams.prepare(config,store.catalogHistory().map(entry=>entry.service));
   const validateAdapters=(candidate:typeof config)=>{for(const profile of Object.values(candidate.paymentProfiles)){
-    if(!gates[profile.adapter])throw new CommerceError('payment_method_unavailable','Configure the payment adapter locally before enabling this service');
+    if(!gates[gateKey(profile)])throw new CommerceError('payment_method_unavailable','Configure the payment adapter locally before enabling this service');
     if(profile.adapter==='x402'&&!secrets.rpcUrls?.[profile.network])throw new CommerceError('x402_configuration','Configure the required network RPC locally');
-    if(profile.adapter==='mpp'&&!stripeRecipientFor?.(profile.accountRef))throw new CommerceError('mpp_configuration','Configure and verify the merchant account locally');
+    if(profile.adapter==='mpp'&&profile.method==='stripe'&&!stripeRecipientFor?.(profile.accountRef))throw new CommerceError('mpp_configuration','Configure and verify the merchant account locally');
+    if(profile.adapter==='mpp'&&profile.method==='envar'){
+      const client=walletClients[profile.accountRef];
+      if(!client||client.issuer!==profile.issuer||client.environment!==profile.environment||client.merchant!==profile.merchantId)throw new CommerceError('wallet_configuration','Wallet merchant differs from the configured account');
+    }
   }};
   validateAdapters(config);
+  const legacyAuthenticate=Object.keys(secrets.callers??{}).length?bearerAuthenticator(secrets.callers):async()=>null;
   const server = new CommerceServer({ config, origin: values.origin, store, stripeRecipientFor, ownershipChallenges:secrets.ownershipChallenges,
-    authenticate: bearerAuthenticator(secrets.callers), execute: upstreams.execute,
+    authenticate: async request=>{
+      for(const entry of store.catalogHistory())for(const offer of entry.service.offers){
+        const profile=offer.paymentProfile?entry.profiles[offer.paymentProfile]:undefined;
+        if(profile?.adapter==='mpp'&&profile.method==='envar'&&request.url===new URL(`${offerPath(entry.service.id,entry.service.revision,offer.id)}/a2a`,values.origin).href)return (await walletClients[profile.accountRef]?.authenticator()(request))??legacyAuthenticate(request);
+      }
+      return legacyAuthenticate(request);
+    }, execute: upstreams.execute,
     paymentGate: { handle: async (request, order) => {
-      const adapter = order.quote.paymentProfile?.adapter, gate = adapter ? gates[adapter] : undefined;
+      const profile = order.quote.paymentProfile, gate = profile ? gates[gateKey(profile)] : undefined;
       if (!gate) throw new CommerceError('payment_method_unavailable', 'Configured payment adapter is unavailable');
       return gate.handle(request, order);
     } }, onError: (code, orderId) => console.error(JSON.stringify({ code, orderId })) });

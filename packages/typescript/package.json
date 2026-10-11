@@ -1,6 +1,6 @@
 {
   "name": "@envarai/envarpay",
-  "version": "0.2.0-alpha.17",
+  "version": "0.2.0-alpha.18",
   "description": "Independent A2A service commerce, budgeted buyers and x402/MPP payments",
   "type": "module",
   "license": "MIT",
@@ -35,6 +35,10 @@
     "./envar": {
       "types": "./dist/commerce/envar.d.ts",
       "import": "./dist/commerce/envar.js"
+    },
+    "./wallet": {
+      "types": "./dist/commerce/wallet-runtime.d.ts",
+      "import": "./dist/commerce/wallet-runtime.js"
     }
   },
   "files": [
@@ -69,7 +73,8 @@
     "canonicalize": "2.1.0",
     "mppx": "0.13.1",
     "viem": "2.57.1",
-    "yaml": "2.8.2"
+    "yaml": "2.8.2",
+    "zod": "4.6.5"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

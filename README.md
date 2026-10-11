@@ -10,7 +10,7 @@ account. Agents keep their own framework, model, tools and memory.
 [Architecture and wire behavior](docs/a2a-commerce.md) · [Buyer setup](docs/a2a-buyer.md) · [Native Agent outbound](docs/a2a-agents.md)
 
 - **Communication:** official A2A 1.0 Cards, messages, tasks and artifacts.
-- **Payments:** official x402 v2 exact USDC and native MPP Stripe charge adapters.
+- **Payments:** official x402 v2 exact USDC, native MPP Stripe charge, and an optional experimental [Envar CNY wallet method](docs/envar-wallet.md) with bounded spending grants.
 - **Service configuration:** immutable capability/input/price revisions; free,
   fixed task prices or validated input quantity prices.
 - **Reliability:** persistent orders, separately verified payments, dispatch queues,

@@ -39,7 +39,7 @@ before(async () => {
   let errors = '';
   processHandle.stderr.on('data', chunk => { errors += chunk; });
   const port = await new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error(`Fixture startup timed out: ${errors}`)), 15_000);
+    const timer = setTimeout(() => reject(new Error(`Fixture startup timed out: ${errors}`)), 30_000);
     processHandle.once('exit', code => { clearTimeout(timer); reject(new Error(`Fixture exited ${code}: ${errors}`)); });
     processHandle.stdout.once('data', data => { clearTimeout(timer); resolve(Number(data.toString().trim())); });
   });

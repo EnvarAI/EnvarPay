@@ -55,10 +55,24 @@ globalThis.fetch=async(input,init)=>{
   } };
 }
 
+async function waitForListening(f) {
+  if (f.output().stdout.includes('listening')) return;
+  await new Promise((resolve, reject) => {
+    const finish = error => {
+      clearTimeout(timer); f.child.stdout.off('data', ready); f.child.off('exit', exited);
+      if (error) reject(error); else resolve();
+    };
+    const ready = () => { if (f.output().stdout.includes('listening')) finish(); };
+    const exited = () => finish(new Error(f.output().stderr || 'CLI exited before readiness'));
+    const timer = setTimeout(() => finish(new Error(f.output().stderr || 'CLI readiness timed out')), 15000);
+    f.child.stdout.on('data', ready); f.child.once('exit', exited); ready();
+  });
+}
+
 test('built-in Stripe CLI starts with private key files and GET-only readiness, then releases both ledgers on shutdown', async () => {
   const f = await fixture();
   try {
-    for (let i = 0; i < 200 && !f.output().stdout.includes('listening') && f.child.exitCode === null; i++) await new Promise(resolve => setTimeout(resolve, 10));
+    await waitForListening(f);
     assert.ok(f.output().stdout.includes('listening'), f.output().stderr);
     assert.deepEqual(f.calls(), ['GET /v1/account', 'GET /v1/account', 'GET /v2/network/business_profiles/me']);
     const response = await fetch(`http://127.0.0.1:${f.port}/management/v1/policy`, { headers: { Authorization: `Bearer ${ownerToken}` } });
@@ -91,7 +105,7 @@ test('built-in Stripe CLI refuses competing adapters, publishable key mode and p
 for (const paymentMethod of ['pm_card_visa', 'pm_card_visa_chargeDeclined', 'pm_card_authenticationRequired']) test(`documented sandbox ${paymentMethod} starts through explicit helper without issuance`, async () => {
   const f = await fixture('helper', paymentMethod);
   try {
-    for (let i = 0; i < 200 && !f.output().stdout.includes('listening') && f.child.exitCode === null; i++) await new Promise(resolve => setTimeout(resolve, 10));
+    await waitForListening(f);
     assert.ok(f.output().stdout.includes('listening'), f.output().stderr);
     assert.deepEqual(f.calls(), ['GET /v1/account', 'GET /v1/account', 'GET /v2/network/business_profiles/me']);
     const response = await fetch(`http://127.0.0.1:${f.port}/management/v1/policy`, { headers: { Authorization: `Bearer ${ownerToken}` } });

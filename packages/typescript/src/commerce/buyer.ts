@@ -9,12 +9,13 @@ import type { ClientEvmSigner } from '@x402/evm';
 import type { PaymentPayload, PaymentRequired, PaymentRequirements, SettleResponse } from '@x402/core/types';
 import { Ajv2020 } from 'ajv/dist/2020.js';
 import addFormatsImport from 'ajv-formats';
-import { atomic, digest, loadBuyerPolicy, validateUrl } from './config.js';
-import { CommerceError, type BuyerPolicy, type Input, type Pricing, type StandardA2APeer } from './types.js';
+import { atomic, canonicalJson, digest, loadBuyerPolicy, validateUrl, validateWalletUrl } from './config.js';
+import { CommerceError, isEnvarPeer, type BuyerPolicy, type EnvarBuyerPeer, type Input, type Pricing, type StandardA2APeer } from './types.js';
 import { CredentialVault } from './vault.js';
 import { BuyerStore, type BuyerRecord, type BuyerQuote } from './buyer-store.js';
 import { Challenge, Receipt, PaymentRequest } from 'mppx';
 import { assertMppDigest, isStripeTestPaymentMethod, prepareMppCredential, publicMppReceipt, validateMppCredential, type MppAuthenticationAction, type MppBuyerOptions, type MppReceipt, type MppTokenOperation, type SavedMppAuthorization, type SavedMppToken } from './mpp-client.js';
+import { EnvarWalletClient, WalletApiError, assertWalletCredential, walletCredential, publicWalletReceipt, type WalletPayment, type WalletReceipt } from './wallet-client.js';
 
 const COMMERCE = 'urn:envarpay:commerce:1', QUOTE = 'urn:envarpay:quote:1';
 const addFormats = addFormatsImport as unknown as (ajv: Ajv2020) => void;
@@ -22,7 +23,7 @@ type Peer = BuyerPolicy['peers'][number];
 interface AdvertisedOffer {
   serviceId: string; serviceRevision: number; offerId: string; pricing: Pricing;
   collection: { kind: string }; contract: { inputSchema: Record<string, unknown> };
-  payment: { adapter: string; network?: string; asset?: string; payTo?: string; method?: string; intent?: string; currency?: string } | null;
+  payment: { adapter: string; network?: string; asset?: string; payTo?: string; method?: string; intent?: string; currency?: string; issuer?:string; environment?:string; merchantId?:string; methodVersion?:string } | null;
   termsDigest: string;
 }
 interface SavedAuthorization { payload: PaymentPayload; requirements: PaymentRequirements; fingerprint: string; }
@@ -31,6 +32,7 @@ export interface BuyerConfirmInput { previewId: string; quoteToken: string; mess
 export interface BuyerAuthentication { purchaseId: string; action: MppAuthenticationAction | null; }
 export interface CommerceBuyerOptions {
   policy: BuyerPolicy; store: BuyerStore; vault?: CredentialVault; signer?: ClientEvmSigner; mpp?: MppBuyerOptions;
+  wallet?: EnvarWalletClient;
   peerTokens: Readonly<Record<string, string>>;
   /** Override sibling /a2a only when the local wallet owner explicitly allows it. */
   peerEndpoints?: Readonly<Record<string, string>>;
@@ -45,7 +47,8 @@ export interface BuyerSnapshot {
   quote: BuyerQuote; paymentState: string; executionState: string;
   task?: Record<string, unknown>; result?: unknown; errorCode?: string;
   continuation?: { messageId: string; state: 'pending' | 'unknown' | 'resolved'; input: Input };
-  receipt?: SettleResponse | MppReceipt; nonce?: string; createdAt: string; updatedAt: string;
+  receipt?: SettleResponse | MppReceipt | WalletReceipt; nonce?: string; createdAt: string; updatedAt: string;
+  paymentMethod?:'stripe'|'envar'; walletState?:WalletPayment['state'];
 }
 
 async function bounded(response: Response, limit = 4 * 1024 * 1024): Promise<Response> {
@@ -103,8 +106,9 @@ export class CommerceBuyer {
     this.policy = loadBuyerPolicy(options.policy);
     if(this.policy.peers.some(peer=>peer.protocol!=='free')&&!options.vault)throw new CommerceError('vault_required','Paid purchases need a private authorization vault'); this.fetchImpl = options.fetchImpl ?? fetch;
     if (this.policy.peers.some(p => p.protocol === 'x402') && (!options.signer || !/^0x[0-9a-fA-F]{40}$/.test(options.signer.address) || BigInt(options.signer.address) === 0n || !options.verifyReceipt)) throw new CommerceError('invalid_signer', 'x402 peers require an EVM wallet and independent receipt verifier');
-    if (this.policy.peers.some(p => p.protocol === 'mpp') && (!options.mpp || !options.mpp.payer || !(/^pm_[A-Za-z0-9]+$/.test(options.mpp.paymentMethod) || (options.mpp.mode==='test'&&options.mpp.issuance==='test-helper'&&isStripeTestPaymentMethod(options.mpp.paymentMethod))) || !['test','live'].includes(options.mpp.mode) || typeof options.mpp.createToken !== 'function' || typeof options.mpp.verifyReceipt !== 'function')) throw new CommerceError('mpp_provider_missing', 'MPP peers require explicit token creation and independent provider verification');
-    for (const peer of this.policy.peers) if (!(peer.mode === 'standard-a2a' && peer.authentication === 'none') && (!options.peerTokens[peer.id] || options.peerTokens[peer.id]!.length < 16)) throw new CommerceError('peer_credentials', 'Each authenticated peer needs its own authentication token');
+    if (this.policy.peers.some(p => p.protocol === 'mpp'&&!isEnvarPeer(p)) && (!options.mpp || !options.mpp.payer || !(/^pm_[A-Za-z0-9]+$/.test(options.mpp.paymentMethod) || (options.mpp.mode==='test'&&options.mpp.issuance==='test-helper'&&isStripeTestPaymentMethod(options.mpp.paymentMethod))) || !['test','live'].includes(options.mpp.mode) || typeof options.mpp.createToken !== 'function' || typeof options.mpp.verifyReceipt !== 'function')) throw new CommerceError('mpp_provider_missing', 'MPP peers require explicit token creation and independent provider verification');
+    for(const peer of this.policy.peers)if(isEnvarPeer(peer)&&(!options.wallet||peer.issuer!==options.wallet.issuer||peer.environment!==options.wallet.environment))throw new CommerceError('wallet_provider_missing','Configure the explicitly approved Envar wallet issuer and environment');
+    for (const peer of this.policy.peers) if (!isEnvarPeer(peer)&&!(peer.mode === 'standard-a2a' && peer.authentication === 'none') && (!options.peerTokens[peer.id] || options.peerTokens[peer.id]!.length < 16)) throw new CommerceError('peer_credentials', 'Each authenticated peer needs its own authentication token');
   }
   /** Background observation only; never signs, replays credentials or changes reservations. */
   start(intervalMs = 2000): void {
@@ -119,10 +123,11 @@ export class CommerceBuyer {
   }
   async stop(): Promise<void> { if (this.timer) clearInterval(this.timer); this.timer = undefined; await Promise.allSettled([...this.active.values()]); }
   policySnapshot() {
-    return { ...structuredClone(this.policy), capabilities: [...new Set(this.policy.peers.map(peer => peer.protocol))], state: this.policy.paymentsEnabled || this.policy.peers.some(peer => peer.protocol === 'free') ? 'ready' : 'disabled', payer: this.options.signer?.address ?? this.options.mpp?.payer, budgets: this.policy.budgets.map(b => ({ ...b, ...this.options.store.usage(b.currency) })) };
+    return { ...structuredClone(this.policy), capabilities: [...new Set(this.policy.peers.map(peer => peer.protocol))], paymentMethods:[...new Set(this.policy.peers.map(peer=>isEnvarPeer(peer)?'mpp/envar/charge/1':peer.protocol==='mpp'?'mpp/stripe/charge':peer.protocol))], state: this.policy.paymentsEnabled || this.policy.peers.some(peer => peer.protocol === 'free') ? 'ready' : 'disabled', payer: this.options.signer?.address ?? this.options.mpp?.payer ?? this.options.wallet?.payer, budgets: this.policy.budgets.map(b => ({ ...b, ...this.options.store.usage(b.currency) })) };
   }
   private peer(cardUrl: string): Peer {
-    const parsed = validateUrl(cardUrl);
+    const candidate=this.policy.peers.find(peer=>peer.cardUrl===cardUrl);
+    const parsed = candidate&&isEnvarPeer(candidate)?validateWalletUrl(cardUrl,candidate.environment):validateUrl(cardUrl);
     const matches = this.policy.peers.filter(p => p.cardUrl === parsed.href && p.cardUrl === cardUrl);
     if (matches.length !== 1) throw new CommerceError('peer_not_allowed', 'An exact, unambiguous Card URL must be approved locally');
     return matches[0]!;
@@ -135,7 +140,8 @@ export class CommerceBuyer {
     }
     const card = new URL(peer.cardUrl);
     if (!explicit && (!card.pathname.endsWith('/agent-card.json') || card.search)) throw new CommerceError('endpoint_policy', 'Configure an explicit peer endpoint for this Agent Card URL');
-    const endpoint = validateUrl(explicit ?? new URL('./a2a', card).href);
+    const value=explicit ?? new URL('./a2a', card).href;
+    const endpoint = isEnvarPeer(peer)?validateWalletUrl(value,peer.environment):validateUrl(value);
     if (endpoint.origin !== card.origin || endpoint.search) throw new CommerceError('endpoint_policy', 'Allowed peer endpoint must stay on its Card origin and have no query');
     return endpoint.href;
   }
@@ -145,7 +151,8 @@ export class CommerceBuyer {
       if (![peer.cardUrl, endpoint].includes(request.url)) throw new CommerceError('peer_scope', 'Peer request escaped the locally approved endpoint');
       if ((request.url === peer.cardUrl && request.method !== 'GET') || (request.url === endpoint && request.method !== 'POST')) throw new CommerceError('peer_scope', 'Unsupported peer operation');
       const headers = new Headers(request.headers);
-      if (peer.mode === 'standard-a2a' && peer.authentication === 'none') headers.delete('Authorization');
+      if(isEnvarPeer(peer))headers.set('Authorization',`Bearer ${(await this.options.wallet!.identity(peer.recipient,endpoint)).token}`);
+      else if (peer.mode === 'standard-a2a' && peer.authentication === 'none') headers.delete('Authorization');
       else headers.set('Authorization', `Bearer ${this.options.peerTokens[peer.id]}`);
       headers.set('A2A-Version', '1.0');
       const response = await this.fetchImpl(new Request(request, { headers, redirect: 'error', signal: AbortSignal.any([request.signal, AbortSignal.timeout(30000)]) }));
@@ -159,7 +166,7 @@ export class CommerceBuyer {
     return record;
   }
   private snapshot(record: BuyerRecord): BuyerSnapshot {
-    return structuredClone({ id: record.id, quoteToken: record.quoteToken, messageId: record.messageId, payer: record.quote.payer, state: record.state, quote: record.quote, paymentState: record.paymentState, executionState: record.executionState, ...(record.task ? { task: record.task } : {}), ...(record.result !== undefined ? { result: record.result } : {}), ...(record.errorCode ? { errorCode: record.errorCode } : {}), ...(record.receipt ? { receipt: record.protocol === 'mpp' ? publicMppReceipt(record.receipt as MppReceipt) : { success: (record.receipt as SettleResponse).success, transaction: (record.receipt as SettleResponse).transaction, network: (record.receipt as SettleResponse).network, ...((record.receipt as SettleResponse).payer ? { payer: (record.receipt as SettleResponse).payer } : {}) } } : {}), ...(record.nonce ? { nonce: record.nonce } : {}), ...(record.continuations?.length ? { continuation: { messageId: record.continuations.at(-1)!.messageId, state: record.continuations.at(-1)!.state, input: record.continuations.at(-1)!.input } } : {}), createdAt: record.createdAt, updatedAt: record.updatedAt });
+    return structuredClone({ id: record.id, quoteToken: record.quoteToken, messageId: record.messageId, payer: record.quote.payer, state: record.state, quote: record.quote, ...(record.mppMethod==='envar'?{paymentMethod:'envar' as const,walletState:record.walletState}:{}), paymentState: record.paymentState, executionState: record.executionState, ...(record.task ? { task: record.task } : {}), ...(record.result !== undefined ? { result: record.result } : {}), ...(record.errorCode ? { errorCode: record.errorCode } : {}), ...(record.receipt ? { receipt: record.mppMethod === 'envar' ? publicWalletReceipt(record.receipt as WalletReceipt) : record.protocol === 'mpp' ? publicMppReceipt(record.receipt as MppReceipt) : { success: (record.receipt as SettleResponse).success, transaction: (record.receipt as SettleResponse).transaction, network: (record.receipt as SettleResponse).network, ...((record.receipt as SettleResponse).payer ? { payer: (record.receipt as SettleResponse).payer } : {}) } } : {}), ...(record.nonce ? { nonce: record.nonce } : {}), ...(record.continuations?.length ? { continuation: { messageId: record.continuations.at(-1)!.messageId, state: record.continuations.at(-1)!.state, input: record.continuations.at(-1)!.input } } : {}), createdAt: record.createdAt, updatedAt: record.updatedAt });
   }
   get(caller: string, id: string): BuyerSnapshot { return this.snapshot(this.record(caller, id)); }
   async preview(caller: string, input: BuyerPreviewInput): Promise<BuyerSnapshot> {
@@ -186,13 +193,22 @@ export class CommerceBuyer {
     if (peer.protocol === 'free') return this.prepareFree(caller, input, fingerprint, peer, endpoint, advertised);
     const payment = advertised.payment!;
     if (peer.protocol === 'x402' && (`${payment.network}/erc20:${payment.asset?.toLowerCase()}` !== peer.currency || payment.payTo?.toLowerCase() !== peer.recipient)) throw new CommerceError('payment_policy', 'Advertised payment differs from local wallet policy');
-    if (peer.protocol === 'mpp' && (payment.method !== 'stripe' || payment.intent !== 'charge' || payment.currency !== 'usd')) throw new CommerceError('payment_policy', 'Advertised MPP method differs from local wallet policy');
+    if(isEnvarPeer(peer)){
+      if(payment.method!=='envar'||payment.intent!=='charge'||payment.currency!=='cny'||payment.issuer!==peer.issuer||payment.environment!==peer.environment||payment.merchantId!==peer.recipient||payment.methodVersion!=='1')throw new CommerceError('payment_policy','Advertised wallet method differs from local policy');
+    }else if (peer.protocol === 'mpp' && (payment.method !== 'stripe' || payment.intent !== 'charge' || payment.currency !== 'usd')) throw new CommerceError('payment_policy', 'Advertised MPP method differs from local wallet policy');
     noExternalRefs(advertised.contract.inputSchema);
     const amount = inputAmount(advertised, input.input);
     if (atomic(amount) > atomic(peer.maxPerPurchase)) throw new CommerceError('purchase_limit', 'Advertised price exceeds the per-purchase limit');
     let originalBody = '', challenge: PaymentRequired | undefined, mppChallenge: Challenge.Challenge | undefined;
     const capture: typeof fetch = async (request, init) => {
-      const req = new Request(request, init); originalBody = await req.clone().text();
+      let req = new Request(request, init);
+      if(isEnvarPeer(peer)){
+        // Preserve an unpaid preview across a process crash before its 402 arrives.
+        // The message ID is also a valid stable JSON-RPC ID; SDK codecs still own the message shape.
+        const wire=JSON.parse(await req.clone().text());
+        req=new Request(req,{body:canonicalJson({...wire,id:input.messageId})});
+      }
+      originalBody = await req.clone().text();
       if (Buffer.byteLength(originalBody) > 1024 * 1024) throw new CommerceError('request_too_large', 'Purchase input exceeds 1 MiB');
       const result = await scoped(req);
       if (result.status !== 402) throw new CommerceError('paid_quote_required', 'Preview requires a payment challenge before execution');
@@ -210,7 +226,7 @@ export class CommerceBuyer {
     const client = await new ClientFactory({ transports: [new JsonRpcTransportFactory({ fetchImpl: capture })] }).createFromAgentCard(card);
     try { await client.sendMessage(SendMessageRequest.fromJSON({ message: { messageId: input.messageId, role: 'ROLE_USER', parts: [{ data: input.input }] }, configuration: { returnImmediately: true } })); }
     catch (error) { if (!challenge && !mppChallenge) throw error; }
-    if (peer.protocol === 'mpp' && mppChallenge && originalBody) return this.prepareMpp(caller, input, fingerprint, peer, endpoint, advertised, amount, originalBody, mppChallenge);
+    if (peer.protocol === 'mpp' && mppChallenge && originalBody) return isEnvarPeer(peer)?this.prepareWallet(caller,input,fingerprint,peer,endpoint,advertised,amount,originalBody,mppChallenge):this.prepareMpp(caller, input, fingerprint, peer, endpoint, advertised, amount, originalBody, mppChallenge);
     if (!challenge || !originalBody) throw new CommerceError('invalid_challenge', 'Peer did not return a bound payment quote');
     const required = challenge, candidates = required.accepts?.filter(r => r.scheme === 'exact' && `${r.network}/erc20:${r.asset.toLowerCase()}` === peer.currency && r.payTo.toLowerCase() === peer.recipient && r.amount === amount && Number.isInteger(r.maxTimeoutSeconds) && r.maxTimeoutSeconds > 0 && r.maxTimeoutSeconds <= 300 && r.extra?.paymentFlow === 'upfront' && r.extra?.assetTransferMethod === 'eip3009' && r.extra?.name === findDefaultAsset(r.asset,r.network)?.name && r.extra?.version === findDefaultAsset(r.asset,r.network)?.version);
     const quote = (required.extensions?.[QUOTE] as { info?: BuyerQuote } | undefined)?.info;
@@ -284,6 +300,89 @@ export class CommerceBuyer {
       if (response.ok && raw.result?.task) return this.snapshot(this.task(record, raw.result.task));
       return this.snapshot(this.options.store.update(record.id, { state: 'unknown', executionState: 'unknown', errorCode: response.status === 402 ? 'free_offer_payment_rejected' : 'original_purchase_pending' }));
     } catch { return this.snapshot(this.options.store.update(record.id, { state: 'unknown', executionState: 'unknown', errorCode: 'free_purchase_outcome_unknown' })); }
+  }
+  private async prepareWallet(caller:string,input:BuyerPreviewInput,fingerprint:string,peer:EnvarBuyerPeer,endpoint:string,advertised:AdvertisedOffer,amount:string,body:string,challenge:Challenge.Challenge):Promise<BuyerSnapshot> {
+    const request=challenge.request,details=request.methodDetails as {issuer?:string;version?:string}|undefined;
+    const meta=challenge.meta??(challenge.opaque?PaymentRequest.deserialize(challenge.opaque) as Record<string,string>:undefined);
+    const identity=await this.options.wallet!.identity(peer.recipient,endpoint),expiry=Date.parse(challenge.expires??'');
+    assertMppDigest(challenge,body);
+    if(challenge.method!=='envar'||challenge.intent!=='charge'||challenge.header!=='Payment-Authorization'||!challenge.digest||challenge.realm!==new URL(endpoint).host||
+      request.amount!==amount||request.currency!=='cny'||request.recipient!==peer.recipient||typeof request.externalId!=='string'||!request.externalId||
+      details?.issuer!==peer.issuer||details.version!=='1'||!meta||meta.endpoint!==endpoint||meta.callerBinding!==identity.subject||
+      meta.serviceRef!==new URL(`/services/${encodeURIComponent(advertised.serviceId)}`,endpoint).href||meta.serviceRevision!==String(advertised.serviceRevision)||meta.termsDigest!==advertised.termsDigest||meta.messageId!==input.messageId||
+      !Number.isFinite(expiry)||expiry<=Date.now()||expiry>Date.now()+3600000)throw new CommerceError('quote_mismatch','Wallet challenge differs from the approved offer and caller');
+    const quote:BuyerQuote={messageId:input.messageId,payer:this.options.wallet!.payer,amount,currency:'cny',recipient:peer.recipient,expiresAt:challenge.expires!,serviceId:advertised.serviceId,serviceRevision:advertised.serviceRevision,offerId:input.offerId,inputDigest:digest(input.input),termsDigest:advertised.termsDigest,quoteId:request.externalId};
+    return this.snapshot(this.options.store.insert({protocol:'mpp',mppMethod:'envar',walletIssuer:peer.issuer,walletEnvironment:peer.environment,mppChallenge:challenge,caller,peerId:peer.id,cardUrl:peer.cardUrl,endpoint,messageId:input.messageId,fingerprint,input:structuredClone(input.input),inputSchema:structuredClone(advertised.contract.inputSchema),body,quoteToken:randomBytes(32).toString('base64url'),quote}));
+  }
+  private applyWalletPayment(record:BuyerRecord,payment:WalletPayment):BuyerRecord {
+    this.options.wallet!.assertChallenge(payment,record.mppChallenge!);
+    record=this.options.store.update(record.id,{walletState:payment.state});
+    if(['voided','expired'].includes(payment.state))return this.options.store.rejectWalletAuthorization(record.id,record.caller,payment);
+    if(payment.receipt)record=this.options.store.confirmed(record.id,publicWalletReceipt(payment.receipt));
+    return record;
+  }
+  private async walletAuthorization(record:BuyerRecord,recover:boolean,beforeCreate?:()=>void):Promise<BuyerRecord> {
+    if(record.credentialRef)return record;
+    const operationId=record.tokenOperationId??`wallet-${record.id}`;
+    if(recover&&!record.tokenOperationId)throw new CommerceError('wallet_recovery_required','The original reserve operation is not recorded');
+    if(!recover)record=this.options.store.update(record.id,{tokenOperationId:operationId});
+    if(!recover&&Date.now()>=Date.parse(record.quote.expiresAt))throw new CommerceError('quote_expired','Wallet quote expired before authorization');
+    if(!recover)beforeCreate?.();
+    const payment=recover?await this.options.wallet!.lookup(operationId,record.mppChallenge!):await this.options.wallet!.reserve(record.mppChallenge!,operationId);
+    record=this.applyWalletPayment(record,payment);
+    if(payment.state!=='reserved')return record;
+    if(typeof payment.paymentToken!=='string')throw new CommerceError('wallet_token_unknown','Original wallet authorization is unresolved');
+    const credential=await walletCredential(record.mppChallenge!,payment.paymentToken);
+    assertWalletCredential(credential,record.mppChallenge!);
+    const credentialRef=this.options.vault!.put({protocol:'mpp',credential,challenge:record.mppChallenge!,fingerprint:record.fingerprint,operationId} satisfies SavedMppAuthorization);
+    return this.options.store.update(record.id,{credentialRef,state:'submitted',paymentState:'unknown'});
+  }
+  private async purchaseWallet(record:BuyerRecord):Promise<BuyerSnapshot> {
+    let creationStarted=false;
+    try {
+      record=await this.walletAuthorization(record,false,()=>{creationStarted=true;});
+      if(record.paymentState==='rejected')return this.snapshot(record);
+      return await this.replayWallet(record);
+    }catch(error){
+      const refused=error instanceof WalletApiError&&['insufficient_balance','grant_inactive','grant_scope','grant_budget','grant_limit','caller_mismatch','wallet_suspended','merchant_not_ready','challenge_expired','unknown_challenge'].includes(error.code);
+      if(!creationStarted||refused)return this.snapshot(this.options.store.rejectBeforeSigning(record.id,record.caller,error instanceof CommerceError?error.code:'wallet_pre_reserve_failure'));
+      return this.snapshot(this.options.store.update(record.id,{state:'unknown',errorCode:error instanceof CommerceError?error.code:'wallet_outcome_unknown'}));
+    }
+  }
+  private async replayWallet(record:BuyerRecord):Promise<BuyerSnapshot> {
+    const peer=this.assertCurrentPolicy(record,false);
+    if(['refunded','partially_refunded'].includes(record.walletState??''))return this.snapshot(this.options.store.update(record.id,{state:'failed',errorCode:'wallet_refunded'}));
+    let credential:string|undefined;
+    if(record.credentialRef){
+      const saved=this.options.vault!.get(record.credentialRef) as SavedMppAuthorization;
+      if(saved.protocol!=='mpp'||saved.fingerprint!==record.fingerprint||saved.operationId!==record.tokenOperationId)throw new CommerceError('wallet_recovery_binding','Original wallet authorization changed');
+      assertWalletCredential(saved.credential,record.mppChallenge!);credential=saved.credential;
+    }else if(record.paymentState!=='confirmed')throw new CommerceError('wallet_recovery_required','Original authorization is required');
+    const response=await this.scopedFetch(peer,record.endpoint)(record.endpoint,{method:'POST',headers:{'Content-Type':'application/json',...(credential?{'Payment-Authorization':credential}:{})},body:record.body});
+    const header=response.headers.get('Payment-Receipt');
+    if(header&&header.length<=65536){
+      const receipt=Receipt.deserialize(header) as WalletReceipt;
+      record=this.applyWalletPayment(record,await this.options.wallet!.verify(receipt,record.mppChallenge!));
+    }else if(record.tokenOperationId){
+      record=this.applyWalletPayment(record,await this.options.wallet!.lookup(record.tokenOperationId,record.mppChallenge!));
+    }
+    if(record.paymentState==='rejected')return this.snapshot(record);
+    const raw=await response.json() as {result?:{task?:unknown}};
+    if(response.ok&&raw.result?.task&&record.paymentState==='confirmed')record=this.task(record,raw.result.task);
+    else record=this.options.store.update(record.id,{state:'unknown',errorCode:'original_purchase_pending'});
+    return this.snapshot(record);
+  }
+  private async recoverWallet(record:BuyerRecord):Promise<BuyerSnapshot> {
+    try {
+      if(record.tokenOperationId)record=this.applyWalletPayment(record,await this.options.wallet!.lookup(record.tokenOperationId,record.mppChallenge!));
+      if(record.task?.id)return this.observe(record);
+      if(record.paymentState==='rejected')return this.snapshot(record);
+      record=await this.walletAuthorization(record,true);
+      return await this.replayWallet(record);
+    }catch(error){
+      if(record.task?.id&&record.paymentState==='confirmed')return this.observe(record);
+      return this.snapshot(this.options.store.update(record.id,{state:'unknown',errorCode:error instanceof CommerceError?error.code:'wallet_reconciliation_pending'}));
+    }
   }
   private prepareMpp(caller: string, input: BuyerPreviewInput, fingerprint: string, peer: Peer, endpoint: string, advertised: AdvertisedOffer, amount: string, body: string, challenge: Challenge.Challenge): BuyerSnapshot {
     const request = challenge.request, meta = challenge.meta ?? (challenge.opaque ? PaymentRequest.deserialize(challenge.opaque) as Record<string, string> : undefined);
@@ -360,6 +459,7 @@ export class CommerceBuyer {
     return this.snapshot(record);
   }
   private async recoverMpp(record: BuyerRecord): Promise<BuyerSnapshot> {
+    if(record.mppMethod==='envar')return this.recoverWallet(record);
     try {
       if (!record.credentialRef) record = await this.mppCredential(record, true);
       this.savedMpp(record);
@@ -371,6 +471,7 @@ export class CommerceBuyer {
   /** Owner-only provider read. No replay, token creation, reservation or payment transition. */
   async authentication(caller: string, id: string): Promise<BuyerAuthentication> {
     const record = this.record(caller, id);
+    if(record.mppMethod==='envar')return {purchaseId:id,action:null};
     if (record.protocol !== 'mpp') throw new CommerceError('mpp_authentication_unavailable', 'Original purchase does not use MPP');
     this.assertCurrentPolicy(record, false);
     if (!record.tokenOperationId || record.paymentState === 'confirmed') return { purchaseId: id, action: null };
@@ -386,7 +487,8 @@ export class CommerceBuyer {
   }
   private assertCurrentPolicy(record: BuyerRecord, signing: boolean): Peer {
     const peer = this.peer(record.cardUrl);
-    if (peer.id !== record.peerId || this.endpoint(peer) !== record.endpoint || peer.currency !== record.quote.currency || peer.recipient !== record.quote.recipient || (peer.protocol !== 'free' && atomic(record.quote.amount) > atomic(peer.maxPerPurchase)) || record.quote.payer !== (peer.protocol === 'free' ? record.caller : peer.protocol === 'mpp' ? this.options.mpp?.payer : this.options.signer?.address.toLowerCase()) || (record.protocol === 'mpp' && record.mppMode !== this.options.mpp?.mode)) throw new CommerceError('policy_changed', 'Original purchase no longer matches local wallet policy');
+    if (peer.id !== record.peerId || this.endpoint(peer) !== record.endpoint || peer.currency !== record.quote.currency || peer.recipient !== record.quote.recipient || (peer.protocol !== 'free' && atomic(record.quote.amount) > atomic(peer.maxPerPurchase)) || record.quote.payer !== (peer.protocol === 'free' ? record.caller : isEnvarPeer(peer)?this.options.wallet?.payer:peer.protocol === 'mpp' ? this.options.mpp?.payer : this.options.signer?.address.toLowerCase()) || (record.protocol === 'mpp' && record.mppMethod!=='envar' && record.mppMode !== this.options.mpp?.mode)) throw new CommerceError('policy_changed', 'Original purchase no longer matches local wallet policy');
+    if((record.mppMethod==='envar')!==isEnvarPeer(peer)||(record.mppMethod==='envar'&&(record.walletIssuer!==this.options.wallet?.issuer||record.walletEnvironment!==this.options.wallet?.environment)))throw new CommerceError('policy_changed','Original wallet method or issuer changed');
     if ((record.peerMode === 'standard-a2a') !== (peer.mode === 'standard-a2a')) throw new CommerceError('policy_changed', 'Original peer protocol profile changed');
     if (record.peerMode === 'standard-a2a') {
       if (peer.mode !== 'standard-a2a' || !record.standardBinding || record.standardBinding.policyDigest !== standardPolicyDigest(peer)) throw new CommerceError('policy_changed', 'Original local standard-peer contract or authentication changed');
@@ -416,7 +518,7 @@ export class CommerceBuyer {
     if (record.protocol === 'free') { const started = this.options.store.beginFree(id, caller); return started.fresh ? this.replayFree(started.record) : this.snapshot(started.record); }
     const reserved = this.options.store.reserve(id, caller, this.policy); if (!reserved.fresh) return this.snapshot(reserved.record);
     record = reserved.record;
-    if (record.protocol === 'mpp') return this.purchaseMpp(record);
+    if (record.protocol === 'mpp') return record.mppMethod==='envar'?this.purchaseWallet(record):this.purchaseMpp(record);
     let signingStarted = false;
     try {
       const fromBlock = await this.options.checkpoint?.(record.requirements!);

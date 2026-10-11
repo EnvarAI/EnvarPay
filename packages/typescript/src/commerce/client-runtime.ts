@@ -6,3 +6,4 @@ export * from './vault.js';
 export * from './chain.js';
 export type { MppAuthenticationAction, MppBuyerOptions, MppTokenOperation, MppVerificationContext, MppReceipt } from './mpp-client.js';
 export * from './peer-proxy.js';
+export * from './wallet-client.js';
