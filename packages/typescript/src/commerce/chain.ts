@@ -38,7 +38,9 @@ export function evmReceiptVerifier(rpcUrls:Readonly<Record<string,string>>,confi
     const deadline=Date.now()+confirmationWaitMs;
     const wait=async()=>{
       const remaining=deadline-Date.now();if(remaining<=0)return false;
-      await new Promise(resolve=>setTimeout(resolve,Math.min(1000,remaining)));return Date.now()<deadline;
+      await new Promise(resolve=>setTimeout(resolve,Math.min(1000,remaining)));
+      // A shortened final wait consumes the budget even if the timer fires just before the clock tick.
+      return remaining>1000&&Date.now()<deadline;
     };
     // All retries read the original transaction on the configured RPC. A rate
     // limit at any verification stage must not be mistaken for chain evidence.
