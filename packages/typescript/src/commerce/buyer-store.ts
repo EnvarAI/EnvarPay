@@ -32,6 +32,10 @@ export interface BuyerRecord {
   task?: Record<string, unknown>; result?: unknown; errorCode?: string;
   rejectionEvidence?: { kind: 'finalized_expired_unused'; checkedAt: string; nonce: string };
 }
+export interface PrivateWalletBuyerState {
+  version:1;
+  rows:{budgetState:'none'|'reserved'|'spent';record:BuyerRecord}[];
+}
 
 /** One wallet ledger, one process. Unknown authorizations retain cumulative budget. */
 export class BuyerStore {
@@ -65,6 +69,22 @@ export class BuyerStore {
     } catch (error) { this.owner?.close(); throw error; }
   }
   close(): void { this.db.close(); if (this.owner) { this.owner.exec('ROLLBACK'); this.owner.close(); } }
+  /** Private checkpoint for a trusted encrypted backend; never expose this through a public API. */
+  exportWalletState():PrivateWalletBuyerState {
+    const rows=this.db.prepare('SELECT budget_state,record_json FROM buyer_purchases ORDER BY id').all();
+    return {version:1,rows:rows.map(row=>({budgetState:String(row.budget_state) as 'none'|'reserved'|'spent',record:JSON.parse(String(row.record_json)) as BuyerRecord}))};
+  }
+  restoreWalletState(state:PrivateWalletBuyerState,caller:string):void {
+    if(state?.version!==1||!Array.isArray(state.rows)||state.rows.length>1||this.db.prepare('SELECT id FROM buyer_purchases LIMIT 1').get())throw new CommerceError('hosted_state','Restore one original wallet operation into an empty store');
+    this.transaction(()=>{
+      for(const {record:saved,budgetState} of state.rows){
+        const record=structuredClone(saved);
+        if(record?.caller!==caller||record.protocol!=='mpp'||record.mppMethod!=='envar'||record.quote?.currency!=='cny'||!['none','reserved','spent'].includes(budgetState)||!record.id||!record.messageId)throw new CommerceError('hosted_state','Private checkpoint belongs to a different operation');
+        if(['signing','submitted'].includes(record.state)){record.state='unknown';if(record.paymentState!=='confirmed')record.paymentState='unknown';record.errorCode='interrupted_purchase';}
+        this.db.prepare('INSERT INTO buyer_purchases VALUES(?,?,?,?,?,?,?)').run(record.id,caller,record.messageId,record.quote.currency,record.quote.amount,budgetState,JSON.stringify(record));
+      }
+    });
+  }
   private transaction<T>(fn: () => T): T {
     this.db.exec('BEGIN IMMEDIATE');
     try { const result = fn(); this.db.exec('COMMIT'); return result; }

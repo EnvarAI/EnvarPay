@@ -36,7 +36,7 @@ const { values, positionals } = parseArgs({ allowPositionals: true, options: {
   after:{type:'string'}, limit:{type:'string'}, 'refund-review':{type:'boolean'}, alerts:{type:'boolean'}, 'fail-on-alert':{type:'boolean'}, 'integration-state':{type:'string'}, 'no-integration':{type:'boolean'},
   framework:{type:'string'},file:{type:'string'},'docker-container':{type:'string'},python:{type:'string'},'hermes-home':{type:'string'},check:{type:'boolean'},
 } });
-const usage = 'envarpay onboard --file invitation.json [--framework hermes|openclaw] [--check] [--python PATH] [--docker-container NAME] [--hermes-home PATH] [--origin HTTPS_ORIGIN]\nenvarpay upgrade --directory DIR [--hermes-home PATH] | payments --directory DIR --file receiving.json\nenvarpay setup --file envar-setup.json [--docker-container NAME | --python PATH] [--hermes-home PATH] [--directory DIR]\ninit --directory DIR | inspect --state DB [--after ROW --limit 100 --refund-review] [--alerts --config buyer-policy.json --integration-state DB/--no-integration --fail-on-alert] | validate --config seller.json | card --config seller.json --service ID --offer ID --origin URL | serve/buyer-serve --config FILE --credentials FILE --state DB --origin URL';
+const usage = 'envarpay hosted-buyer --config private/hosted.json --origin PRIVATE_URL --port 4021\nenvarpay onboard --file invitation.json [--framework hermes|openclaw] [--check] [--python PATH] [--docker-container NAME] [--hermes-home PATH] [--origin HTTPS_ORIGIN]\nenvarpay upgrade --directory DIR [--hermes-home PATH] | payments --directory DIR --file receiving.json\nenvarpay setup --file envar-setup.json [--docker-container NAME | --python PATH] [--hermes-home PATH] [--directory DIR]\ninit --directory DIR | inspect --state DB [--after ROW --limit 100 --refund-review] [--alerts --config buyer-policy.json --integration-state DB/--no-integration --fail-on-alert] | validate --config seller.json | card --config seller.json --service ID --offer ID --origin URL | serve/buyer-serve --config FILE --credentials FILE --state DB --origin URL';
 const closers: (() => void | Promise<void>)[] = [];
 function privateFile(path: string): Buffer {
   const stat = lstatSync(path);
@@ -106,6 +106,22 @@ async function run(): Promise<void> {
     console.log(JSON.stringify({ directory: values.directory, configured: false, paymentPerformed: false, next: 'Review placeholder addresses, prices, runtime and private credential files before serve' })); return;
   }
   if (!values.config) throw new CommerceError('usage', usage);
+  if(command==='hosted-buyer'){
+    const configured=JSON.parse(privateFile(values.config).toString('utf8')) as {databaseUrlFile:string;stateKeyFile?:string;stateKeysFile?:string;tokenFile:string;walletIssuer:string;walletTransportOrigin?:string;environment:'sandbox'|'live';maxConcurrent?:number};
+    if(!values.origin)throw new CommerceError('hosted_configuration','Hosted buyer needs an explicit private API origin');
+    const {HostedWalletBuyer,listenHostedWalletBuyer}=await import('./hosted-buyer.js');
+    let stateKey:import('./hosted-crypto.js').HostedKey;
+    if(configured.stateKeysFile){
+      const keys=JSON.parse(privateFile(configured.stateKeysFile).toString('utf8')) as {active:string;keys:Record<string,string>;legacy?:string};
+      stateKey={active:keys.active,keys:Object.fromEntries(Object.entries(keys.keys).map(([id,key])=>[id,Buffer.from(key,'base64url')])),...(keys.legacy?{legacy:Buffer.from(keys.legacy,'base64url')}:{})};
+    }else if(configured.stateKeyFile&&configured.environment==='sandbox')stateKey=privateFile(configured.stateKeyFile);
+    else throw new CommerceError('hosted_configuration','Configure versioned state keys');
+    const buyer=new HostedWalletBuyer({databaseUrl:privateFile(configured.databaseUrlFile).toString('utf8').trim(),stateKey,walletIssuer:configured.walletIssuer,walletTransportOrigin:configured.walletTransportOrigin,environment:configured.environment,maxConcurrent:configured.maxConcurrent});
+    closers.push(()=>buyer.close());
+    await buyer.pool.query('SELECT id FROM commerce_hostedbuyeroperation LIMIT 0');
+    const http=listenHostedWalletBuyer(buyer,{token:privateFile(configured.tokenFile).toString('utf8').trim(),origin:values.origin,host:values.host??'127.0.0.1',port:port(4021)});
+    closers.push(()=>{buyer.beginDrain();return closeHttp(http);});await once(http,'listening');signals();console.log(JSON.stringify({listening:port(4021),role:'hosted-wallet-buyer'}));return;
+  }
   const raw = JSON.parse(readFileSync(values.config, 'utf8'));
   if (command === 'buyer-serve') {
     if (!values.origin || !values.state || !values.credentials) throw new CommerceError('usage', usage);
