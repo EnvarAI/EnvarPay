@@ -72,8 +72,12 @@ export class HostedWalletBuyer {
         has_table_privilege(current_user,'commerce_hostedbuyeroperation','SELECT') AS readable,
         has_column_privilege(current_user,'commerce_hostedbuyeroperation','state_ciphertext','UPDATE') AS checkpoint,
         has_column_privilege(current_user,'commerce_hostedbuyeroperation','confirmed_at','UPDATE') AS approval,
-        has_table_privilege(current_user,'wallet_entry','INSERT') AS funds`);
-      const row=check.rows[0];return !!row?.readable&&!!row?.checkpoint&&!row?.approval&&!row?.funds;
+        has_table_privilege(current_user,'wallet_entry','INSERT') AS funds,
+        has_column_privilege(current_user,'wallet_ledgeraccount','balance','UPDATE') AS balances,
+        has_any_column_privilege(current_user,'wallet_spendgrant','INSERT,UPDATE') AS grants,
+        has_function_privilege(current_user,'envar_wallet_post(uuid,text,text,text,jsonb,uuid)','EXECUTE') AS posting`);
+      const row=check.rows[0];return row?.readable===true&&row?.checkpoint===true&&row?.approval===false&&
+        row?.funds===false&&row?.balances===false&&row?.grants===false&&row?.posting===false;
     }catch{return false;}
   }
   private async claim(id:string):Promise<OperationRow>{

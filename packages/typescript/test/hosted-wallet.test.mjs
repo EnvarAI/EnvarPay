@@ -102,9 +102,11 @@ test('versioned hosted keys preserve old contexts through rotation',()=>{
 test('readiness verifies restricted permissions and drains without starting work',async()=>{
   const f=hostFixture();
   try{
-    f.buyer.pool.query=async()=>({rows:[{readable:true,checkpoint:true,approval:false,funds:false}]});
+    f.buyer.pool.query=async()=>({rows:[{readable:true,checkpoint:true,approval:false,funds:false,balances:false,grants:false,posting:false}]});
     assert.equal(await f.buyer.ready(),true);
-    f.buyer.pool.query=async()=>({rows:[{readable:true,checkpoint:true,approval:true,funds:false}]});
+    f.buyer.pool.query=async()=>({rows:[{readable:true,checkpoint:true,approval:true,funds:false,balances:false,grants:false,posting:false}]});
+    assert.equal(await f.buyer.ready(),false);
+    f.buyer.pool.query=async()=>({rows:[{readable:true,checkpoint:true,approval:false,funds:false,balances:false,grants:false,posting:true}]});
     assert.equal(await f.buyer.ready(),false);
     f.buyer.pool.query=async()=>{throw Error('database-unavailable')};
     assert.equal(await f.buyer.ready(),false);
