@@ -5,7 +5,7 @@ import { CommerceBuyer, type BuyerPreviewInput, type BuyerSnapshot } from './buy
 import { BuyerStore, type PrivateWalletBuyerState } from './buyer-store.js';
 import { CommerceError, isEnvarPeer, type BuyerPolicy } from './types.js';
 import { EnvarWalletClient, type WalletEnvironment } from './wallet-client.js';
-import { MemoryCredentialVault, openHosted, sealHosted } from './hosted-crypto.js';
+import { MemoryCredentialVault, openHosted, sealHosted, validateHostedKeys, type HostedKey } from './hosted-crypto.js';
 import { hostedSellerFetch } from './hosted-network.js';
 
 interface HostedContext {
@@ -18,7 +18,10 @@ interface OperationRow {
   version:string;lease:string;confirmed_at:Date|null;
 }
 export interface HostedBuyerOptions {
-  databaseUrl:string;stateKey:Buffer;walletIssuer:string;environment:WalletEnvironment;
+  databaseUrl:string;stateKey:HostedKey;walletIssuer:string;environment:WalletEnvironment;
+  maxConcurrent?:number;
+  /** Operator-fixed private route for the public issuer; never supplied by purchase input. */
+  walletTransportOrigin?:string;
   /** Optional test adapter; production uses DNS-pinned public seller requests. */
   sellerFetch?:typeof fetch;
   walletFetch?:typeof fetch;
@@ -30,12 +33,49 @@ type Action='preview'|'confirm'|'get'|'recover'|'continue';
 export class HostedWalletBuyer {
   readonly pool:pg.Pool;
   private readonly sellerFetch:typeof fetch;
+  private active=0;
+  private draining=false;
+  private failures=0;
+  private completed=0;
+  private readonly capacity:number;
+  private readonly walletFetch:typeof fetch;
   constructor(private readonly options:HostedBuyerOptions) {
-    if(options.stateKey.length!==32||!options.walletIssuer||!['sandbox','live'].includes(options.environment))throw new CommerceError('hosted_configuration','Configure a dedicated state key and wallet environment');
+    validateHostedKeys(options.stateKey);
+    this.capacity=options.maxConcurrent??8;
+    if(!Number.isInteger(this.capacity)||this.capacity<1||this.capacity>64||!options.walletIssuer||!['sandbox','live'].includes(options.environment))throw new CommerceError('hosted_configuration','Configure bounded concurrency, state keys and wallet environment');
+    if(options.environment==='live'){
+      const database=new URL(options.databaseUrl);
+      if(Buffer.isBuffer(options.stateKey)||database.searchParams.get('sslmode')!=='verify-full'||!database.searchParams.get('sslrootcert'))throw new CommerceError('hosted_configuration','Live buyers require versioned keys and verified PostgreSQL TLS');
+    }
     this.pool=new pg.Pool({connectionString:options.databaseUrl,max:8,connectionTimeoutMillis:10000,idleTimeoutMillis:10000});
     this.sellerFetch=options.sellerFetch??hostedSellerFetch(options.environment==='sandbox');
+    this.walletFetch=options.walletFetch??fetch;
+    if(options.walletTransportOrigin){
+      const destination=new URL(options.walletTransportOrigin),issuer=new URL(options.walletIssuer).origin;
+      if(destination.protocol!=='http:'||!/^envarai-wallet\.[a-z0-9-]+\.svc\.cluster\.local$/.test(destination.hostname)||
+        destination.port!=='8000'||destination.pathname!=='/'||destination.search||destination.hash||destination.username||destination.password)
+        throw new CommerceError('hosted_configuration','Configure the fixed wallet service origin');
+      this.walletFetch=async(input,init)=>{
+        const request=new Request(input,init),url=new URL(request.url);
+        if(url.origin!==issuer||!/^\/api\/v1\/wallets?\//.test(url.pathname))throw new CommerceError('hosted_issuer','Wallet request does not belong to the pinned issuer');
+        return fetch(new Request(destination.origin+url.pathname+url.search,request));
+      };
+    }
   }
-  async close():Promise<void>{await this.pool.end();}
+  beginDrain():void{this.draining=true;}
+  async close():Promise<void>{this.beginDrain();await this.pool.end();}
+  metrics():string{return `envarai_hosted_active ${this.active}\nenvarai_hosted_completed_total ${this.completed}\nenvarai_hosted_failures_total ${this.failures}\nenvarai_hosted_draining ${Number(this.draining)}\n`;}
+  async ready():Promise<boolean>{
+    if(this.draining)return false;
+    try{
+      const check=await this.pool.query(`SELECT
+        has_table_privilege(current_user,'commerce_hostedbuyeroperation','SELECT') AS readable,
+        has_column_privilege(current_user,'commerce_hostedbuyeroperation','state_ciphertext','UPDATE') AS checkpoint,
+        has_column_privilege(current_user,'commerce_hostedbuyeroperation','confirmed_at','UPDATE') AS approval,
+        has_table_privilege(current_user,'wallet_entry','INSERT') AS funds`);
+      const row=check.rows[0];return !!row?.readable&&!!row?.checkpoint&&!row?.approval&&!row?.funds;
+    }catch{return false;}
+  }
   private async claim(id:string):Promise<OperationRow>{
     if(!identifier.test(id))throw new CommerceError('hosted_operation','Use an original operation ID');
     const lease=randomUUID();
@@ -55,6 +95,13 @@ export class HostedWalletBuyer {
     row.version=result.rows[0]!.version;
   }
   async run(id:string,action:Action,body:Record<string,unknown>={}):Promise<BuyerSnapshot>{
+    if(this.draining||this.active>=this.capacity)throw new CommerceError('hosted_busy','Buyer is draining or at capacity');
+    this.active++;
+    try{const result=await this.execute(id,action,body);this.completed++;return result;}
+    catch(error){this.failures++;throw error;}
+    finally{this.active--;}
+  }
+  private async execute(id:string,action:Action,body:Record<string,unknown>):Promise<BuyerSnapshot>{
     const row=await this.claim(id);
     let store:BuyerStore|undefined,buyer:CommerceBuyer|undefined;
     try {
@@ -73,7 +120,7 @@ export class HostedWalletBuyer {
       const checkpoint=()=>this.checkpoint(row,{version:1,buyer:store!.exportWalletState(),vault:vault.snapshot()});
       const wallet=new EnvarWalletClient({
         issuer:context.wallet.issuer,environment:context.wallet.environment,principal:context.wallet.principal,credential:context.wallet.credential,
-        fetchImpl:async(input,init)=>{await checkpoint();return (this.options.walletFetch??fetch)(input,init);},
+        fetchImpl:async(input,init)=>{await checkpoint();return this.walletFetch(input,init);},
       });
       buyer=new CommerceBuyer({policy:context.policy,store,vault,wallet,peerTokens:{},
         fetchImpl:async(input,init)=>{await checkpoint();return this.sellerFetch(input,init);},
@@ -102,8 +149,10 @@ export function listenHostedWalletBuyer(buyer:HostedWalletBuyer,options:{token:s
     const respond=(status:number,value:unknown)=>{res.writeHead(status,{'Content-Type':'application/json','Cache-Control':'no-store'});res.end(JSON.stringify(value));};
     if(req.headers.host!==host)return respond(421,{error:{code:'invalid_host'}});
     if(req.url==='/health'&&req.method==='GET')return respond(200,{status:'ok',role:'hosted-wallet-buyer'});
+    if(req.url==='/ready'&&req.method==='GET'){const ready=await buyer.ready();return respond(ready?200:503,{status:ready?'ready':'unavailable'});}
     const candidate=Buffer.from(req.headers.authorization?.startsWith('Bearer ')?req.headers.authorization.slice(7):'');
     if(candidate.length!==expected.length||!timingSafeEqual(candidate,expected))return respond(401,{error:{code:'unauthorized'}});
+    if(req.url==='/metrics'&&req.method==='GET'){res.writeHead(200,{'Content-Type':'text/plain; version=0.0.4'});res.end(buyer.metrics());return;}
     const route=req.url?.match(/^\/v1\/operations\/([0-9a-f-]{36})\/(preview|confirm|get|recover|continue)$/);
     if(req.method!=='POST'||!route)return respond(404,{error:{code:'not_found'}});
     try {

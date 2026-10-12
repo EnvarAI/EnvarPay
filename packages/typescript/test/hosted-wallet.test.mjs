@@ -15,10 +15,10 @@ function context(){
     preview:{cardUrl,messageId,offerId:'balance',input:{prompt:'hello'}},
     policy:{policyVersion:1,paymentsEnabled:true,approval:'per_purchase',peers:[{id:'seller',cardUrl,protocol:'mpp',method:'envar',currency:'cny',recipient:merchant,issuer,environment:'sandbox',maxPerPurchase:'500'}],budgets:[{currency:'cny',maxTotal:'500',period:'cumulative'}]}};
 }
-function hostFixture({approved=false,fenced=false,owner='alice'}={}){
+function hostFixture({approved=false,fenced=false,owner='alice',maxConcurrent=8}={}){
   const id=randomUUID(),ctx=context();let calls=0,version=0,released=false;
   const row={id,owner_account_id:owner,context_ciphertext:sealHosted(key,id,'context',ctx),state_ciphertext:Buffer.alloc(0),confirmed_at:approved?new Date():null,version:'0',lease:null};
-  const buyer=new HostedWalletBuyer({databaseUrl:'postgresql://unused',stateKey:key,walletIssuer:issuer,environment:'sandbox',walletFetch:async()=>{calls++;throw Error('fixture network reached');},sellerFetch:async()=>{calls++;throw Error('fixture seller reached');}});
+  const buyer=new HostedWalletBuyer({databaseUrl:'postgresql://unused',stateKey:key,walletIssuer:issuer,environment:'sandbox',maxConcurrent,walletFetch:async()=>{calls++;throw Error('fixture network reached');},sellerFetch:async()=>{calls++;throw Error('fixture seller reached');}});
   buyer.pool.query=async(sql,args)=>{
     if(sql.includes('RETURNING id,')){row.lease=args[1];row.version=String(++version);return {rowCount:1,rows:[{...row}]};}
     if(sql.includes('RETURNING version')){
@@ -85,4 +85,46 @@ test('explicit local sandbox HTTP is pinned and does not follow redirects',async
   server.listen(0,'127.0.0.1');await once(server,'listening');
   try{const result=await hostedSellerFetch(true)(`http://127.0.0.1:${server.address().port}/`);assert.equal(result.status,302);assert.equal(hits,1);}
   finally{await new Promise(resolve=>server.close(resolve));}
+});
+
+
+test('versioned hosted keys preserve old contexts through rotation',()=>{
+  const id=randomUUID(),first={active:'a',keys:{a:key}},second={active:'b',keys:{a:key,b:Buffer.alloc(32,9)}};
+  const envelope=sealHosted(first,id,'context',{secret:'fixture'});
+  assert.equal(envelope.subarray(0,7).toString(),'EVK1:a:');
+  assert.deepEqual(openHosted(second,id,'context',envelope),{secret:'fixture'});
+  const changed=Buffer.from(envelope);changed[5]=98;
+  assert.throws(()=>openHosted(second,id,'context',changed),{code:'hosted_state_integrity'});
+  assert.throws(()=>openHosted({active:'b',keys:{b:Buffer.alloc(32,9)}},id,'context',envelope),{code:'hosted_key_missing'});
+  assert.throws(()=>openHosted(second,id,'state',envelope),{code:'hosted_state_integrity'});
+});
+
+test('readiness verifies restricted permissions and drains without starting work',async()=>{
+  const f=hostFixture();
+  try{
+    f.buyer.pool.query=async()=>({rows:[{readable:true,checkpoint:true,approval:false,funds:false}]});
+    assert.equal(await f.buyer.ready(),true);
+    f.buyer.pool.query=async()=>({rows:[{readable:true,checkpoint:true,approval:true,funds:false}]});
+    assert.equal(await f.buyer.ready(),false);
+    f.buyer.pool.query=async()=>{throw Error('database-unavailable')};
+    assert.equal(await f.buyer.ready(),false);
+    f.buyer.beginDrain();
+    await assert.rejects(f.buyer.run(f.id,'preview'),{code:'hosted_busy'});
+    assert.equal(f.calls(),0);assert.match(f.buyer.metrics(),/envarai_hosted_draining 1/);
+  }finally{await f.buyer.close();}
+});
+
+test('live buyer refuses legacy keys and unverified database TLS',()=>{
+  assert.throws(()=>new HostedWalletBuyer({databaseUrl:'postgresql://unused',stateKey:key,walletIssuer:issuer,environment:'live'}),{code:'hosted_configuration'});
+  assert.throws(()=>new HostedWalletBuyer({databaseUrl:'postgresql://unused?sslmode=require',stateKey:{active:'v1',keys:{v1:key}},walletIssuer:issuer,environment:'live'}),{code:'hosted_configuration'});
+  assert.throws(()=>new HostedWalletBuyer({databaseUrl:'postgresql://unused',stateKey:key,walletIssuer:issuer,environment:'sandbox',walletTransportOrigin:'http://169.254.169.254:8000'}),{code:'hosted_configuration'});
+});
+
+test('hosted capacity rejects excess work before another database claim',async()=>{
+  const f=hostFixture({owner:'bob',maxConcurrent:1});
+  try{
+    const first=assert.rejects(f.buyer.run(f.id,'preview'),{code:'hosted_context'});
+    await assert.rejects(f.buyer.run(randomUUID(),'preview'),{code:'hosted_busy'});
+    await first;assert.equal(f.calls(),0);assert.match(f.buyer.metrics(),/envarai_hosted_active 0/);
+  }finally{await f.buyer.close();}
 });

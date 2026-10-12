@@ -44,15 +44,22 @@ Run `envarpay hosted-buyer --config private/hosted.json --origin <private-origin
 ```json
 {
   "databaseUrlFile": "private/buyer.database",
-  "stateKeyFile": "private/state.key",
+  "stateKeysFile": "private/state-keys.json",
   "tokenFile": "private/bff.token",
   "walletIssuer": "https://wallet.example.com",
-  "environment": "sandbox"
+  "environment": "live",
+  "maxConcurrent": 8
 }
 ```
 
-The database URL uses only the hosted-buyer database role. `state.key` contains
-32 raw bytes, matching Envar's base64 `HOSTED_BUYER_STATE_KEY`. `bff.token` is a
+The database URL uses only the hosted-buyer database role. Live connections require
+`sslmode=verify-full` plus `sslrootcert`. The state key file is a JSON keyring:
+`{"active":"k2","keys":{"k1":"base64-old-key","k2":"base64-current-key"}}`.
+Each value encodes 32 bytes and matches Envar's `HOSTED_KEYS`/`HOSTED_ACTIVE_KEY`.
+Versioned envelopes authenticate the key ID, purpose and operation. Keep prior
+keys while retained operations/backups need them. An optional `legacy` base64 key
+allows reading old raw envelopes. Raw `stateKeyFile` is supported only for
+isolated sandbox fixtures. `bff.token` is a
 separate strong internal credential. No database credentials or key material
 are returned to a browser or Agent. Do not put these files in Git.
 
@@ -61,6 +68,25 @@ with the BFF Bearer credential. It loads the owner, policy, endpoint and spendin
 credential from the encrypted database context, not from HTTP request fields.
 Expose this API only to the BFF through an authenticated private network/TLS
 boundary. The default listener binds loopback.
+
+`/health` reports process liveness. `/ready` checks the actual database SELECT and
+checkpoint permissions and refuses readiness if the role can approve purchases
+or insert ledger entries. Authenticated `/metrics` exposes active operations,
+success/failure counts and draining state without user or payment identifiers.
+At capacity the service returns a retryable busy response. SIGTERM stops new work,
+drains the HTTP server and then closes the database pool; the existing bounded
+shutdown deadline still applies.
+
+Inside Envar, optional `walletTransportOrigin` may name only
+`http://envarai-wallet.<namespace>.svc.cluster.local:8000`. It routes requests for
+the pinned public issuer to that fixed internal service. Purchase input cannot
+override it, and it does not loosen public-address validation for seller calls.
+
+Kubernetes projects Secrets as symlinks. Preserve the CLI's private-file checks:
+copy selected files into a memory-backed volume in a restricted init container,
+set owner-only permissions and mount the copy read-only in the buyer. Envar's
+wallet deployment renderer implements this pattern. Rotate keys/tokens through
+a controlled rolling replacement rather than editing an active private file.
 
 Seller requests resolve all DNS answers and reject private/reserved addresses,
 then pin a public address while retaining the original Host and TLS SNI. They
