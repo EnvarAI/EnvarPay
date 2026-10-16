@@ -14,6 +14,8 @@ EnvarPay 让 Agent 定义可购买的服务，也让另一方 Agent 在明确预
 
 新主线使用 TypeScript / Node.js 22.14+，推荐 Node 24。SQLite 只支持一个进程拥有一个账本。无法嵌入 SDK 的框架可以连接独立容器；原生 A2A Agent 无需逐品牌编写付款核心。
 
+现有外部 Agent（例如 Dot）可使用实验性的 [外部 Agent 适配器](docs/external-agents.md)，通过受限 MCP 工具和 Events 执行免费 A2A 文本任务。连接、自动唤醒与真实结果回传需要分别验收；当前不提供 Dot 收款能力。
+
 ## 本地开始
 
 ```sh

@@ -91,7 +91,11 @@ export class CommerceStore implements TaskStore {
       state TEXT NOT NULL CHECK(state IN ('ready','dispatching','done','unknown')), UNIQUE(order_id,message_id)
     );
     CREATE INDEX IF NOT EXISTS commerce_tasks_owner_tenant_updated ON commerce_tasks(owner,tenant,updated_at DESC,id);
-    CREATE INDEX IF NOT EXISTS commerce_continuations_order_state ON commerce_continuations(order_id,state);`);
+    CREATE INDEX IF NOT EXISTS commerce_continuations_order_state ON commerce_continuations(order_id,state);
+    CREATE TABLE IF NOT EXISTS commerce_external_claims(
+      order_id TEXT PRIMARY KEY REFERENCES commerce_orders(id),
+      principal TEXT NOT NULL, claim_id TEXT NOT NULL DEFAULT ''
+    );`);
   }
   private migrateV1():void {
     // Rebuild only the state constraint. Preserve original IDs, credentials and every payment row.
@@ -340,15 +344,38 @@ export class CommerceStore implements TaskStore {
       return pending.length;
     });
   }
+  prepareExternalTask(orderId:string,principal:string):void {
+    const order=this.order(this.db.prepare('SELECT * FROM commerce_orders WHERE id=?').get(orderId) as Row|undefined);
+    if(!order||!['confirmed','not_required'].includes(order.paymentState)||order.executionState!=='dispatching')throw new CommerceError('external_payment_required','Only a dispatched and payment-approved original order can be delegated');
+    const existing=this.db.prepare('SELECT principal FROM commerce_external_claims WHERE order_id=?').get(orderId) as Row|undefined;
+    if(existing&&existing.principal!==principal)throw new CommerceError('external_owner','Original execution belongs to another external agent');
+    this.db.prepare('INSERT OR IGNORE INTO commerce_external_claims(order_id,principal) VALUES (?,?)').run(orderId,principal);
+  }
+  externalTasks(principal:string,services:readonly string[]):{order:OrderRecord;claimId:string}[] {
+    return (this.db.prepare("SELECT o.*,c.claim_id FROM commerce_orders o JOIN commerce_external_claims c ON c.order_id=o.id WHERE c.principal=? AND o.payment_state IN ('confirmed','not_required') AND o.execution_state IN ('input_required','working') ORDER BY o.rowid LIMIT 100").all(principal) as Row[]).filter(r=>services.includes(String(r.service_revision).split(':')[0]!)).map(r=>({order:this.order(r)!,claimId:String(r.claim_id)}));
+  }
+  claimExternalTask(taskId:string,principal:string,services:readonly string[]):{order:OrderRecord;claimId:string} {
+    return this.transaction(()=>{
+      const row=this.db.prepare("SELECT o.*,c.claim_id FROM commerce_orders o JOIN commerce_external_claims c ON c.order_id=o.id WHERE o.task_id=? AND c.principal=? AND o.payment_state IN ('confirmed','not_required') AND o.execution_state IN ('input_required','working','completed','failed')").get(taskId,principal) as Row|undefined;
+      if(!row||!services.includes(String(row.service_revision).split(':')[0]!))throw new CommerceError('external_task','Original Task is outside this external agent scope');
+      const claimId=String(row.claim_id)||randomUUID();this.db.prepare('UPDATE commerce_external_claims SET claim_id=? WHERE order_id=?').run(claimId,String(row.id));
+      return {order:this.order(row)!,claimId};
+    });
+  }
+  externalClaim(taskId:string,principal:string,claimId:string,services:readonly string[]):OrderRecord {
+    const row=this.db.prepare("SELECT o.* FROM commerce_orders o JOIN commerce_external_claims c ON c.order_id=o.id WHERE o.task_id=? AND c.principal=? AND c.claim_id=? AND c.claim_id!='' AND o.payment_state IN ('confirmed','not_required')").get(taskId,principal,claimId) as Row|undefined;
+    if(!row||!services.includes(String(row.service_revision).split(':')[0]!))throw new CommerceError('external_claim','Claim does not identify an authorized original Task');return this.order(row)!;
+  }
   private scope(context:ServerCallContext):{owner:string;tenant:string} {
     if(!context.user?.isAuthenticated || !context.user.userName)throw new CommerceError('authentication_required','Authenticated task owner required');
     return {owner:context.user.userName,tenant:context.tenant??''};
   }
-  async save(task:Task,context:ServerCallContext):Promise<void> {
+  async save(task:Task,context:ServerCallContext,expectedOriginal?:Task):Promise<void> {
     const scope=this.scope(context);
     this.transaction(()=>{
       const current=this.db.prepare('SELECT owner,tenant,task_json FROM commerce_tasks WHERE id=?').get(task.id) as Row|undefined;
       if(current&&(current.owner!==scope.owner||current.tenant!==scope.tenant))throw new CommerceError('task_owner_conflict','Cannot replace another owner task');
+      if(expectedOriginal&&current?.task_json!==JSON.stringify(Task.toJSON(expectedOriginal)))throw new CommerceError('external_result_conflict','Original Task changed while preparing this result; read and recover it before retrying');
       const order=this.db.prepare('SELECT payment_state FROM commerce_orders WHERE task_id=?').get(task.id) as Row|undefined;
       if(order&&!['confirmed','not_required'].includes(String(order.payment_state)))throw new CommerceError('payment_required','Cannot publish task execution before payment');
       const terminalStates=[TaskState.TASK_STATE_COMPLETED,TaskState.TASK_STATE_FAILED,TaskState.TASK_STATE_CANCELED,TaskState.TASK_STATE_REJECTED];

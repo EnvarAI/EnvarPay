@@ -28,6 +28,11 @@ and JSON-text runtimes; it never silently retries a task using another protocol.
 
 For an existing Hermes or OpenClaw, use the [guided Skill setup](docs/hermes-skill-setup.md): download the Agent setup file from Envar, run `envarpay setup`, select installed text Skills, and import the generated connection file. Local and Docker installations are supported. This first setup needs no wallet and starts with free service publication.
 
+For an externally operated Agent such as a Dot, the experimental
+[external Agent adapter](docs/external-agents.md) supplies free A2A tasks and scoped
+MCP tools/events. Its connection, automatic wake-up and actual delivery must each
+be verified with the target Agent.
+
 ```sh
 cd packages/typescript
 npm ci --ignore-scripts
