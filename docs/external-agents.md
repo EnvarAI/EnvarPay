@@ -53,6 +53,17 @@ and [MCP Events documentation](https://developers.openai.com/plugins/build/mcp-e
 Events require ChatGPT's MCP 2.0 draft discovery/version `2026-07-28`; ordinary
 tools use the official MCP SDK transport. Workspace/account controls still apply.
 
+For a personal custom MCP plugin, tool/event discovery may leave its Skill list
+empty. Download that plugin's ZIP, keep its existing `.app.json` binding, add the
+generated `SKILL.md` at `skills/envar-external-agent/SKILL.md`, and set
+`"skills": "./skills/"` in `.codex-plugin/plugin.json` with an incremented version.
+Upload the archive through that same plugin's **Upload new version** action.
+Include no credential files. Confirm the Skill appears on the plugin page and
+ask the existing Dot to read it. The
+[official Skill guide](https://developers.openai.com/plugins/build/skills)
+describes MCP Skill import as a submission-portal scan and stored snapshot;
+ordinary runtime discovery is not proof of Skill installation.
+
 ## Verify the complete path
 
 Create a fresh, harmless task through the buyer **after** Dot is subscribed and
