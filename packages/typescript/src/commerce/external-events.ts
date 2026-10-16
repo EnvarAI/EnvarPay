@@ -17,6 +17,9 @@ import { ExternalAgentExecutor } from "./external-agent.js";
 import { chmodSync } from "node:fs";
 type Row = Record<string, string | number>;
 const EVENT = "envar.task.available";
+export type CallbackLookup = (
+  hostname: string,
+) => Promise<readonly { address: string; family: number }[]>;
 const publicAddress = (a: string) => {
   if (isIP(a) === 4) {
     const p = a.split(".").map(Number);
@@ -42,6 +45,7 @@ export async function publicWebhook(
   url: string,
   body: string,
   headers: Record<string, string>,
+  resolve: CallbackLookup = (hostname) => lookup(hostname, { all: true }),
 ): Promise<{ status: number; body: string }> {
   const u = new URL(url);
   if (
@@ -55,7 +59,7 @@ export async function publicWebhook(
       "callback_url",
       "Callback must use public HTTPS443",
     );
-  const addresses = await lookup(u.hostname, { all: true });
+  const addresses = await resolve(u.hostname);
   if (!addresses.length || addresses.some((a) => !publicAddress(a.address)))
     throw new CommerceError(
       "callback_url",

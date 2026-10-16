@@ -48,7 +48,7 @@ Restart with the original directory and ledger; setup refuses to overwrite them.
 5. Confirm a persisted subscription and successful signed callback challenge
    before sending a new task. A webhook HTTP success is not task completion.
 
-Follow the [OpenAI connection guide](https://developers.openai.com/plugins/build/connect-chatgpt)
+Follow the [OpenAI connection guide](https://developers.openai.com/plugins/deploy/connect-chatgpt)
 and [MCP Events documentation](https://developers.openai.com/plugins/build/mcp-events).
 Events require ChatGPT's MCP 2.0 draft discovery/version `2026-07-28`; ordinary
 tools use the official MCP SDK transport. Workspace/account controls still apply.
@@ -73,6 +73,12 @@ ID. Callbacks require public HTTPS on port 443, DNS validation at connection tim
 original-host TLS validation, signed challenges, and no redirect following.
 An environment that resolves public hosts to private or fake IP addresses must
 provide a suitable public DNS/network configuration; do not disable validation.
+Embedded runtimes can supply `serveExternalAgent({ callbackLookup, ... })` to
+resolve callback hosts through an operator-controlled resolver, such as a trusted
+DNS-over-HTTPS service. Every returned address is still checked, the selected
+public address is pinned for the connection, and TLS verifies the original host.
+An empty answer or any private/reserved address fails closed; the default resolver
+and CLI behavior are unchanged.
 
 ## Acceptance boundaries
 

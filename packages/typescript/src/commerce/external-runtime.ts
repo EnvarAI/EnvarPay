@@ -14,7 +14,11 @@ import { CommerceStore } from "./store.js";
 import { CommerceServer, bearerAuthenticator } from "./server.js";
 import { loadCommerceConfig } from "./config.js";
 import { ExternalAgentExecutor } from "./external-agent.js";
-import { ExternalAgentEvents } from "./external-events.js";
+import {
+  ExternalAgentEvents,
+  publicWebhook,
+  type CallbackLookup,
+} from "./external-events.js";
 import { ExternalAgentMcp, externalAgentSkill } from "./external-mcp.js";
 import { CredentialVault } from "./vault.js";
 import { CommerceError } from "./types.js";
@@ -100,6 +104,7 @@ export function serveExternalAgent(options: {
   origin: string;
   host: string;
   port: number;
+  callbackLookup?: CallbackLookup;
 }) {
   const privateBytes = (path: string) => {
     const s = lstatSync(path);
@@ -160,7 +165,13 @@ export function serveExternalAgent(options: {
     );
   const agentAuth = bearerAuthenticator(secret.agentTokens);
   const eventsPath = options.stateFile + ".events.sqlite3",
-    events = new ExternalAgentEvents(eventsPath, executor, vault);
+    events = new ExternalAgentEvents(
+      eventsPath,
+      executor,
+      vault,
+      (url, body, headers) =>
+        publicWebhook(url, body, headers, options.callbackLookup),
+    );
   chmodSync(eventsPath, 0o600);
   const mcp = new ExternalAgentMcp(
     executor,

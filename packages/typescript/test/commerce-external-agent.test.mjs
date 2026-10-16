@@ -10,10 +10,47 @@ import {
   setupExternalAgent,
   serveExternalAgent,
 } from "../dist/commerce/external-runtime.js";
-import { ExternalAgentEvents } from "../dist/commerce/external-events.js";
+import {
+  ExternalAgentEvents,
+  publicWebhook,
+} from "../dist/commerce/external-events.js";
 import { ExternalAgentExecutor } from "../dist/commerce/external-agent.js";
 import { CredentialVault } from "../dist/commerce/vault.js";
 const root = () => mkdtempSync(join(tmpdir(), "envar-external-"));
+test("custom callback resolution still rejects empty, private and mixed DNS answers", async () => {
+  for (const addresses of [
+    [],
+    [{ address: "127.0.0.1", family: 4 }],
+    [{ address: "198.18.0.30", family: 4 }],
+    [{ address: "::1", family: 6 }],
+    [
+      { address: "8.8.8.8", family: 4 },
+      { address: "10.0.0.1", family: 4 },
+    ],
+  ]) {
+    let called = false;
+    await assert.rejects(
+      publicWebhook(
+        "https://callback.example/event",
+        "{}",
+        {},
+        async (hostname) => {
+          assert.equal(hostname, "callback.example");
+          called = true;
+          return addresses;
+        },
+      ),
+      { code: "callback_url" },
+    );
+    assert.equal(called, true);
+  }
+  await assert.rejects(
+    publicWebhook("http://callback.example/event", "{}", {}, async () => {
+      assert.fail("invalid callback URLs must be rejected before resolution");
+    }),
+    { code: "callback_url" },
+  );
+});
 test("original free Task is claimed, completed and replayed once; scopes and terminal output survive restart", async () => {
   const d = root();
   const origin = "https://external.example";
