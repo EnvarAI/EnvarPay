@@ -15,11 +15,18 @@ import { CommerceError } from "./types.js";
 import { digest } from "./config.js";
 import { ExternalAgentExecutor } from "./external-agent.js";
 import { chmodSync } from "node:fs";
+import type { LookupFunction } from "node:net";
 type Row = Record<string, string | number>;
 const EVENT = "envar.task.available";
 export type CallbackLookup = (
   hostname: string,
 ) => Promise<readonly { address: string; family: number }[]>;
+export const pinnedCallbackLookup =
+  (address: { address: string; family: number }): LookupFunction =>
+  (_hostname, options, callback) => {
+    if (options.all) callback(null, [address]);
+    else callback(null, address.address, address.family);
+  };
 const publicAddress = (a: string) => {
   if (isIP(a) === 4) {
     const p = a.split(".").map(Number);
@@ -72,8 +79,7 @@ export async function publicWebhook(
       {
         method: "POST",
         headers,
-        lookup: (_hostname, _options, cb) =>
-          cb(null, address.address, address.family),
+        lookup: pinnedCallbackLookup(address),
         timeout: 10000,
       },
       (response) => {

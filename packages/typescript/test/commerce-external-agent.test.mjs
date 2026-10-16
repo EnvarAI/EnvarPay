@@ -13,10 +13,24 @@ import {
 import {
   ExternalAgentEvents,
   publicWebhook,
+  pinnedCallbackLookup,
 } from "../dist/commerce/external-events.js";
 import { ExternalAgentExecutor } from "../dist/commerce/external-agent.js";
 import { CredentialVault } from "../dist/commerce/vault.js";
 const root = () => mkdtempSync(join(tmpdir(), "envar-external-"));
+test("pinned callback DNS supports Node's all-address and single-address lookup modes", () => {
+  const address = { address: "8.8.8.8", family: 4 };
+  const lookup = pinnedCallbackLookup(address);
+  lookup("callback.example", { all: true }, (error, addresses) => {
+    assert.equal(error, null);
+    assert.deepEqual(addresses, [address]);
+  });
+  lookup("callback.example", {}, (error, value, family) => {
+    assert.equal(error, null);
+    assert.equal(value, address.address);
+    assert.equal(family, 4);
+  });
+});
 test("custom callback resolution still rejects empty, private and mixed DNS answers", async () => {
   for (const addresses of [
     [],
