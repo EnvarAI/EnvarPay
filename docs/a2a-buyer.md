@@ -46,6 +46,8 @@ confirmation supplies the exact preview token and message ID, including for
 `within_preapproved_limits`; a host that uses that mode must choose to confirm
 inside its existing local authorization. Seller metadata never expands policy.
 Limits use currency-specific integer strings in smallest units and are cumulative.
+For six-decimal USDC, `maxPerPurchase: "100"` means 0.0001 USDC, not 100 USDC;
+`maxTotal: "200"` permits at most two such purchases in the cumulative period.
 
 ## Preview and approve
 
