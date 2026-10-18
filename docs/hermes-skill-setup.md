@@ -1,6 +1,6 @@
 # Connect Hermes and OpenClaw Skills to Envar
 
-The setup and discovery commands are included in **0.2.0-alpha.13**. Node.js22.14+ is required; Node24 is recommended. The Agent must already have a working OpenAI-compatible chat model configuration.
+The setup and discovery commands are included in **0.2.0-alpha.18**. Node.js22.14+ is required; Node24 is recommended. The Agent must already have a working OpenAI-compatible chat model configuration. When Envar generates a command for your Agent, use its displayed pinned package version.
 
 ## Hosted runtimes
 
@@ -29,10 +29,12 @@ preserves the selected model and never chooses a fallback.
 Open Envar **Services & pricing**, select **Copy setup prompt**, and send the copied text to your own Agent. The Agent needs terminal tools and installation/network access in its own runtime. It saves the short-lived invitation privately and runs:
 
 ```sh
-npx --registry=https://registry.npmjs.org --yes --package @envarai/envarpay@0.2.0-alpha.13 envarpay onboard --file /private/invitation.json
+npx --registry=https://registry.npmjs.org --yes --package @envarai/envarpay@0.2.0-alpha.18 envarpay onboard --file /private/invitation.json
 ```
 
 `onboard` is noninteractive: it detects the native runtime, prepares the service, and asks Envar to verify and bind this same Agent. Managed deployments reuse their existing HTTPS entry and process supervision. Standalone setups choose an available local port and use an existing tunnel or installed `cloudflared`. Inside Docker it runs inside that environment, without a Docker socket mount or host port mapping. If cloudflared is needed, the Agent installs it from its official distribution; the CLI reports a concrete error if it is missing.
+
+If the Agent's local command approval times out, use the manual setup path below with the same Agent and private runtime directory. Do not create a replacement Agent or reset a seller ledger to retry.
 
 Envar verifies the actual Card and fresh runtime heartbeat before returning `status=connected`, exact `agent_id`, `verified_at`, discovered Skills and `services_url`. The Agent outputs `ENVAR_CONNECTED` only with this receipt. The webpage also checks the live setup, so an Agent's claim alone cannot finish onboarding. Use `onboard --file ... --check` for the current receipt.
 
@@ -45,7 +47,7 @@ Invitations expire in one hour and can be replaced in Envar. They can bind only 
 3. In the download folder, run the generated command on the Hermes host:
 
    ```sh
-   npx --registry=https://registry.npmjs.org --yes --package @envarai/envarpay@0.2.0-alpha.13 envarpay setup \
+   npx --registry=https://registry.npmjs.org --yes --package @envarai/envarpay@0.2.0-alpha.18 envarpay setup \
      --file envar-setup-AGENT_ID.json --docker-container my-hermes
    ```
 
@@ -72,13 +74,13 @@ binaries, unsupported files and symlinks still require separate review.
 
 ## Upgrade an existing setup
 
-Run `envarpay upgrade --directory ~/.envarpay/AGENT_ID` with alpha.11. Custom directories and local profiles are supported with `--directory` and `--hermes-home`. Stop the original foreground process and run its updated `start.mjs`. The original port, access tokens, ledger and service copies remain intact. Newly installed Skills are scanned without another restart. Updated source files are marked separately; an existing service keeps its pinned copy until a deliberate new version is prepared.
+Run `envarpay upgrade --directory ~/.envarpay/AGENT_ID` with the exact published release you selected for the upgrade. Custom directories and local profiles are supported with `--directory` and `--hermes-home`. Stop the original foreground process and run its updated `start.mjs`. The original port, access tokens, ledger and service copies remain intact. Newly installed Skills are scanned without another restart. Updated source files are marked separately; an existing service keeps its pinned copy until a deliberate new version is prepared.
 
 ## Guided USDC receiving
 
 Choose a paid offer in Envar. The page links to receiving-wallet verification and lets you download `envar-receiving-AGENT_ID.json`. Run the generated `envarpay payments --directory ... --file ...` command locally. Confirm the receiving address/network, configured facilitator, network RPC and authorized buyer wallet. The command prepares receiving verification, preserves the original signer/budget state, and writes a dedicated buyer-access token to a private file. Share that file only with the configured buyer.
 
-Restart EnvarPay. After its payment-adapter checks succeed, the page detects the matching receiving configuration and enables saving the price. A disconnected runtime or a different verified payee stays unready. This path supports USDC; Stripe eligibility and merchant setup retain their separate flow. No payment is performed by configuration.
+Restart EnvarPay. After its payment-adapter checks succeed, enter the same facilitator HTTPS URL under Envar **Services & pricing → Connection settings**. The page then enables saving the price. Save the service version, request publication, wait for local application, and select **Check and publish**. A disconnected runtime or a different verified payee stays unready. This path supports USDC; Stripe eligibility and merchant setup retain their separate flow. No payment is performed by configuration.
 
 ## Ownership and recovery
 
