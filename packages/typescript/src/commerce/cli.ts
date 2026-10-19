@@ -18,6 +18,7 @@ import { EnvarSellerRuntime, PinnedUpstreams, restoreEnvarConfig } from './envar
 import { listenCommerce } from './http.js';
 import { CredentialVault } from './vault.js';
 import { X402Gate } from './x402.js';
+import { EnvarBalanceGate } from './envar-balance.js';
 import { evmReceiptVerifier, evmSettlementRecovery } from './chain.js';
 import { CommerceError } from './types.js';
 import { createNativeSkillExecutor, type NativeSkillSettings } from './native-skills.js';
@@ -225,6 +226,10 @@ async function run(): Promise<void> {
     const gate = new MppGate({ store, vault: vault!, origin: values.origin, hmacSecret: hmacKey.toString('base64'), providers });
     await gate.check(); gates.mpp = gate; stripeRecipientFor = ref => gate.merchantRecipient(ref);
   }
+  if (protocols.has('envar_balance')) {
+    if (!integration) throw new CommerceError('balance_configuration','Envar balance requires an authenticated Envar seller integration');
+    gates.envar_balance = new EnvarBalanceGate({store,vault:vault!,claim:args=>integration!.claimBalancePayment(args)});
+  }
   const nativeSkills=secrets.skills?createNativeSkillExecutor(secrets.skills,values.origin,config.agent.name):undefined;
   const discovery=secrets.skills?.discovery?.enabledFromWeb?new SkillDiscovery(secrets.skills,secrets.skills.discovery,values.origin):undefined;
   if(nativeSkills)closers.push(()=>nativeSkills.close());
@@ -234,6 +239,7 @@ async function run(): Promise<void> {
     if(!gates[profile.adapter])throw new CommerceError('payment_method_unavailable','Configure the payment adapter locally before enabling this service');
     if(profile.adapter==='x402'&&!secrets.rpcUrls?.[profile.network])throw new CommerceError('x402_configuration','Configure the required network RPC locally');
     if(profile.adapter==='mpp'&&!stripeRecipientFor?.(profile.accountRef))throw new CommerceError('mpp_configuration','Configure and verify the merchant account locally');
+    if(profile.adapter==='envar_balance'&&!syncSettings?.policy.allowedBalanceAccounts?.includes(profile.accountRef))throw new CommerceError('balance_configuration','Allow this balance receiving account locally');
   }};
   validateAdapters(config);
   const server = new CommerceServer({ config, origin: values.origin, store, stripeRecipientFor, ownershipChallenges:secrets.ownershipChallenges,

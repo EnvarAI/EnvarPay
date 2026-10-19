@@ -51,6 +51,8 @@ export interface EnvarPolicy {
     facilitatorOrigin: string;
   }[];
   allowedMppAccounts: string[];
+  /** Explicit seller account references allowed to accept platform balance. */
+  allowedBalanceAccounts?: string[];
 }
 export interface EnvarCandidate {
   id: string;
@@ -228,6 +230,9 @@ export class EnvarIntegration {
     });
     if (this.policy.allowedMppAccounts.some((id) => !ID.test(id)))
       fail("envar_policy", "Configure explicit merchant account references");
+    this.policy.allowedBalanceAccounts ??= [];
+    if (this.policy.allowedBalanceAccounts.some((id) => !ID.test(id)))
+      fail("envar_policy", "Configure explicit balance account references");
     this.timeoutMs = options.timeoutMs ?? 10000;
     this.limitBytes = options.responseLimitBytes ?? 1048576;
     if (
@@ -325,12 +330,14 @@ export class EnvarIntegration {
   ): Promise<Record<string, unknown>> {
     this.open();
     if (
-      ![
+      !(
+        [
         "/api/v1/agent-config/candidates",
         "/api/v1/agent-config/acknowledgments",
         "/api/v1/commerce-reports",
         "/api/v1/agent-config/runtime",
-      ].includes(path)
+        ].includes(path) || /^\/api\/v1\/commerce\/payment-claims\/[0-9a-f-]{36}\/claim$/i.test(path)
+      )
     )
       fail("envar_path", "Unsupported platform integration operation");
     const token = await this.options.token();
@@ -427,6 +434,19 @@ export class EnvarIntegration {
       fail("envar_response_json", "Platform response must be an object");
     return value;
   }
+  async claimBalancePayment(args:{platformOrderId:string;claimToken:string;taskId:string;quote:PriceQuote}):Promise<Record<string,unknown>> {
+    uuid(args.platformOrderId);
+    if(typeof args.claimToken!=='string'||args.claimToken.length<32||args.claimToken.length>4096||/\s/.test(args.claimToken))
+      fail('envar_balance_claim','Use the original bounded platform claim');
+    return this.request(`/api/v1/commerce/payment-claims/${args.platformOrderId}/claim`,{
+      claim_token:args.claimToken,task_id:args.taskId,
+      quote_id:args.quote.quoteId,message_id:args.quote.messageId,
+      service_id:args.quote.serviceId,service_revision:args.quote.serviceRevision,
+      offer_id:args.quote.offerId,input_digest:args.quote.inputDigest,
+      terms_digest:args.quote.termsDigest,amount:args.quote.amount,
+      currency:args.quote.currency,recipient:args.quote.recipient,
+    },args.platformOrderId);
+  }
   allowInstalledService(name:string):void {
     if(!ID.test(name))fail('envar_policy','Invalid installed Skill name');
     if(!this.policy.allowedServices.includes(name))this.policy.allowedServices.push(name);
@@ -508,11 +528,13 @@ export class EnvarIntegration {
             "envar_recipient_denied",
             "Receiving identity or facilitator is outside the local update grant",
           );
-      } else if (!this.policy.allowedMppAccounts.includes(profile.accountRef))
+      } else if (profile.adapter === "mpp" && !this.policy.allowedMppAccounts.includes(profile.accountRef))
         fail(
           "envar_merchant_denied",
           "Merchant account is outside the local update grant",
         );
+      else if (profile.adapter === "envar_balance" && !this.policy.allowedBalanceAccounts!.includes(profile.accountRef))
+        fail("envar_balance_denied", "Balance receiving account is outside the local update grant");
     }
     const prior = this.db
       .prepare(
