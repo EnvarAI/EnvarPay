@@ -57,6 +57,25 @@ and `upstreams` (service ID or service:revision to native bearer token). Explici
 `upstreamInputEncoding` entries may select `json-text` for native runtimes that
 accept text, with `data` as default. There is no automatic fallback or second task.
 
+### Give a buyer A2A access
+
+Publishing a service Card does not give a new buyer a bearer token. For a
+**free** service on an existing seller, create a distinct random token for
+that buyer (for example, `node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"`),
+add it as a new key in the owner-only seller credentials file's `callers`
+object, and map it to a stable buyer identity. Keep the file mode `0600`,
+restart the seller process with its existing state directory, and give only
+that token to the intended buyer. The buyer puts it in its local `peerTokens`;
+it is **not** the buyer management token entered in Envar. `callers` binds a
+caller identity; it does not, by itself, restrict that token to one offer.
+Review all offers exposed to that identity before sharing it.
+
+For guided **USDC** receiving, use the [Hermes/OpenClaw payment setup](hermes-skill-setup.md#guided-usdc-receiving).
+Its `envarpay payments` command adds a buyer identity and payer wallet binding
+and writes a dedicated buyer-access token to an owner-only file. Give that
+file only to the approved buyer, then restart the original seller runtime.
+Do not reuse the Agent's own credential or Envar's platform credential.
+
 For x402, also configure `payers` (caller to EVM address), `vaultKeyFile` (32 random
 bytes) and `rpcUrls` keyed by CAIP-2 network. Sellers collect by address and do not
 need the receiving wallet's private key. MPP needs an eligible Stripe account,

@@ -1,5 +1,9 @@
 # Independent A2A purchase wallet
 
+For the current Envar website flow, start with the [numbered self-hosted buyer
+quickstart](envar-buyer-quickstart.md). It identifies the exact source of the
+Card, seller token, management URL and management token before using this API.
+
 The TypeScript commerce buyer runs in the wallet owner's environment. It uses the
 pinned official A2A and x402 SDKs, needs no Envar account or platform domain, and
 keeps signing keys out of the management API. This implementation supports exact
