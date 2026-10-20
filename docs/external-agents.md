@@ -11,7 +11,7 @@ itself give that Dot a public A2A endpoint or an event subscription.
 
 ## Prepare the owner-operated service
 
-Use the `0.2.0-alpha.18` release or build this source checkout with Node 24, then
+Use the `0.2.0-alpha.19` release or build this source checkout with Node 24, then
 use a stable public HTTPS origin that forwards to the local listener:
 
 ```sh
