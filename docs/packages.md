@@ -2,15 +2,15 @@
 
 | Artifact | New A2A runtime |
 |---|---|
-| npm | `@envarai/envarpay@0.2.0-alpha.18` |
+| npm | `@envarai/envarpay@0.2.0-alpha.19` |
 | npm channel | `next`; `latest` still refers to the old client |
-| Source tag | `npm-v0.2.0-alpha.18` |
-| OCI build | `ghcr.io/envarai/envarpay:0.2.0-alpha.18`, Node24, amd64/arm64 |
-| OCI source tag | `oci-v0.2.0-alpha.18` |
+| Source tag | `npm-v0.2.0-alpha.19` |
+| OCI build | `ghcr.io/envarai/envarpay:0.2.0-alpha.19`, Node24, amd64/arm64 |
+| OCI source tag | `oci-v0.2.0-alpha.19` |
 
-The table identifies this source release. Verify its npm publication and archive
-integrity in the release workflow before installation. The preceding alpha.1 npm
-archive is publicly verified. OCI publication is separate from visibility: the
+The table identifies the first source release with the Envar balance seller gate.
+Verify its npm publication and archive integrity in the release workflow before
+installation. OCI publication is separate from visibility: the
 organization currently restricts public container access. Use npm or an authenticated
 registry pull until anonymous access is explicitly verified.
 

@@ -20,7 +20,7 @@ In a new directory on the machine that will run the buyer:
 ```sh
 mkdir envar-buyer
 cd envar-buyer
-npm install --registry=https://registry.npmjs.org @envarai/envarpay@0.2.0-alpha.18
+npm install --registry=https://registry.npmjs.org @envarai/envarpay@0.2.0-alpha.19
 ./node_modules/.bin/envarpay init --directory ./private
 ```
 
