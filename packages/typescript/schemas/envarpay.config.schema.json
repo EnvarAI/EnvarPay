@@ -45,6 +45,9 @@
           },
           {
             "$ref": "#/$defs/mpp"
+          },
+          {
+            "$ref": "#/$defs/envarBalance"
           }
         ]
       }
@@ -138,6 +141,16 @@
         "accountRef": {
           "$ref": "#/$defs/id"
         }
+      }
+    },
+    "envarBalance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["adapter", "currency", "accountRef"],
+      "properties": {
+        "adapter": { "const": "envar_balance" },
+        "currency": { "const": "usd" },
+        "accountRef": { "$ref": "#/$defs/id" }
       }
     },
     "service": {

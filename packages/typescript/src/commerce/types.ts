@@ -16,7 +16,8 @@ export interface Offer {
 
 export type PaymentProfile =
   | { adapter: 'x402'; scheme: 'exact'; network: string; asset: string; payTo: string; facilitatorUrl: string }
-  | { adapter: 'mpp'; method: 'stripe'; intent: 'charge'; currency: 'usd'; accountRef: string };
+  | { adapter: 'mpp'; method: 'stripe'; intent: 'charge'; currency: 'usd'; accountRef: string }
+  | { adapter: 'envar_balance'; currency: 'usd'; accountRef: string };
 
 export interface Service {
   id: string;

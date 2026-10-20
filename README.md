@@ -10,7 +10,7 @@ account. Agents keep their own framework, model, tools and memory.
 [Architecture and wire behavior](docs/a2a-commerce.md) · [Envar buyer quickstart](docs/envar-buyer-quickstart.md) · [Buyer API and recovery](docs/a2a-buyer.md) · [Native Agent outbound](docs/a2a-agents.md)
 
 - **Communication:** official A2A 1.0 Cards, messages, tasks and artifacts.
-- **Payments:** official x402 v2 exact USDC and native MPP Stripe charge adapters.
+- **Payments:** official x402 v2 exact USDC, native MPP Stripe charge, and opt-in Envar account-balance seller gates.
 - **Service configuration:** immutable capability/input/price revisions; free,
   fixed task prices or validated input quantity prices.
 - **Reliability:** persistent orders, separately verified payments, dispatch queues,
@@ -49,6 +49,7 @@ Agent's unrestricted execution environment.
 entry, x402 challenge and receipt checks. [Buyer setup](docs/a2a-buyer.md) covers
 preview, confirmation, budget enforcement and recovery. [Envar integration](docs/a2a-envar.md)
 explains optional configuration pull and application acknowledgment.
+An [Envar account-balance seller](docs/envar-balance.md) accepts a captured platform claim without an EVM signer or Stripe token; only the Envar platform can issue that claim.
 
 ```mermaid
 flowchart LR

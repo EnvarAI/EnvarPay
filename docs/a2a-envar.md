@@ -154,7 +154,8 @@ The settings file is owner-only and has this shape:
     "allowedServices": ["research"],
     "allowedUpstreamOrigins": ["http://hermes:9000"],
     "allowedX402": [],
-    "allowedMppAccounts": []
+    "allowedMppAccounts": [],
+    "allowedBalanceAccounts": []
   },
   "pollIntervalMs": 10000,
   "stateDirectory": "/private/envarpay/envar-state",
@@ -162,7 +163,7 @@ The settings file is owner-only and has this shape:
 }
 ```
 
-This example grants only free services. Add explicitly approved payment identities from the policy example to enable the corresponding paid updates. Required payment adapters, RPCs, merchant credentials and upstream tokens must already be configured locally. Platform updates cannot introduce them. The default integration paths are beside the seller database, and polling is bounded between one second and five minutes with failure backoff. Removing both flags starts the independent seller without an Envar connection.
+This example grants only free services. Add explicitly approved payment identities from the policy example to enable the corresponding paid updates. An `envar_balance` offer also needs its exact account reference in `allowedBalanceAccounts` and the authenticated Envar integration; see [balance seller setup](envar-balance.md). Required payment adapters, RPCs, merchant credentials and upstream tokens must already be configured locally. Platform updates cannot introduce them. The default integration paths are beside the seller database, and polling is bounded between one second and five minutes with failure backoff. Removing both flags starts the independent seller without an Envar connection.
 
 At startup, the CLI restores locally applied service revisions before opening HTTP, without contacting Envar. A pending acknowledgment can also recover a configuration whose exact service snapshot already exists in the durable runtime catalog; it never activates an unregistered candidate merely because it was downloaded. This closes the crash window between catalog application and acknowledgment. Historical versions stay readable, while new requests to a retired version are refused. `GetTask` still uses the original upstream Task and service revision.
 

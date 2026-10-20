@@ -120,6 +120,7 @@ export function loadCommerceConfig(value: unknown): CommerceConfig {
       }
       if (high >= 2n ** 256n) throw new CommerceError('invalid_amount', 'Maximum total exceeds supported integer range');
       if (profile.adapter === 'mpp' && low < 50n) throw new CommerceError('card_minimum', 'USD card orders must be at least 50 cents');
+      if (profile.adapter === 'envar_balance' && high > 2n ** 63n - 1n) throw new CommerceError('balance_amount', 'Envar balance prices must fit signed micro-USD');
     }
   }
   return config;
