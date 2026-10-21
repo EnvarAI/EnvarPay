@@ -1,7 +1,7 @@
 {
   "name": "@envarai/envarpay",
-  "version": "0.2.0-alpha.19",
-  "description": "Independent A2A service commerce, budgeted buyers and x402/MPP payments",
+  "version": "0.2.0-alpha.20",
+  "description": "A2A services with Envar account-balance payments",
   "type": "module",
   "license": "MIT",
   "engines": {
@@ -20,17 +20,9 @@
       "types": "./dist/commerce/runtime.d.ts",
       "import": "./dist/commerce/runtime.js"
     },
-    "./client": {
-      "types": "./dist/commerce/client-runtime.d.ts",
-      "import": "./dist/commerce/client-runtime.js"
-    },
     "./server": {
       "types": "./dist/commerce/runtime.d.ts",
       "import": "./dist/commerce/runtime.js"
-    },
-    "./mpp": {
-      "types": "./dist/commerce/mpp-runtime.d.ts",
-      "import": "./dist/commerce/mpp-runtime.js"
     },
     "./envar": {
       "types": "./dist/commerce/envar.d.ts",
@@ -54,21 +46,16 @@
     "tag": "next"
   },
   "scripts": {
-    "build": "tsc",
+    "build": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\" && tsc",
     "test": "npm run build && node --test test/*.test.mjs",
     "prepack": "npm run build"
   },
   "dependencies": {
     "@a2a-js/sdk": "1.2.1",
     "@modelcontextprotocol/sdk": "^1.31.0",
-    "@x402/core": "2.24.0",
-    "@x402/evm": "2.24.0",
-    "@x402/extensions": "2.24.0",
     "ajv": "8.20.0",
     "ajv-formats": "3.0.1",
     "canonicalize": "2.1.0",
-    "mppx": "0.13.1",
-    "viem": "2.57.1",
     "yaml": "2.8.2",
     "zod": "4.6.5"
   },

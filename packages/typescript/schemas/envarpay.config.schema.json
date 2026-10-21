@@ -38,19 +38,7 @@
       "propertyNames": {
         "$ref": "#/$defs/id"
       },
-      "additionalProperties": {
-        "oneOf": [
-          {
-            "$ref": "#/$defs/x402"
-          },
-          {
-            "$ref": "#/$defs/mpp"
-          },
-          {
-            "$ref": "#/$defs/envarBalance"
-          }
-        ]
-      }
+      "additionalProperties": { "$ref": "#/$defs/envarBalance" }
     },
     "services": {
       "type": "array",
@@ -70,78 +58,11 @@
       "type": "string",
       "pattern": "^[1-9][0-9]{0,77}$"
     },
-    "address": {
-      "type": "string",
-      "pattern": "^0x[0-9a-fA-F]{40}$"
-    },
     "httpUrl": {
       "type": "string",
       "format": "uri",
       "pattern": "^https?://",
       "maxLength": 2048
-    },
-    "x402": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "adapter",
-        "scheme",
-        "network",
-        "asset",
-        "payTo",
-        "facilitatorUrl"
-      ],
-      "properties": {
-        "adapter": {
-          "const": "x402"
-        },
-        "scheme": {
-          "const": "exact"
-        },
-        "network": {
-          "type": "string",
-          "pattern": "^eip155:[1-9][0-9]*$"
-        },
-        "asset": {
-          "$ref": "#/$defs/address"
-        },
-        "payTo": {
-          "$ref": "#/$defs/address"
-        },
-        "facilitatorUrl": {
-          "type": "string",
-          "format": "uri",
-          "pattern": "^https://"
-        }
-      }
-    },
-    "mpp": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "adapter",
-        "method",
-        "intent",
-        "currency",
-        "accountRef"
-      ],
-      "properties": {
-        "adapter": {
-          "const": "mpp"
-        },
-        "method": {
-          "const": "stripe"
-        },
-        "intent": {
-          "const": "charge"
-        },
-        "currency": {
-          "const": "usd"
-        },
-        "accountRef": {
-          "$ref": "#/$defs/id"
-        }
-      }
     },
     "envarBalance": {
       "type": "object",

@@ -5,8 +5,6 @@ export * from './upstream.js';
 export * from './skill-gate.js';
 export * from './native-skills.js';
 export * from './http.js';
-export * from './x402.js';
 export * from './envar-balance.js';
 export * from './vault.js';
-export * from './chain.js';
 export * from './external-agent.js';

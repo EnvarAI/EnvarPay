@@ -8,7 +8,7 @@ const addFormats = addFormatsImport as unknown as (ajv: Ajv2020) => void;
 
 export function buildQuote(config: CommerceConfig, args: {
   serviceId: string; offerId: string; caller: string; messageId: string;
-  input: Input; now?: Date; ttlSeconds?: number; stripeRecipient?: string;
+  input: Input; now?: Date; ttlSeconds?: number;
 }): Readonly<PriceQuote> {
   if (!args.caller || !args.messageId || args.messageId.length > 128) throw new CommerceError('invalid_identity', 'Authenticated caller and stable message ID are required');
   const service = config.services.find(s => s.id === args.serviceId);
@@ -31,8 +31,7 @@ export function buildQuote(config: CommerceConfig, args: {
   }
   if (amount >= 2n ** 256n) throw new CommerceError('invalid_amount', 'Quoted amount is too large');
   const profile = offer.paymentProfile ? config.paymentProfiles[offer.paymentProfile]! : null;
-  const recipient = profile?.adapter === 'x402' ? profile.payTo : profile?.adapter === 'envar_balance' ? profile.accountRef : profile ? args.stripeRecipient : null;
-  if (profile?.adapter === 'mpp' && !recipient) throw new CommerceError('merchant_not_ready', 'Resolve and verify the Stripe merchant before quoting');
+  const recipient = profile?.accountRef ?? null;
   const now = args.now ?? new Date(); const ttl = args.ttlSeconds ?? 600;
   if (!Number.isInteger(ttl) || ttl < 1 || ttl > 3600 || !Number.isFinite(now.getTime())) throw new CommerceError('invalid_expiry', 'Quote lifetime must be 1–3600 seconds');
   const quote: PriceQuote = {

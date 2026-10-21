@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.0-alpha.20 — pre-launch balance-only seller runtime
+
+- Keep free A2A services and the Envar account-balance seller gate with original-order claim and Task recovery.
+- Remove the local buyer payment runtime, chain/card payment adapters, legacy Python wallet and testnet escrow implementation from active packages and release workflows.
+- Make the Agent setup file create the private balance-claim vault and pre-allow the `envar` receiving reference. Seller approval and the real wallet funding path remain platform release gates.
+- Move historical payment guides and transaction evidence to `docs/_archive/legacy-payments/`.
+
+The older entries below describe historical experimental releases, not current setup instructions.
+
 ## 0.1.0a7 — onboarding and Envar integration
 
 - Explain Python, npm and separate-service installation paths for existing agents.

@@ -43,14 +43,13 @@ Existing custom executors remain callable for initial execution. Continuation an
 const executor = nativeA2AExecutor(runtimeTokens, fetch, shutdownSignal);
 const server = new CommerceServer({
   config, origin, store, authenticate, execute: executor,
-  paymentGate,
-  stripeRecipientFor: accountRef => verifiedMerchantProfiles[accountRef],
+  paymentGate: { handle: (request, order) => balanceGate.handle(request, order) },
 });
 ```
 
 The native executor uses official A2A SDK codecs/client calls. `executor.continue` sends the saved remote Task/context IDs and stable clarification message. `executor.recover` only calls `GetTask`; `executor.remoteInterface` lets the store persist the exact selected interface. Custom implementations must preserve those same identities and must never hide a new-task fallback in recovery.
 
-MPP quote construction requires a resolved merchant profile from `stripeRecipientFor`; missing merchant readiness fails before collecting. Both preflight and handler quote paths use the same resolver. Authentication and payment protocol handling remain separate from execution.
+The balance gate verifies the original Envar claim before any paid Task is dispatched. Authentication, quote binding, payment, and Agent execution have separate states.
 
 ## Operations and validation
 
@@ -58,7 +57,7 @@ Stop accepting new requests before closing the ledger. `server.stop()` wakes wai
 
 Task listing applies owner, tenant, status, context and timestamp filtering in SQL before bounded pagination. Task snapshots and HTTP input/output remain size-limited.
 
-Tests use local SQLite, official SDK wire fixtures and simulated payment gates. They cover waiting states, same-task continuations, original-field protection, paid-first ordering, ten-round bounds, unknown continuation recovery, cross-owner denial, restart persistence, v1 ledger migration, exact upstream interface binding, GetTask-only recovery and bounded listing. These tests do not prove real provider billing, model execution or chain settlement; release acceptance must run those separately.
+Tests use local SQLite, official SDK wire fixtures and simulated balance claims. They cover waiting states, same-task continuations, original-field protection, paid-first ordering, ten-round bounds, unknown continuation recovery, cross-owner denial, restart persistence, v1 ledger migration, exact upstream interface binding, GetTask-only recovery and bounded listing. These tests do not prove real account funding, model execution or seller settlement; release acceptance must run those separately.
 
 Some native A2A runtimes accept text parts while ignoring structured data parts. Select that input representation explicitly with the executor's fourth argument:
 

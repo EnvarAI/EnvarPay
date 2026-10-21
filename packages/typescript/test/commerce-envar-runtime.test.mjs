@@ -120,7 +120,7 @@ test("running HTTP handler applies revised Cards and preserves original free/pai
   await once(http, "listening");
   try {
     const freePath = "/services/summary-preview/v1/offers/free",
-      paidPath = "/services/research/v1/offers/usdc-once";
+      paidPath = "/services/research/v1/offers/balance-once";
     const free = await (
       await fetch(
         req(
@@ -438,7 +438,7 @@ test("merge refuses payment profile collisions across active services", () => {
     incoming = structuredClone(base);
   incoming.services = [incoming.services[0]];
   incoming.services[0].revision = 2;
-  incoming.paymentProfiles["base-usdc"].payTo = "0x" + "8".repeat(40);
+  incoming.paymentProfiles["envar-usd"].accountRef = "other-seller";
   assert.throws(() => mergeEnvarService(base, candidate(incoming)), {
     code: "envar_profile_conflict",
   });
@@ -550,97 +550,5 @@ test("crash window after durable catalog apply but before acknowledgment restore
     store.close();
     integration.close();
     rmSync(dir, { recursive: true, force: true });
-  }
-});
-
-test("free and MPP-only buyer CLI starts without an EVM key or RPC", async () => {
-  for (const protocol of ["free", "mpp"]) {
-    const dir = mkdtempSync(join(tmpdir(), "envar-cli-buyer-")),
-      reserve = createServer();
-    reserve.listen(0, "127.0.0.1");
-    await once(reserve, "listening");
-    const port = reserve.address().port;
-    await new Promise((r) => reserve.close(r));
-    const policy = {
-      policyVersion: 1,
-      paymentsEnabled: protocol === "mpp",
-      approval: "per_purchase",
-      peers: [
-        {
-          id: "peer",
-          cardUrl: `https://seller.example/services/test/v1/offers/${protocol}/agent-card.json`,
-          protocol,
-          currency: protocol === "free" ? null : "usd",
-          recipient: protocol === "free" ? null : "profile_test",
-          maxPerPurchase: protocol === "free" ? "0" : "100",
-        },
-      ],
-      budgets:
-        protocol === "free"
-          ? []
-          : [{ currency: "usd", maxTotal: "100", period: "cumulative" }],
-    };
-    const credentials = {
-      callers: { [clientToken]: "owner" },
-      peerTokens: { peer: upstreamToken },
-      vaultKeyFile: join(dir, "vault.key"),
-    };
-    if (protocol === "mpp") {
-      credentials.mppAdapterModule = join(dir, "mpp.mjs");
-      writeFileSync(
-        credentials.mppAdapterModule,
-        "export function createMppBuyerOptions(){return {payer:'test-payer',mode:'test',paymentMethod:'pm_test',createToken:async()=>{throw new Error('test must never create payment')},recoverToken:async()=>undefined,verifyReceipt:async()=>false}}",
-        { mode: 0o600 },
-      );
-    }
-    writeFileSync(join(dir, "policy.json"), JSON.stringify(policy), {
-      mode: 0o600,
-    });
-    writeFileSync(join(dir, "credentials.json"), JSON.stringify(credentials), {
-      mode: 0o600,
-    });
-    writeFileSync(join(dir, "vault.key"), Buffer.alloc(32, 7), { mode: 0o600 });
-    const child = spawn(
-      process.execPath,
-      [
-        new URL("../dist/commerce/cli.js", import.meta.url).pathname,
-        "buyer-serve",
-        "--config",
-        join(dir, "policy.json"),
-        "--credentials",
-        join(dir, "credentials.json"),
-        "--state",
-        join(dir, "buyer.sqlite"),
-        "--origin",
-        `http://127.0.0.1:${port}`,
-        "--port",
-        String(port),
-      ],
-      { stdio: ["ignore", "pipe", "pipe"] },
-    );
-    let output = "";
-    child.stdout.on("data", (chunk) => (output += chunk.toString()));
-    try {
-      const deadline = Date.now() + 10000;
-      while (
-        !output.includes("listening") &&
-        child.exitCode === null &&
-        Date.now() < deadline
-      )
-        await new Promise((r) => setTimeout(r, 20));
-      assert.ok(output.includes("listening"));
-      const response = await fetch(
-        `http://127.0.0.1:${port}/management/v1/policy`,
-        { headers: { Authorization: "Bearer " + clientToken } },
-      );
-      assert.equal(response.status, 200);
-      assert.deepEqual((await response.json()).capabilities, [protocol]);
-      child.kill("SIGTERM");
-      const [code] = await once(child, "exit");
-      assert.equal(code, 0);
-    } finally {
-      if (child.exitCode === null) child.kill("SIGKILL");
-      rmSync(dir, { recursive: true, force: true });
-    }
   }
 });

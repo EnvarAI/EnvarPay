@@ -12,7 +12,7 @@ import {EnvarBalanceGate} from '../dist/commerce/envar-balance.js';
 
 function fixture(){
   const config=JSON.parse(readFileSync(new URL('../examples/seller.json',import.meta.url),'utf8'));
-  config.paymentProfiles={balance:{adapter:'envar_balance',currency:'usd',accountRef:'seller-main'}};
+  config.paymentProfiles={balance:{adapter:'envar_balance',currency:'usd',accountRef:'envar'}};
   config.services=[config.services[1]];
   config.services[0].offers=[{id:'balance',pricing:{kind:'fixed',amount:'100'},collection:{kind:'upfront'},paymentProfile:'balance'}];
   return loadCommerceConfig(config);
@@ -30,7 +30,7 @@ test('Envar balance requires a platform claim and dispatches once after exact ca
   try{
     const config=fixture();store.registerCatalog(config);
     const q=buildQuote(config,{serviceId:'summary-preview',offerId:'balance',caller:'envar-platform',messageId:randomUUID(),input:{text:'hello'}});
-    assert.equal(q.currency,'usd');assert.equal(q.recipient,'seller-main');
+    assert.equal(q.currency,'usd');assert.equal(q.recipient,'envar');
     const order=store.ensureQuote(q,{text:'hello'}),platformOrderId=randomUUID(),claimToken='a'.repeat(40);
     let calls=0;const gate=new EnvarBalanceGate({store,vault,claim:async args=>{calls++;assert.equal(args.platformOrderId,platformOrderId);return receipt(order,platformOrderId);}});
     const challenged=await gate.handle(new Request('https://seller.example/a2a'),order);

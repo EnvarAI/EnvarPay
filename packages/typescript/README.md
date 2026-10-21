@@ -1,76 +1,31 @@
-# EnvarPay TypeScript
+# `@envarai/envarpay`
 
-Independent service commerce for user-operated Agents. Public communication uses
-A2A 1.0; payments use native x402 v2 exact USDC or MPP Stripe charge. Prices and
-scope are versioned configuration, enforced before dispatch, not instructions in
-a prompt. Envar is an optional directory and management UI.
+This package runs an A2A seller gate for free services and Envar account-balance purchases. Buyers use their Envar Wallet; this package does not sign buyer payments.
 
-The 0.2 source line replaces the previous npm wallet-only MCP client. Build from
-this checkout while the release is undergoing acceptance; a source version is
-not evidence that its npm/OCI artifact is published.
+## Recommended setup
 
-## Runtime and entry points
-
-For Hermes onboarding, see [guided Skill setup](../../docs/hermes-skill-setup.md). The `setup --file ...` command reads the owner's local model configuration and creates a private seller with an empty catalog, ready for the first service to be configured in Envar.
-
-The experimental `external-setup` and `external-serve` commands connect an existing
-external Agent through scoped MCP tasks/events and a free A2A entry. See
-[external Agent acceptance](../../docs/external-agents.md) for OAuth pairing,
-Skill discovery, restart and the required real execution evidence.
-
-Node.js 22.14+ (Node 24 recommended). SQLite is single-instance. Contracts can be
-read without loading the seller or buyer runtime; Bun validation covers the
-contracts entry, not the SQLite server.
-
-| Entry | Purpose |
-|---|---|
-| `@envarai/envarpay` | Config types/validation, integer pricing, quotes and A2A Cards |
-| `/server` | Durable seller A2A handler, exact x402 gate and native upstream executor |
-| `/client` | Buyer policy, atomic budgets, original-operation recovery and private management |
-| `/mpp` | Opt-in native MPP seller and read-only Stripe reconciliation |
-| `/envar` | Optional bounded config pull/ack and durable observation reports |
+Use the Agent-specific setup file downloaded from Envar:
 
 ```sh
-npm ci --ignore-scripts
-npm run build
-node dist/commerce/cli.js init --directory ./private
-node dist/commerce/cli.js validate --config ./private/seller.json
+envarpay setup --file /private/path/envar-setup.json
 ```
 
-Initialization writes examples and a vault key; it never creates a purchase or
-funds a wallet. Replace example addresses/hosts and review service limits before
-starting. Keep Agent model credentials in the Agent, and signer keys in a separate
-private wallet boundary.
+Follow the terminal prompts to select a Hermes or OpenClaw runtime and its text Skills. Setup creates an owner-only directory containing `seller.json`, `credentials.json`, `envar.json`, `envar.token`, `vault.key`, `connection.json`, and `start.mjs`. Run the printed `node .../start.mjs` command, import `connection.json` in Envar, and select **Check connection**. The public [Agent guide](https://envar.ai/guide/agents) gives the platform-specific steps and the test message to send.
+
+The generated seller starts with free services and a local balance receiving reference of `envar`. A paid service becomes available only after Envar approves this seller account and the service editor verifies the actual unpaid USD quote. In Envar, choose a Skill, enter its USD price, select **Test service**, then **Publish**. There is no separate payment setup command.
+
+## Manual seller commands
 
 ```sh
-node dist/commerce/cli.js serve --config seller.json \
-  --credentials private/seller-auth.json --state private/seller.sqlite3 \
-  --origin https://seller.example --port 4020
-node dist/commerce/cli.js buyer-serve --config buyer-policy.json \
-  --credentials private/buyer-auth.json --state private/buyer.sqlite3 \
-  --origin https://buyer-management.example --port 4021
+envarpay init --directory /private/envarpay
+envarpay validate --config /private/envarpay/seller.json
+envarpay card --config /private/envarpay/seller.json --service SERVICE --offer OFFER --origin https://seller.example
+envarpay serve --config /private/envarpay/seller.json --credentials /private/envarpay/credentials.json --state /private/envarpay/seller.sqlite3 --origin https://seller.example --envar-config /private/envarpay/envar.json --envar-credentials /private/envarpay/envar.token
+envarpay inspect --state /private/envarpay/seller.sqlite3
 ```
 
-The management service is private and owner-authenticated. A website may request a
-quote and confirm an already-reviewed purchase; it cannot change peers, recipient
-allowlists, budgets or signing keys. Unknown outcomes retain the original request,
-signature/SPT and reserved budget. Never create a replacement purchase after a
-timeout.
+`init` creates a sample seller config and vault key; it does not authorize paid work. Put secrets only in owner-only files (`chmod 600`), keep the state directory private, and use one running process per ledger. The runtime verifies the configured service revision, original A2A Task and one captured Envar balance claim before calling the private Agent. It stores the original claim and Task handles so a lost response can be recovered without charging twice.
 
-[Seller and wire behavior](../../docs/a2a-commerce.md) ·
-[Buyer management](../../docs/a2a-buyer.md) ·
-[Continuation and recovery](../../docs/a2a-runtime-recovery.md) ·
-[Envar configuration integration](../../docs/a2a-envar.md)
+The seller configuration schema is [`schemas/envarpay.config.schema.json`](schemas/envarpay.config.schema.json). Paid amounts are integer **micro-USD** (`100000` = USD 0.10); free offers have no payment profile. An `envar_balance` profile contains only `{ "adapter": "envar_balance", "currency": "usd", "accountRef": "envar" }`. The private Envar policy must allow that exact account reference.
 
-## Payment guarantees
-
-Payment confirmation, task completion and acceptance are separate facts. The MVP
-charges upfront for a new task; reads and permitted clarification use that same
-purchase. It does not provide escrow, automatic refunds, subscriptions or billing
-for arbitrary internal tools. A2A compatibility alone does not give an Agent a
-wallet or authorize payment.
-
-MPP requires an eligible Stripe merchant, a permitted buyer token-creation flow,
-explicit test/live mode and any required customer authentication. Simulator tests
-are not card charges. Provider and chain acceptance must be recorded separately
-from SDK tests and build results.
+For development, run `npm ci --ignore-scripts`, `npm run build`, and `npm test` from this directory. Node.js 22.14+ is required; Node 24 is recommended.
