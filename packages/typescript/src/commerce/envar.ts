@@ -15,7 +15,7 @@ import {
 } from "node:fs";
 import { join, resolve } from "node:path";
 import { DatabaseSync } from "node:sqlite";
-import { atomic, currencyOf, digest, loadCommerceConfig } from "./config.js";
+import { digest, loadCommerceConfig } from "./config.js";
 import {
   CommerceError,
   type CommerceConfig,
@@ -24,8 +24,6 @@ import {
 type Row = Record<string, string | number | null>;
 const UUID =
     /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
-  HASH = /^0x[0-9a-f]{64}$/i,
-  ADDRESS = /^0x[0-9a-f]{40}$/i,
   ID = /^[a-z][a-z0-9-]{0,63}$/;
 const STATUS_KINDS = [
   "seller_started",
@@ -44,15 +42,8 @@ export interface EnvarPolicy {
   acceptUpdates: boolean;
   allowedServices: string[];
   allowedUpstreamOrigins: string[];
-  allowedX402: {
-    network: string;
-    asset: string;
-    payTo: string;
-    facilitatorOrigin: string;
-  }[];
-  allowedMppAccounts: string[];
   /** Explicit seller account references allowed to accept platform balance. */
-  allowedBalanceAccounts?: string[];
+  allowedBalanceAccounts: string[];
 }
 export interface EnvarCandidate {
   id: string;
@@ -76,20 +67,6 @@ export interface EnvarIntegrationOptions {
   timeoutMs?: number;
   responseLimitBytes?: number;
   now?: () => number;
-}
-export interface EnvarX402Evidence {
-  network: string;
-  asset: string;
-  payer: string;
-  recipient: string;
-  amount: string;
-  nonce: string;
-  transaction: string;
-}
-export interface EnvarMppEvidence {
-  reference: string;
-  amount: string;
-  currency: string;
 }
 function fail(code: string, message: string): never {
   throw new CommerceError(code, message);
@@ -214,22 +191,6 @@ export class EnvarIntegration {
     this.policy.allowedUpstreamOrigins = this.policy.allowedUpstreamOrigins.map(
       (url) => origin(url, true),
     );
-    this.policy.allowedX402 = this.policy.allowedX402.map((entry) => {
-      if (
-        !/^eip155:[1-9][0-9]*$/.test(entry.network) ||
-        !ADDRESS.test(entry.asset) ||
-        !ADDRESS.test(entry.payTo)
-      )
-        fail("envar_policy", "Configure explicit receiving identities");
-      return {
-        ...entry,
-        asset: entry.asset.toLowerCase(),
-        payTo: entry.payTo.toLowerCase(),
-        facilitatorOrigin: origin(entry.facilitatorOrigin),
-      };
-    });
-    if (this.policy.allowedMppAccounts.some((id) => !ID.test(id)))
-      fail("envar_policy", "Configure explicit merchant account references");
     this.policy.allowedBalanceAccounts ??= [];
     if (this.policy.allowedBalanceAccounts.some((id) => !ID.test(id)))
       fail("envar_policy", "Configure explicit balance account references");
@@ -514,26 +475,7 @@ export class EnvarIntegration {
         "Upstream origin is outside the local update grant",
       );
     for (const profile of Object.values(config.paymentProfiles)) {
-      if (profile.adapter === "x402") {
-        if (
-          !this.policy.allowedX402.some(
-            (a) =>
-              a.network === profile.network &&
-              a.asset === profile.asset.toLowerCase() &&
-              a.payTo === profile.payTo.toLowerCase() &&
-              a.facilitatorOrigin === new URL(profile.facilitatorUrl).origin,
-          )
-        )
-          fail(
-            "envar_recipient_denied",
-            "Receiving identity or facilitator is outside the local update grant",
-          );
-      } else if (profile.adapter === "mpp" && !this.policy.allowedMppAccounts.includes(profile.accountRef))
-        fail(
-          "envar_merchant_denied",
-          "Merchant account is outside the local update grant",
-        );
-      else if (profile.adapter === "envar_balance" && !this.policy.allowedBalanceAccounts!.includes(profile.accountRef))
+      if (!this.policy.allowedBalanceAccounts.includes(profile.accountRef))
         fail("envar_balance_denied", "Balance receiving account is outside the local update grant");
     }
     const prior = this.db
@@ -826,79 +768,6 @@ export class EnvarIntegration {
       order_id: report.orderId,
       kind: report.kind,
       payload: {},
-    });
-  }
-  enqueueX402Payment(
-    dedupeKey: string,
-    report: { orderId: string; quote: PriceQuote; payment: EnvarX402Evidence },
-  ): string {
-    uuid(report.orderId);
-    const { quote, payment: p } = report,
-      profile = quote.paymentProfile;
-    if (
-      !profile ||
-      profile.adapter !== "x402" ||
-      p.network !== profile.network ||
-      p.asset.toLowerCase() !== profile.asset.toLowerCase() ||
-      p.recipient.toLowerCase() !== profile.payTo.toLowerCase() ||
-      p.amount !== quote.amount ||
-      quote.currency !== currencyOf(profile) ||
-      quote.recipient?.toLowerCase() !== profile.payTo.toLowerCase() ||
-      !ADDRESS.test(p.payer) ||
-      !HASH.test(p.nonce) ||
-      !HASH.test(p.transaction)
-    )
-      fail(
-        "envar_payment_binding",
-        "Report the original x402 transaction matching the frozen quote",
-      );
-    atomic(p.amount);
-    return this.enqueue(`report:${dedupeKey}`, "report", {
-      order_id: report.orderId,
-      kind: "payment_observed",
-      payload: {
-        protocol: "x402",
-        payment: {
-          network: p.network,
-          asset: p.asset.toLowerCase(),
-          payer: p.payer.toLowerCase(),
-          recipient: p.recipient.toLowerCase(),
-          amount: p.amount,
-          nonce: p.nonce.toLowerCase(),
-          transaction: p.transaction.toLowerCase(),
-        },
-      },
-    });
-  }
-  enqueueMppPayment(
-    dedupeKey: string,
-    report: { orderId: string; quote: PriceQuote; payment: EnvarMppEvidence },
-  ): string {
-    uuid(report.orderId);
-    const { quote, payment: p } = report;
-    if (
-      quote.paymentProfile?.adapter !== "mpp" ||
-      p.amount !== quote.amount ||
-      p.currency !== quote.currency ||
-      p.currency !== "usd" ||
-      !/^pi_[A-Za-z0-9]{1,240}$/.test(p.reference)
-    )
-      fail(
-        "envar_payment_binding",
-        "Report the original Stripe PaymentIntent matching the frozen quote",
-      );
-    atomic(p.amount);
-    return this.enqueue(`report:${dedupeKey}`, "report", {
-      order_id: report.orderId,
-      kind: "payment_observed",
-      payload: {
-        protocol: "mpp",
-        payment: {
-          reference: p.reference,
-          amount: p.amount,
-          currency: p.currency,
-        },
-      },
     });
   }
   queueStatus(): {

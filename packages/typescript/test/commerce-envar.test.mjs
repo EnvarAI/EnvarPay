@@ -17,7 +17,6 @@ import {
 import {
   loadCommerceConfig,
   digest,
-  currencyOf,
 } from "../dist/commerce/config.js";
 import { CommerceStore } from "../dist/commerce/store.js";
 const token = "runtime-token-never-in-reports-".repeat(2),
@@ -58,15 +57,7 @@ function fixture(options = {}) {
     acceptUpdates: true,
     allowedServices: ["research"],
     allowedUpstreamOrigins: ["http://hermes:9000"],
-    allowedX402: [
-      {
-        network: "eip155:84532",
-        asset: current.config.paymentProfiles["base-usdc"].asset,
-        payTo: current.config.paymentProfiles["base-usdc"].payTo,
-        facilitatorOrigin: "https://facilitator.example",
-      },
-    ],
-    allowedMppAccounts: ["seller-stripe"],
+    allowedBalanceAccounts: ["envar"],
     ...options.policy,
   };
   const fetcher = async (url, init) => {
@@ -142,11 +133,7 @@ test("exact platform origin, mapped Agent and JCS digest are checked before appl
       reseal(c);
     },
     (c) => {
-      c.config.paymentProfiles["base-usdc"].payTo = "0x" + "9".repeat(40);
-      reseal(c);
-    },
-    (c) => {
-      c.config.paymentProfiles["stripe-usd"].accountRef = "other";
+      c.config.paymentProfiles["envar-usd"].accountRef = "other";
       reseal(c);
     },
   ]) {
@@ -333,74 +320,6 @@ test("source identity, queued event IDs and retries survive restart without dupl
   } finally {
     restarted.close();
     rmSync(dir, { recursive: true, force: true });
-  }
-});
-test("only minimal original payment facts are queued; signatures, SPTs and prompts are excluded", async () => {
-  const f = fixture();
-  try {
-    const x = f.current.config.paymentProfiles["base-usdc"],
-      quote = {
-        amount: "3000000",
-        currency: currencyOf(x),
-        recipient: x.payTo,
-        paymentProfile: x,
-      };
-    const payment = {
-      network: x.network,
-      asset: x.asset,
-      payer: "0x" + "1".repeat(40),
-      recipient: x.payTo,
-      amount: "3000000",
-      nonce: "0x" + "3".repeat(64),
-      transaction: "0x" + "4".repeat(64),
-      signature: "never-leak-signature",
-      prompt: "private-prompt",
-    };
-    f.integration.enqueueX402Payment("original:receipt", {
-      orderId,
-      quote,
-      payment,
-    });
-    assert.throws(
-      () =>
-        f.integration.enqueueX402Payment("bad", {
-          orderId,
-          quote,
-          payment: { ...payment, amount: "1" },
-        }),
-      { code: "envar_payment_binding" },
-    );
-    const m = f.current.config.paymentProfiles["stripe-usd"];
-    f.integration.enqueueMppPayment("stripe:receipt", {
-      orderId,
-      quote: { amount: "300", currency: "usd", paymentProfile: m },
-      payment: {
-        reference: "pi_123abc",
-        amount: "300",
-        currency: "usd",
-        spt: "never-leak-spt",
-      },
-    });
-    await f.integration.flush();
-    const serialized = JSON.stringify(f.calls.map((c) => c.body));
-    for (const secret of [
-      token,
-      "never-leak-signature",
-      "never-leak-spt",
-      "private-prompt",
-    ])
-      assert.equal(serialized.includes(secret), false);
-    assert.deepEqual(Object.keys(f.calls[0].body.payload.payment).sort(), [
-      "amount",
-      "asset",
-      "network",
-      "nonce",
-      "payer",
-      "recipient",
-      "transaction",
-    ]);
-  } finally {
-    f.close();
   }
 });
 test("concurrent ownership and platform identity swaps fail closed", () => {

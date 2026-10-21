@@ -1,17 +1,21 @@
-# Accept Envar account balance
+# Envar account-balance seller gate
 
-This optional seller adapter accepts a captured Envar ledger claim for one immutable USD service quote. It is a platform-specific payment method. It does not produce an x402 USDC transfer or an MPP Stripe receipt. A buyer using Envar's account balance needs no local EnvarPay buyer wallet; the seller continues to run its own EnvarPay gate and private Agent.
+EnvarPay accepts a captured Envar ledger claim for one immutable USD service quote. The buyer uses the Envar Wallet and needs no local payment software. The seller keeps its Agent, model, memory, tools, and EnvarPay process in its own environment.
 
-## Seller setup
+## Seller checklist
 
-1. Connect the existing seller runtime to the intended Envar Agent with an owner-only `--envar-config` and `--envar-credentials` file. Keep the Agent-scoped Envar token separate from A2A caller tokens.
-2. Add the exact approved `accountRef` to the local policy's `allowedBalanceAccounts`. Leave it empty to refuse all balance offers. Envar must independently verify that the reference belongs to this seller before publishing.
-3. Add a service payment profile such as `{"adapter":"envar_balance","currency":"usd","accountRef":"seller-main"}` and a fixed or bounded quantity price. Its integer `amount` is **micro-USD** (100 = USD 0.0001), not USDC atomic units or Stripe cents. The maximum is a signed 64-bit amount.
-4. Give the Envar platform a dedicated A2A caller token for this gateway. Platform ownership of an Agent does not automatically authorize calls to the seller's private Agent. For invitation-only offers, configure the corresponding access grant separately.
-5. Publish only after the platform verifies the applied revision, public Card, unpaid HTTP 402 and receiving account. Funding the buyer balance, confirming a quote and starting a Task remain separate actions.
+1. Create a private Agent in Envar, select Hermes or OpenClaw, and download the Agent-specific setup file.
+2. Run `envarpay setup --file ...` beside that Agent. Start the generated service and keep its HTTPS endpoint online. Import `connection.json` in Envar and pass **Check connection** with a real final Agent reply.
+3. Open the Agent's **Services** page. Choose an installed text Skill, enter its input/delivery description, and set a USD price. Setup already allows the local receiving reference `envar`; Envar must separately show that this seller is approved to receive account-balance payments.
+4. Select **Test service**. Envar compares the applied service version with the live unpaid quote, including the amount, currency, receiving reference, input digest, and Task ID.
+5. Publish only after the connection, receiving approval, and service test all pass. A private or unlisted service still needs its normal access grant.
 
-For a new A2A `SendMessage`, the gate returns HTTP 402 with the frozen quote and original Task ID when no `Envar-Balance-Claim` is supplied. The Envar platform reserves the buyer's balance after explicit authorization, then resends the same message ID with the original platform order ID and opaque claim token in `Envar-Balance-Order` and `Envar-Balance-Claim` headers. The seller uses its Agent-scoped Envar credential to claim that exact order. Envar atomically captures its reservation and returns a receipt bound to seller, service revision, input digest, message ID, quote ID, amount, currency and task ID. Only then does the gateway queue the private Agent task.
+If receiving approval is pending, the service remains a draft. Do not edit private credentials to work around the status. Free services can be published without balance approval.
 
-If the platform response is lost, the gate retains the original claim in its encrypted vault and retries that claim. It never asks for a replacement debit. A mismatched receipt, expired quote or unavailable platform blocks execution. Historical x402/MPP tasks keep their original recovery path; do not convert them to balance payments.
+## Original order behavior
 
-No seller payout is performed by this package. Envar owns the buyer balance and seller payable ledger, refund decisions and external settlement. Enable this adapter only after that platform path and the relevant merchant/PSP approval are ready.
+For a new paid `SendMessage`, the seller gate returns HTTP 402 with the exact quote and original Task ID. After the account owner confirms the purchase in Envar, the platform reserves the buyer's balance and retries the **same** message ID with the original order ID and short-lived claim token. The seller calls Envar's authenticated claim API. Envar atomically captures the reservation and returns a receipt bound to seller, service revision, input digest, message ID, quote ID, amount, currency, and Task ID. The gate verifies that receipt before queuing the private Agent task.
+
+If the claim response is lost, the gate retains the original claim in its encrypted vault and retries that claim. A mismatched receipt, expired quote, or unavailable platform blocks execution. It never asks the buyer to create a replacement payment. Completed payment and Agent execution have separate states; an execution failure does not silently undo the payment.
+
+Amounts in the seller config and claim are **micro-USD**: `100` is USD 0.0001 and `100000` is USD 0.10. Seller earnings begin as pending in Envar; Envar, not this package, controls refund decisions and later settlement. The production Wallet remains gated until real top-up, refund, and seller-settlement checks pass.

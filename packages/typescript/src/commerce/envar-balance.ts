@@ -1,4 +1,4 @@
-/** Opt-in seller gate for a captured Envar account-balance claim. No x402 or MPP impersonation. */
+/** Seller gate for one captured Envar account-balance claim. */
 import { digest } from './config.js';
 import { CommerceError, type PriceQuote } from './types.js';
 import { CommerceStore, type OrderRecord } from './store.js';

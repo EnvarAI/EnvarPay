@@ -35,7 +35,7 @@ test('invalid input and paid offer cannot execute without payment transport',asy
  try{
   const invalid=await(await server.handle(request('SendMessage',message('x'.repeat(501))))).json();assert.ok(invalid.error);
   const paid={message:{messageId:'paid',role:'ROLE_USER',parts:[{data:{topic:'x',competitors:['A']}}]},configuration:{returnImmediately:true}};
-  const refused=await(await server.handle(request('SendMessage',paid,tokenA,'/services/research/v1/offers/usdc-once/a2a'))).json();assert.ok(refused.error);assert.equal(calls,0);
+  const refused=await(await server.handle(request('SendMessage',paid,tokenA,'/services/research/v1/offers/balance-once/a2a'))).json();assert.ok(refused.error);assert.equal(calls,0);
  }finally{await stop(server,store);}
 });
 test('runtime error is durable unknown and replay never dispatches a second task',async()=>{

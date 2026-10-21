@@ -7,10 +7,7 @@ import {
 } from "node:fs";
 import { join, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { randomBytes } from "node:crypto";
-import { createInterface } from "node:readline/promises";
 import { CommerceError } from "./types.js";
-import { validateUrl, loadCommerceConfig } from "./config.js";
 
 function read(path: string): any {
   const s = lstatSync(path);
@@ -109,116 +106,4 @@ export function upgradeDiscovery(directory: string, home?: string): void {
   console.log(
     `Discovery enabled. Stop the original service with Ctrl+C, then restart:\n${process.execPath} ${JSON.stringify(join(root, "start.mjs"))}\nInstalled Skills will appear privately in Envar. No service is automatically enabled or published.`,
   );
-}
-export async function configurePayments(
-  directory: string,
-  file: string,
-): Promise<void> {
-  if (!process.stdin.isTTY)
-    throw new CommerceError(
-      "setup_terminal",
-      "Use an interactive terminal to approve receiving configuration",
-    );
-  const root = resolve(directory),
-    bundle = JSON.parse(readFileSync(file, "utf8"));
-  const cfg = read(join(root, "seller.json")),
-    auth = read(join(root, "credentials.json")),
-    sync = read(join(root, "envar.json"));
-  const assets: Record<string, string> = {
-    "eip155:8453": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
-    "eip155:84532": "0x036cbd53842c5426634e7929541ec2318f3dcf7e",
-  };
-  if (
-    bundle.version !== 1 ||
-    bundle.agentId !== sync.policy.agentId ||
-    !assets[bundle.network] ||
-    !/^0x[0-9a-fA-F]{40}$/.test(bundle.payTo) ||
-    BigInt(bundle.payTo) === 0n
-  )
-    throw new CommerceError(
-      "payment_setup",
-      "Download receiving settings for this Agent",
-    );
-  const prompt = createInterface({
-    input: process.stdin,
-    output: process.stdout,
-  });
-  const ask = async (text: string, fallback = "") =>
-    (
-      await prompt.question(`${text}${fallback ? ` [${fallback}]` : ""}: `)
-    ).trim() || fallback;
-  try {
-    console.log(
-      `Receiving account: ${bundle.payTo}\nNetwork: ${bundle.network === "eip155:8453" ? "Base mainnet" : "Base Sepolia testnet"}\nAsset: official USDC. This enables receiving only; it does not send money or create a signing key.`,
-    );
-    if ((await ask("Approve this receiving account? (yes/no)", "no")) !== "yes")
-      return;
-    const facilitator = validateUrl(
-      await ask("x402 facilitator HTTPS URL", bundle.facilitatorUrl ?? ""),
-    );
-    const rpc = validateUrl(
-      await ask(
-        "Network RPC HTTPS URL",
-        bundle.network === "eip155:8453"
-          ? "https://mainnet.base.org"
-          : "https://sepolia.base.org",
-      ),
-    );
-    const payer = await ask("Authorized buyer wallet address");
-    if (!/^0x[0-9a-fA-F]{40}$/.test(payer) || BigInt(payer) === 0n)
-      throw new CommerceError(
-        "payment_setup",
-        "Use the buyer wallet address for this service access credential",
-      );
-    const caller = "buyer-" + payer.slice(2).toLowerCase(),
-      token = randomBytes(36).toString("base64url");
-    auth.callers = { ...auth.callers, [token]: caller };
-    auth.payers = { ...auth.payers, [caller]: payer };
-    auth.rpcUrls = { ...auth.rpcUrls, [bundle.network]: rpc.href };
-    auth.vaultKeyFile ??= join(root, "vault.key");
-    if (!existsSync(auth.vaultKeyFile))
-      writeFileSync(auth.vaultKeyFile, randomBytes(32), {
-        mode: 0o600,
-        flag: "wx",
-      });
-    const profile = {
-      adapter: "x402",
-      scheme: "exact",
-      network: bundle.network,
-      asset: assets[bundle.network],
-      payTo: bundle.payTo,
-      facilitatorUrl: facilitator.href,
-    };
-    loadCommerceConfig({
-      ...cfg,
-      paymentProfiles: { ...cfg.paymentProfiles, "setup-receiving": profile },
-    });
-    auth.receivingProfiles = [
-      ...(auth.receivingProfiles ?? []).filter(
-        (p: any) => p.network !== bundle.network,
-      ),
-      profile,
-    ];
-    sync.policy.allowedX402 = [
-      ...sync.policy.allowedX402.filter(
-        (p: any) => p.network !== bundle.network,
-      ),
-      {
-        network: bundle.network,
-        asset: assets[bundle.network],
-        payTo: bundle.payTo.toLowerCase(),
-        facilitatorOrigin: facilitator.origin,
-      },
-    ];
-    const accessFile = join(root, caller + ".token");
-    writeFileSync(accessFile, token + "\n", { mode: 0o600 });
-    save(join(root, "credentials.json"), auth);
-    save(join(root, "envar.json"), sync);
-    refreshLauncher(root);
-    console.log(
-      `Receiving configured for ${cfg.agent.name}. Restart the local service using start.mjs, then refresh Envar.\nBuyer service-access token: ${accessFile}\nGive this file only to the authorized buyer. Original wallets, budgets and ledgers were preserved. No payment performed.`,
-    );
-  } finally {
-    prompt.close();
-  }
 }

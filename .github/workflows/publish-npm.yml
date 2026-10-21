@@ -2,10 +2,10 @@ name: TypeScript distribution
 
 on:
   pull_request:
-    paths: [packages/typescript/**, src/**, pyproject.toml, .github/workflows/publish-npm.yml]
+    paths: [packages/typescript/**, .github/workflows/publish-npm.yml]
   push:
     branches: [main]
-    paths: [packages/typescript/**, src/**, pyproject.toml, .github/workflows/publish-npm.yml]
+    paths: [packages/typescript/**, .github/workflows/publish-npm.yml]
   workflow_dispatch:
     inputs:
       tag:
@@ -47,17 +47,9 @@ jobs:
           registry-url: https://registry.npmjs.org
           cache: npm
           cache-dependency-path: packages/typescript/package-lock.json
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.13'
-      # The discovery fixture supplies a Hermes profile; Hermes normally provides YAML.
-      - run: python -m pip install . PyYAML==6.0.3
       - run: npm ci --ignore-scripts
         working-directory: packages/typescript
       - run: npm test
-        working-directory: packages/typescript
-      - uses: oven-sh/setup-bun@v2
-      - run: bun test test/client.test.mjs
         working-directory: packages/typescript
       - name: Verify release selection
         env:
@@ -82,10 +74,9 @@ jobs:
           cd /tmp/envarpay-consumer
           npm init -y
           npm install --ignore-scripts /tmp/envarai-envarpay-*.tgz typescript@5.9.3
-          printf '%s\n' 'import { loadCommerceConfig, type CommerceConfig } from "@envarai/envarpay";' 'import { CommerceBuyer, BuyerStore } from "@envarai/envarpay/client";' 'import { CommerceServer } from "@envarai/envarpay/server";' 'import { MppGate } from "@envarai/envarpay/mpp";' 'import { EnvarIntegration } from "@envarai/envarpay/envar";' 'void loadCommerceConfig; void CommerceBuyer; void BuyerStore; void CommerceServer; void MppGate; void EnvarIntegration;' > check.mts
+          printf '%s\n' 'import { loadCommerceConfig, type CommerceConfig } from "@envarai/envarpay";' 'import { CommerceServer, EnvarBalanceGate } from "@envarai/envarpay/server";' 'import { EnvarIntegration } from "@envarai/envarpay/envar";' 'void loadCommerceConfig; void CommerceServer; void EnvarBalanceGate; void EnvarIntegration;' > check.mts
           npx --no-install tsc --noEmit --strict --skipLibCheck --module NodeNext --target ES2022 check.mts
-          node --input-type=module -e 'import { CommerceBuyer } from "@envarai/envarpay/client"; import { CommerceServer } from "@envarai/envarpay/server"; if (!CommerceBuyer || !CommerceServer) throw new Error("Missing commerce API");'
-          bun -e 'import { loadCommerceConfig } from "@envarai/envarpay"; if (typeof loadCommerceConfig !== "function") throw new Error("Missing contracts API");'
+          node --input-type=module -e 'import { CommerceServer, EnvarBalanceGate } from "@envarai/envarpay/server"; import { loadCommerceConfig } from "@envarai/envarpay"; if (!CommerceServer || !EnvarBalanceGate || !loadCommerceConfig) throw new Error("Missing seller API");'
           sha256sum /tmp/envarai-envarpay-*.tgz >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
         with:

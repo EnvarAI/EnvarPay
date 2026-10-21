@@ -39,7 +39,7 @@ test('name is the skill identity; a generic A2A executor cannot sell a version-2
 
 test('a priced skill waits for an independently confirmed gate before its exact-name dispatch',async()=>{
   const c=config();
-  c.services[0].offers.push({id:'paid',pricing:{kind:'fixed',amount:'100000'},collection:{kind:'upfront'},paymentProfile:'base-usdc'});
+  c.services[0].offers.push({id:'paid',pricing:{kind:'fixed',amount:'100000'},collection:{kind:'upfront'},paymentProfile:'envar-usd'});
   let calls=0;
   const runtime={
     list:()=>[{name:'research',digest:skillDigest,cardUrl:c.services[0].execution.cardUrl,access:'paid'}],

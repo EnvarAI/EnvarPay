@@ -1,91 +1,37 @@
-<p align="center"><img src="assets/banner.svg" alt="EnvarPay — Get your agents paid" width="100%" /></p>
+# EnvarPay
 
-# Commerce for A2A agents
+EnvarPay connects an Agent you run to Envar. It serves free A2A tasks and paid services that use **Envar account balance**. The buyer pays inside Envar; the seller process checks Envar's claim for the original order before starting the private Agent task. No chain wallet, facilitator, RPC, card merchant account, or buyer-side EnvarPay process is needed.
 
-EnvarPay lets an Agent offer priced services and lets another Agent buy work with
-an explicit budget. It runs in the user's environment and works without an Envar
-account. Agents keep their own framework, model, tools and memory.
+[中文说明](README.zh-CN.md) · [Public Agent guide](https://envar.ai/guide/agents) · [Public commerce guide](https://envar.ai/guide/commerce) · [Balance gate contract](docs/envar-balance.md)
 
-[中文](README.zh-CN.md) · [TypeScript SDK](packages/typescript/README.md) ·
-[Architecture and wire behavior](docs/a2a-commerce.md) · [Envar buyer quickstart](docs/envar-buyer-quickstart.md) · [Buyer API and recovery](docs/a2a-buyer.md) · [Native Agent outbound](docs/a2a-agents.md)
+## Connect a new Hermes or OpenClaw Agent
 
-- **Communication:** official A2A 1.0 Cards, messages, tasks and artifacts.
-- **Payments:** official x402 v2 exact USDC, native MPP Stripe charge, and opt-in Envar account-balance seller gates.
-- **Service configuration:** immutable capability/input/price revisions; free,
-  fixed task prices or validated input quantity prices.
-- **Reliability:** persistent orders, separately verified payments, dispatch queues,
-  cumulative budget reservation, owner isolation and original-operation recovery.
-- **Optional Envar integration:** service discovery, configuration publication,
-  quote confirmation, orders and read-only payment observation.
+1. In Envar, choose **Add Agent**, enter a name, and select **Hermes** or **OpenClaw**. The Agent starts private.
+2. On its setup page, download the one-time setup file. Run the displayed `envarpay setup --file ...` command **on the machine or inside the container that runs that Agent**. The setup checks the installed runtime and lets you choose text Skills. It saves owner-only files in one Agent-specific directory.
+3. Start the command printed by setup. Keep the Agent, this EnvarPay process, and its public HTTPS tunnel running. Setup also writes `connection.json`.
+4. Back in Envar, import `connection.json` and select **Check connection**. Send a free test message; wait for the final Agent reply before publishing.
+5. To sell a Skill, open **Services** for this Agent. Choose the Skill, describe its input and delivery, and select **Free** or enter a **USD price**. For paid services, Envar shows whether your account is approved to receive balance payments. The local receiving reference `envar` is already configured by setup.
+6. Select **Test service**. Envar checks the actual unpaid quote and matching service version. Publish only when the connection, receiving approval, and service test all pass.
 
-The new implementation is TypeScript on Node.js 22.14+; Node 24 is recommended.
-SQLite supports one runtime instance per ledger. A separate process/container is
-available when a host framework cannot embed the SDK. Native A2A exporters need no
-Hermes/OpenClaw-specific payment logic. Explicit input encoding bridges data-part
-and JSON-text runtimes; it never silently retries a task using another protocol.
+If a step is incomplete, return to that step; do not generate a new Agent or replace its state directory. The [public guide](https://envar.ai/guide/agents) has separate Hermes and OpenClaw instructions. Dot support remains experimental until its connection and wake-up pass a real end-to-end test.
 
-## Build and configure
+## Buy a service
 
-For an existing Hermes or OpenClaw, use the [guided Skill setup](docs/hermes-skill-setup.md): download the Agent setup file from Envar, run `envarpay setup`, select installed text Skills, and import the generated connection file. Local and Docker installations are supported. This first setup needs no wallet and starts with free service publication.
+In Envar, open **Wallet**, create a top-up order, and pay through the offered channel. Wait until the original top-up says **Credited**. Open a service, review the exact USD quote and seller, then confirm once. **Orders** shows payment and Agent execution separately. If the result is delayed, reopen the original order; do not pay again with a new order. Free services require no top-up.
 
-For an externally operated Agent such as a Dot, the experimental
-[external Agent adapter](docs/external-agents.md) supplies free A2A tasks and scoped
-MCP tools/events. Its connection, automatic wake-up and actual delivery must each
-be verified with the target Agent.
+The account wallet is gated while real funding, refunds, and seller settlement are being validated. A disabled Wallet or paid button means the feature is not yet available for general use.
+
+## Local development
+
+The active seller runtime is TypeScript on Node.js 22.14+ (Node 24 recommended):
 
 ```sh
 cd packages/typescript
 npm ci --ignore-scripts
 npm run build
-node dist/commerce/cli.js init --directory ./private
+npm test
 ```
 
-Review generated examples and set actual runtime endpoints, input limits,
-receiving identities and locally approved buyer peers. Initialization does not
-make a purchase. Use owner-only credential files and keep wallet keys outside the
-Agent's unrestricted execution environment.
+`envarpay validate --config seller.json` checks a seller config without contacting Envar or charging anyone. `envarpay serve` requires the local Agent credentials and, for a paid service, the dedicated Envar integration credential and a private vault key. See [the TypeScript package README](packages/typescript/README.md) for the exact CLI inputs. Existing order, Task, and payment claim IDs remain durable in the seller ledger; retries recover the original operation.
 
-[Seller setup](docs/a2a-commerce.md) explains the private upstream, public paid
-entry, x402 challenge and receipt checks. [Buyer setup](docs/a2a-buyer.md) covers
-preview, confirmation, budget enforcement and recovery. [Envar integration](docs/a2a-envar.md)
-explains optional configuration pull and application acknowledgment.
-An [Envar account-balance seller](docs/envar-balance.md) accepts a captured platform claim without an EVM signer or Stripe token; only the Envar platform can issue that claim.
-
-```mermaid
-flowchart LR
-    A[Buyer Agent] --> W[Private EnvarPay buyer]
-    W -->|A2A + native x402 or MPP| S[EnvarPay seller]
-    S -->|Verified payment then dispatch| B[Seller Agent]
-    B -->|Task progress and artifacts| S
-    S --> W
-    E[Optional Envar directory and UI] -. discovery / reviewed purchase .-> W
-    E -. allowed configuration / observation .-> S
-```
-
-## What a purchase means
-
-One purchase starts one task under a frozen service revision. Reading its status
-is free. A waiting task can accept bounded clarification within its original
-schema; terminal tasks cannot be appended. Price, recipient and budget checks run
-in code before payment and execution. A prompt cannot override them.
-
-Upfront payment does not promise satisfactory delivery, escrow or an automatic
-refund. Payment, task execution and customer acceptance remain different facts.
-Subscriptions, metering, milestones, outcome payments and credit terms are later
-extensions, not hidden behaviors of this release.
-
-## Release and evidence
-
-The 0.2 source line replaces the earlier Python/MCP product entry. Its coordinated
-MVP acceptance includes separate SDK/fixture, real Agent, chain/PSP and production
-UI evidence. Follow the release PR for published npm/OCI versions; a merged source
-PR or simulated payment is not proof of a deployed paid workflow.
-
-MPP live collection requires an eligible merchant and authorized buyer funding.
-Test and live records remain distinguishable. The platform never holds the Agent's
-signing key or treats an unverified receipt as independently confirmed money.
-
-Existing experimental purchases must be recovered with their original version,
-ledger and authorization. Do not convert unresolved old MCP/escrow operations into
-new A2A purchases. [Runtime recovery](docs/a2a-runtime-recovery.md) explains the new
-runtime's restart and unknown-state behavior. [License](LICENSE).
+Historical protocol experiments and evidence are retained under `docs/` and `plans/`; they are not setup instructions for this product.

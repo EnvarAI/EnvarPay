@@ -461,9 +461,11 @@ export async function setupAgent(options: {
       services: [],
     });
     privateJson(join(staging, "seller.json"), config);
+    writeFileSync(join(staging, "vault.key"), randomBytes(32), { mode: 0o600, flag: "wx" });
     privateJson(join(staging, "credentials.json"), {
       callers: { [access]: "owner" },
       upstreams: {},
+      vaultKeyFile: join(directory, "vault.key"),
       skills: {
         framework,
         ...(probe.command ? {command: probe.command} : {}),
@@ -493,8 +495,7 @@ export async function setupAgent(options: {
         acceptUpdates: true,
         allowedServices: selected,
         allowedUpstreamOrigins: [origin],
-        allowedX402: [],
-        allowedMppAccounts: [],
+        allowedBalanceAccounts: ["envar"],
       },
       stateDirectory: join(directory, "envar-state"),
       configDirectory: join(directory, "envar-configs"),
@@ -534,7 +535,7 @@ export async function setupAgent(options: {
     );
     writeFileSync(
       join(staging, "README.md"),
-      `# ${bundle.agentName}\n\nStart: node ${JSON.stringify(start)}\n\nKeep the terminal, Hermes, and HTTPS tunnel running. Import connection.json in the Envar setup page, then check the connection. Choose a skill and save a free service. Request publication; this process applies the selected service automatically. Return to Envar and check/publish.\n\nOnly free service updates are authorized. Receiving and payment setup is separate. Platform token expires ${bundle.expiresAt}. Keep the original files and ledger when restarting.\n`,
+      `# ${bundle.agentName}\n\n1. Start: node ${JSON.stringify(start)}\n2. Keep this process, your Agent and the HTTPS tunnel running.\n3. In Envar, import connection.json and select Check connection.\n4. Choose a Skill. You can publish it free immediately.\n5. For a paid Skill, request Envar balance receiving approval in Envar, then enter the USD price. This setup already allows the local receiving reference \"envar\"; there is no chain wallet or payment protocol to configure.\n6. Select Test service, then Publish after Envar confirms the live unpaid quote.\n\nThe Envar Agent token expires ${bundle.expiresAt}. Keep the original files and ledger when restarting. Never share credentials.json, envar.token or vault.key.\n`,
       { mode: 0o600, flag: "wx" },
     );
     renameSync(staging, directory);

@@ -66,7 +66,7 @@ test('ten clarification rounds are bounded within the initial task',async()=>{
 });
 
 test('paid clarification requires initial settlement and never invokes payment gate again',async()=>{
- const c=config();c.services[0].offers=[{id:'free',pricing:{kind:'fixed',amount:'1000'},collection:{kind:'upfront'},paymentProfile:'base-usdc'}];
+ const c=config();c.services[0].offers=[{id:'free',pricing:{kind:'fixed',amount:'1000'},collection:{kind:'upfront'},paymentProfile:'envar-usd'}];
  const store=new CommerceStore(':memory:');let executes=0,settlements=0,gateCalls=0;
  const execute=async function*(){executes++;yield task();};execute.continue=async function*(){executes++;yield task('TASK_STATE_COMPLETED');};
  const gate={handle:async(request,order)=>{gateCalls++;if(!request.headers.has('X-Test-Payment'))return {response:Response.json({fixture:true},{status:402})};const id=store.reservePayment(order.id,order.caller,'fixture-payment','fixture-vault-ref');store.recordSettlement(id,'confirmed',{fixture:true});settlements++;return {headers:{}};}};
@@ -119,7 +119,7 @@ test('official native recovery sends GetTask only and pins the original interfac
 
 test('v1 ledger migration preserves original payment and task records',async()=>{
  const dir=mkdtempSync(join(tmpdir(),'envar-migration-')),path=join(dir,'ledger.sqlite3');let store;
- try{store=new CommerceStore(path);const c=config();c.services[0].offers=[{id:'free',pricing:{kind:'fixed',amount:'1000'},collection:{kind:'upfront'},paymentProfile:'base-usdc'}];store.registerCatalog(c);const q=buildQuote(c,{caller:'buyer-a',serviceId:'summary-preview',offerId:'free',messageId:'before-upgrade',input:{text:'original'}});const o=store.ensureQuote(q,{text:'original'});const attempt=store.reservePayment(o.id,'buyer-a','original-economic-proof','original-credential-ref');store.recordSettlement(attempt,'confirmed',{transaction:'fixture-original'});store.close();
+ try{store=new CommerceStore(path);const c=config();c.services[0].offers=[{id:'free',pricing:{kind:'fixed',amount:'1000'},collection:{kind:'upfront'},paymentProfile:'envar-usd'}];store.registerCatalog(c);const q=buildQuote(c,{caller:'buyer-a',serviceId:'summary-preview',offerId:'free',messageId:'before-upgrade',input:{text:'original'}});const o=store.ensureQuote(q,{text:'original'});const attempt=store.reservePayment(o.id,'buyer-a','original-economic-proof','original-credential-ref');store.recordSettlement(attempt,'confirmed',{transaction:'fixture-original'});store.close();
  const db=new DatabaseSync(path);db.exec('UPDATE commerce_meta SET version=1');db.close();
  store=new CommerceStore(path);assert.equal(store.findOrder('buyer-a','summary-preview:1','before-upgrade').id,o.id);assert.equal((await store.load(o.taskId,ctx())).id,o.taskId);assert.equal(store.claimReady().id,o.id);assert.equal(store.paymentForOrder(o.id).credentialRef,'original-credential-ref');assert.equal(store.paymentForOrder(o.id).receipt.transaction,'fixture-original');
  }finally{store?.close();rmSync(dir,{recursive:true,force:true});}
@@ -145,16 +145,4 @@ test('queued clarification survives restart, interrupted dispatch never requeues
  store=new CommerceStore(path);const claimed=store.claimContinuation();assert.equal(claimed.continuation.id,follow.id);assert.equal(claimed.continuation.input.clarification,'detail');store.close();
  store=new CommerceStore(path);assert.equal(store.recoverInterruptedDispatches(),1);assert.equal(store.claimContinuation(),undefined);assert.equal(store.continuationFor(order.id,'restart-clarification').state,'unknown');assert.equal(store.remoteTask(order.id,order.caller).taskId,'remote-task');assert.equal((await store.load(order.taskId,ctx())).metadata.recoveryRequired,true);
  }finally{store?.close();rmSync(dir,{recursive:true,force:true});}
-});
-
-test('MPP initial quote requires resolved merchant and injects it before payment gate',async()=>{
- const c=config();c.paymentProfiles.card={adapter:'mpp',method:'stripe',intent:'charge',currency:'usd',accountRef:'merchant'};
- c.services[0].offers=[{id:'free',pricing:{kind:'fixed',amount:'1000'},collection:{kind:'upfront'},paymentProfile:'card'}];
- for(const ready of [false,true]){
-  const store=new CommerceStore(':memory:');let gates=0;
-  const gate={handle:async(_request,order)=>{gates++;assert.equal(order.quote.recipient,'profile_verified');return {response:Response.json({fixture:true},{status:402})};}};
-  const server=serverFor(store,async function*(){throw new Error('unpaid must not execute');},{config:c,paymentGate:gate,...(ready?{stripeRecipientFor:ref=>ref==='merchant'?'profile_verified':undefined}:{})});
-  try{const result=await rpc(server,'SendMessage',initial);if(ready){assert.equal(result.status,402);assert.equal(gates,1);}else{assert.equal(result.value.error.data.code,'merchant_not_ready');assert.equal(gates,0);}}
-  finally{await stop(server,store);}
- }
 });

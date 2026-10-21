@@ -6,7 +6,7 @@ import { CommerceServer, CommerceStore } from '../dist/commerce/runtime.js';
 import { loadCommerceConfig } from '../dist/commerce/index.js';
 
 const origin = 'https://seller.example';
-const paidPath = '/services/research/v1/offers/usdc-once/a2a';
+const paidPath = '/services/research/v1/offers/balance-once/a2a';
 const freePath = '/services/summary-preview/v1/offers/free/a2a';
 const caller = 'wire-test-owner';
 

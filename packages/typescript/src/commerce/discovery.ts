@@ -101,10 +101,7 @@ export class SkillDiscovery {
       throw Error("inventory");
     return list;
   }
-  async sync(
-    integration: EnvarIntegration,
-    payments: { network: string; pay_to: string; facilitator_url: string }[],
-  ): Promise<void> {
+  async sync(integration: EnvarIntegration): Promise<void> {
     if (Date.now() >= this.nextScan) {
       this.nextScan = Date.now() + 15000;
       try {
@@ -151,12 +148,6 @@ export class SkillDiscovery {
       card_url: this.origin + "/.well-known/agent-card.json",
       state: this.state,
       skills: skills.slice(0, 128),
-      payments: payments
-        .filter(
-          (p, i, all) =>
-            all.findIndex((x) => JSON.stringify(x) === JSON.stringify(p)) === i,
-        )
-        .slice(0, 8),
     });
     for (const request of result) {
       const skill = this.cached.find(

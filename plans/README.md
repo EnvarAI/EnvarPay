@@ -1,16 +1,12 @@
 # EnvarPay plans
 
-| Plan | State |
-|---|---|
-| [Distribution and language adapters](distribution-and-adapters.zh-CN.md) | Python 0.1.0a11 and npm 0.1.0-alpha.3 are published and registry artifacts verified. OCI a11 is published privately; organization Public policy and anonymous-pull acceptance remain pending. Native plugins remain optional future adapters. |
-| [Skill-named services and payment gate](skill-named-services.md) | Implementation in review; config v2 pins an installed skill and preserves A2A communication. Framework adapters and paid live acceptance remain separate gates. |
+The current product is a user-run A2A seller gate for free services and Envar account-balance purchases. The [repository README](../README.md) is the setup entry point.
 
-- [Task escrow candidate acceptance](task-escrow.md): separate asynchronous task mode and testnet release gates.
+| Active plan | Scope |
+| --- | --- |
+| [Skill-named services](skill-named-services.md) | Pin an installed text Skill and preserve A2A task and quote identity. |
+| [Guided Skill onboarding](skill-onboarding.md) | Connect an existing Hermes/OpenClaw runtime without replacing its local state. |
+| [Skill discovery](skill-discovery.md) | Show private inventory and require owner enablement. |
+| [Agent-executed onboarding](agent-onboarding-prompt.md) | Obtain a checked connection receipt from the original Agent. |
 
-- [Task escrow independent security review](task-escrow-security-review.md): frozen a11 candidate, review scope and mainnet release gates; independent audit not yet commissioned.
-
-- [Guided Hermes Skill onboarding](skill-onboarding.md) — implementation and validation in progress.
-
-- [Skill discovery and receiving setup](skill-discovery.md) — implementation and release validation.
-
-- [Agent-executed onboarding](agent-onboarding-prompt.md) — copy a prompt, automatic setup and platform-verified receipt.
+Historical payment designs are retained under `_archive/`: [distribution and wallet adapters](_archive/distribution-and-adapters.zh-CN.md) and [testnet task escrow](_archive/task-escrow.md). They are not current setup or release instructions.

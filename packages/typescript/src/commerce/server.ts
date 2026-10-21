@@ -25,7 +25,6 @@ export interface CommerceServerOptions {
   authenticate: (request:Request)=>Promise<string|null>;
   execute: ExecuteOrder;
   paymentGate?:{handle(request:Request,order:OrderRecord):Promise<{response:Response}|{headers:Record<string,string>}>};
-  stripeRecipientFor?:(accountRef:string)=>string|undefined;
   ownershipChallenges?:Readonly<Record<string,string>>;
   onError?: (code:string,orderId?:string)=>void;
 }
@@ -192,9 +191,8 @@ export class CommerceServer {
     if(service.execution.type==='skill')this.options.execute.assertSkill!(service);
     const frozen=this.store.catalogHistory().find(entry=>entry.service.id===service.id&&entry.service.revision===service.revision);
     if(!frozen)throw new CommerceError('unknown_revision','Service revision is not registered');
-    const config={...this.currentConfig,paymentProfiles:frozen.profiles,services:[frozen.service]},offer=frozen.service.offers.find(o=>o.id===offerId)!;
-    const profile=offer.paymentProfile?frozen.profiles[offer.paymentProfile]:undefined;
-    return buildQuote(config,{serviceId:service.id,offerId,caller,messageId,input,...(profile?.adapter==='mpp'?{stripeRecipient:this.options.stripeRecipientFor?.(profile.accountRef)}:{})});
+    const config={...this.currentConfig,paymentProfiles:frozen.profiles,services:[frozen.service]};
+    return buildQuote(config,{serviceId:service.id,offerId,caller,messageId,input});
   }
   async handle(request:Request):Promise<Response>{
     const url=new URL(request.url);
