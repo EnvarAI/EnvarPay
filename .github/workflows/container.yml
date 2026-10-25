@@ -19,6 +19,8 @@ jobs:
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - run: docker build -t envarpay:check .
       - run: docker run --rm --network none envarpay:check --version
       - name: Verify standalone and managed package layout

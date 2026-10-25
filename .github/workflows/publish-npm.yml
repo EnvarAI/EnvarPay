@@ -100,9 +100,15 @@ jobs:
           RELEASE_VERSION: ${{ steps.npm.outputs.version }}
         run: |
           tag="v$RELEASE_VERSION"
-          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$tag" --jq '.object.sha')" = "$GITHUB_SHA"
+          if tag_sha=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$tag" --jq '.object.sha' 2>"$RUNNER_TEMP/tag-error"); then
+            test "$tag_sha" = "$GITHUB_SHA"
           else
-            printf 'Stable EnvarPay release %s.\n\nnpm: @envarai/envarpay@%s (latest).\nContainer images: ghcr.io/envarai/envarpay:%s and ghcr.io/envarai/envarpay-commerce:%s.\n\nSource: %s\n' "$RELEASE_VERSION" "$RELEASE_VERSION" "$RELEASE_VERSION" "$RELEASE_VERSION" "$GITHUB_SHA" > "$RUNNER_TEMP/release-notes.md"
-            gh release create "$tag" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "$RELEASE_VERSION" --notes-file "$RUNNER_TEMP/release-notes.md"
+            grep -q '(HTTP 404)' "$RUNNER_TEMP/tag-error" || { cat "$RUNNER_TEMP/tag-error" >&2; exit 1; }
+            gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" -f "ref=refs/tags/$tag" -f "sha=$GITHUB_SHA" >/dev/null
           fi
+          if gh api "repos/$GITHUB_REPOSITORY/releases/tags/$tag" --silent 2>"$RUNNER_TEMP/release-error"; then
+            exit 0
+          fi
+          grep -q '(HTTP 404)' "$RUNNER_TEMP/release-error" || { cat "$RUNNER_TEMP/release-error" >&2; exit 1; }
+          printf 'Stable EnvarPay release %s.\n\nnpm: @envarai/envarpay@%s (latest).\nContainer images: ghcr.io/envarai/envarpay:%s and ghcr.io/envarai/envarpay-commerce:%s.\n\nSource: %s\n' "$RELEASE_VERSION" "$RELEASE_VERSION" "$RELEASE_VERSION" "$RELEASE_VERSION" "$GITHUB_SHA" > "$RUNNER_TEMP/release-notes.md"
+          gh release create "$tag" --repo "$GITHUB_REPOSITORY" --verify-tag --title "$RELEASE_VERSION" --notes-file "$RUNNER_TEMP/release-notes.md"
