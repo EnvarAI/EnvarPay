@@ -23,7 +23,7 @@ integrity so an existing version cannot silently receive different contents.
 
 ## Automatic publication
 
-A relevant push to `main` runs `.github/workflows/publish-npm.yml`:
+A package or container change pushed to `main` runs `.github/workflows/publish-npm.yml`:
 
 1. Run the seller and release tests on Node 22 and 24; install and exercise the
    actual packed npm tarball.
@@ -42,11 +42,14 @@ under `/opt/envarpay/runtime` and in the npm package's `runtime/` directory.
 
 ## Retry and compatibility
 
-Manual workflow dispatch retries the current `main` release; it is not required
-for normal publication. An identical npm tarball is reused on retry. Existing
+Use **Re-run failed jobs** on the original release run to retry the same source
+commit. Manual dispatch publishes the current main version and is not required
+for normal publication. Workflow-only changes do not republish an existing package. An identical npm tarball is reused on retry. Existing
 images must match the version and source commit; a missing second image alias is
 recovered from the existing digest. Changed contents require a new version.
-Registry authentication or network failures stop publication. A release cannot
+The post-publish readback bypasses local npm cache and waits up to 60 checks,
+five seconds apart, for the version and latest tag to propagate. A mismatched
+tarball, authentication error or network failure stops verification immediately. A release cannot
 move npm `latest` backwards.
 
 Native Hermes/OpenClaw setup, free services, Envar balance claims, the public

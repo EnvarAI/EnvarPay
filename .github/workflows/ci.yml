@@ -33,8 +33,10 @@ jobs:
           mkdir -p "$artifact"
           npm pack --pack-destination "$artifact" --json > "$artifact/pack.json"
           node ../../scripts/verify-package.mjs "$artifact"
-          node ../../scripts/release.mjs check-npm "$artifact"
         working-directory: packages/typescript
+      - name: Check the publishing artifact against npm
+        if: matrix.node == '24'
+        run: node scripts/release.mjs check-npm "$RUNNER_TEMP/npm-package-24"
       - uses: actions/upload-artifact@v4
         with:
           name: npm-package-${{ matrix.node }}
