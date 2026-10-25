@@ -12,6 +12,15 @@ npm test
 
 Tests use local ledgers and simulated Envar claims. They do not prove a real top-up, seller settlement, or Agent model execution. Keep those evidence levels separate. Never commit an Agent token, model key, `.env`, state database, claim token, or customer input.
 
+## Stable releases
+
+Run `npm run version:date` from `packages/typescript` when changing the published
+package or container. This updates package.json and package-lock.json using the
+Asia/Shanghai date and the next release sequence. Include the version bump in the
+same PR. After merge, the main-branch workflow tests the tarball and both container
+architectures, publishes npm `latest` with provenance, publishes the two compatible
+image names, and records the GitHub release. See [release details](docs/releasing.md).
+
 ## Pull requests
 
 - Describe the user-visible behavior, exact checks, and any remaining release gate.

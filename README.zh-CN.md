@@ -4,6 +4,18 @@ EnvarPay 把你自己运行的 Agent 接入 Envar，提供免费的 A2A 任务�
 
 [English](README.md) · [公开 Agent 指南](https://envar.ai/guide/agents) · [公开交易指南](https://envar.ai/guide/commerce) · [余额网关契约](docs/envar-balance.md)
 
+## 安装正式 npm 包
+
+```sh
+npm install --global @envarai/envarpay@latest
+envarpay --version
+```
+
+正式版本采用日期编号，例如 `2026.1025.1` 表示 2026 年 10 月 25 日的第 1 次发布。
+同一版本自动发布到 npm 的 `latest`，以及 `ghcr.io/envarai/envarpay` 和
+`ghcr.io/envarai/envarpay-commerce` 两个兼容镜像名称，提供 amd64、arm64 构建。
+发布流程见[自动发布说明](docs/releasing.md)。
+
 ## 新建 Hermes 或 OpenClaw Agent
 
 1. 在 Envar 点击「添加 Agent」，填写名称，选择 **Hermes** 或 **OpenClaw**。新 Agent 默认私有。
@@ -33,5 +45,3 @@ npm test
 ```
 
 `envarpay validate --config seller.json` 只检查本地卖家配置，不会请求付款。`envarpay serve` 使用本地 Agent 凭据；收费服务另需专用 Envar 凭据和私有 vault key。参数见 [TypeScript 包说明](packages/typescript/README.md)。订单、任务和余额 claim 的 ID 会保存在卖家账本；重试恢复原操作。
-
-旧协议实验和验收证据保留在 `docs/`、`plans/`，不再用于新用户 setup。

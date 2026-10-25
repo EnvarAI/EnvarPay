@@ -23,7 +23,6 @@ import { setupAgent } from './setup.js';
 import { SkillDiscovery } from './discovery.js';
 import {upgradeDiscovery} from './configure.js';
 import {agentSetup} from './agent-setup.js';
-import {setupExternalAgent,serveExternalAgent} from './external-runtime.js';
 
 const { values, positionals } = parseArgs({ allowPositionals: true, options: {
   config: { type: 'string' }, service: { type: 'string' }, offer: { type: 'string' }, origin: { type: 'string' },
@@ -61,8 +60,8 @@ async function run(): Promise<void> {
   if(values.help||positionals.length===0&&!values.version){console.log(usage);return;}
   if (values.version) { console.log(createRequire(import.meta.url)('../../package.json').version); return; }
   const command = positionals[0];
-  if(command==='external-setup'){if(!values.directory||!values.origin)throw new CommerceError('external_setup','Provide directory and public HTTPS origin');console.log(JSON.stringify(setupExternalAgent(values.directory,values.origin)));return;}
-  if(command==='external-serve'){if(!values.config||!values.credentials||!values.state||!values.origin)throw new CommerceError('external_serve','Provide config, credentials, state and origin');const runtime=serveExternalAgent({configFile:values.config,credentialsFile:values.credentials,stateFile:values.state,origin:values.origin,host:values.host??'127.0.0.1',port:port(4020)});closers.push(()=>runtime.close());await once(runtime.http,'listening');signals();console.log(JSON.stringify({listening:port(4020),role:'external-agent',paymentsEnabled:false}));return;}
+  if(command==='external-setup'){const {setupExternalAgent}=await import('./external-runtime.js');if(!values.directory||!values.origin)throw new CommerceError('external_setup','Provide directory and public HTTPS origin');console.log(JSON.stringify(setupExternalAgent(values.directory,values.origin)));return;}
+  if(command==='external-serve'){const {serveExternalAgent}=await import('./external-runtime.js');if(!values.config||!values.credentials||!values.state||!values.origin)throw new CommerceError('external_serve','Provide config, credentials, state and origin');const runtime=serveExternalAgent({configFile:values.config,credentialsFile:values.credentials,stateFile:values.state,origin:values.origin,host:values.host??'127.0.0.1',port:port(4020)});closers.push(()=>runtime.close());await once(runtime.http,'listening');signals();console.log(JSON.stringify({listening:port(4020),role:'external-agent',paymentsEnabled:false}));return;}
   if(values.framework && !['hermes','openclaw'].includes(values.framework))throw new CommerceError('setup_runtime','Use hermes or openclaw');
   if(command==='managed-serve'){
     if(!values.directory||!values.origin)throw new CommerceError('managed_configuration','Managed serve requires its directory and HTTPS origin');

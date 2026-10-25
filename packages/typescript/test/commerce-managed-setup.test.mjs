@@ -108,7 +108,7 @@ test('Hermes setup reads a custom provider key_env used by managed deployments',
   const root=mkdtempSync(join(tmpdir(),'envar-hermes-'));
   try {
     save(join(root,'config.yaml'),{model:{default:'configured-model',provider:'custom:platform'},providers:{platform:{api:'https://model.example/claude',key_env:'ENVAR_TEST_HERMES_KEY'}}});
-    const output=execFileSync('python3',[new URL('../examples/hermes-setup-probe.py',import.meta.url).pathname,root],{env:{...process.env,ENVAR_TEST_HERMES_KEY:'fixture-key'},encoding:'utf8'});
+    const output=execFileSync('python3',[new URL('../runtime/hermes-setup-probe.py',import.meta.url).pathname,root],{env:{...process.env,ENVAR_TEST_HERMES_KEY:'fixture-key'},encoding:'utf8'});
     const value=JSON.parse(output);assert.equal(value.model,'configured-model');assert.equal(value.apiKey,'fixture-key');assert.deepEqual(value.skillRoots,[join(realpathSync(root),'skills')]);
   } finally {rmSync(root,{recursive:true,force:true});}
 });

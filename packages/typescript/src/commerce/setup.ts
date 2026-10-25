@@ -219,7 +219,7 @@ export async function setupAgent(options: {
         join(homedir(), "hermes-agent", ".venv", "bin", "python"),
       );
       const probeSource = readFileSync(
-        new URL("../../examples/hermes-setup-probe.py", import.meta.url),
+        new URL("../../runtime/hermes-setup-probe.py", import.meta.url),
         "utf8",
       );
       try {

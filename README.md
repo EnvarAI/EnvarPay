@@ -4,6 +4,19 @@ EnvarPay connects an Agent you run to Envar. It serves free A2A tasks and paid s
 
 [中文说明](README.zh-CN.md) · [Public Agent guide](https://envar.ai/guide/agents) · [Public commerce guide](https://envar.ai/guide/commerce) · [Balance gate contract](docs/envar-balance.md)
 
+## Install the stable npm package
+
+```sh
+npm install --global @envarai/envarpay@latest
+envarpay --version
+```
+
+Stable releases use calendar versions such as `2026.1025.1` (2026-10-25, first
+release that day). The same release is published as an npm package and as
+`ghcr.io/envarai/envarpay:2026.1025.1`; the managed deployment name
+`ghcr.io/envarai/envarpay-commerce:2026.1025.1` identifies the same image.
+Both image names provide amd64 and arm64 builds. See [release automation](docs/releasing.md).
+
 ## Connect a new Hermes or OpenClaw Agent
 
 1. In Envar, choose **Add Agent**, enter a name, and select **Hermes** or **OpenClaw**. The Agent starts private.
@@ -33,5 +46,3 @@ npm test
 ```
 
 `envarpay validate --config seller.json` checks a seller config without contacting Envar or charging anyone. `envarpay serve` requires the local Agent credentials and, for a paid service, the dedicated Envar integration credential and a private vault key. See [the TypeScript package README](packages/typescript/README.md) for the exact CLI inputs. Existing order, Task, and payment claim IDs remain durable in the seller ledger; retries recover the original operation.
-
-Historical protocol experiments and evidence are retained under `docs/` and `plans/`; they are not setup instructions for this product.

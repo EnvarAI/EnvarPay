@@ -1,14 +1,10 @@
 name: CI
-
 on:
-  push:
-    branches: [main]
   pull_request:
   workflow_dispatch:
-
+  workflow_call:
 permissions:
   contents: read
-
 jobs:
   seller:
     name: Seller runtime (Node ${{ matrix.node }})
@@ -19,16 +15,28 @@ jobs:
         node: ['22', '24']
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node }}
+          registry-url: https://registry.npmjs.org
           cache: npm
           cache-dependency-path: packages/typescript/package-lock.json
       - run: npm ci --ignore-scripts
         working-directory: packages/typescript
       - run: npm test
         working-directory: packages/typescript
-      - run: node dist/commerce/cli.js --help
+      - name: Build and verify the actual npm tarball
+        run: |
+          artifact="$RUNNER_TEMP/npm-package-${{ matrix.node }}"
+          mkdir -p "$artifact"
+          npm pack --pack-destination "$artifact" --json > "$artifact/pack.json"
+          node ../../scripts/verify-package.mjs "$artifact"
+          node ../../scripts/release.mjs check-npm "$artifact"
         working-directory: packages/typescript
-      - run: npm pack --dry-run
-        working-directory: packages/typescript
+      - uses: actions/upload-artifact@v4
+        with:
+          name: npm-package-${{ matrix.node }}
+          path: ${{ runner.temp }}/npm-package-${{ matrix.node }}
+          if-no-files-found: error

@@ -88,7 +88,7 @@ export function createNativeSkillExecutor(settings: NativeSkillSettings, origin:
     }
   }
   const inFlight=new Map<string,Promise<Task>>();
-  const runner=fileURLToPath(new URL('../../examples/native-skill-runner.py',import.meta.url));
+  const runner=fileURLToPath(new URL('../../runtime/native-skill-runner.py',import.meta.url));
   function readTask(id:string, invocation:SkillInvocation):Task {
     const row=db.prepare('SELECT order_id,task_json FROM skill_tasks WHERE id=?').get(id);
     if (!row || row.order_id!==invocation.orderId) throw new CommerceError('skill_task_not_found','Original skill Task not found');

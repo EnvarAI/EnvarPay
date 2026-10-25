@@ -68,7 +68,7 @@ export class SkillDiscovery {
   private async scan(): Promise<FoundSkill[]> {
     if (this.discovery.roots && !this.settings.dockerContainer) return readSkillInventory(this.discovery.roots);
     const code = readFileSync(
-      new URL("../../examples/hermes-skill-inventory.py", import.meta.url),
+      new URL("../../runtime/hermes-skill-inventory.py", import.meta.url),
       "utf8",
     );
     const args = ["-c", code, this.discovery.hermesHome];
