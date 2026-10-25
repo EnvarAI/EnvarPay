@@ -4,12 +4,8 @@ on:
     branches: [main]
     paths:
       - packages/typescript/**
-      - scripts/**
       - Dockerfile
       - .dockerignore
-      - .github/workflows/ci.yml
-      - .github/workflows/container.yml
-      - .github/workflows/publish-npm.yml
   workflow_dispatch:
 permissions:
   contents: read

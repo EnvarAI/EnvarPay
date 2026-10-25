@@ -18,6 +18,17 @@ export function npmPublication(metadata, name, version, integrity) {
   return false;
 }
 
+export async function waitForNpmPublication(readMetadata, name, version, integrity, {
+  attempts = 60, delay = () => new Promise(resolve => setTimeout(resolve, 5000))
+} = {}) {
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    const metadata = await readMetadata();
+    if (!npmPublication(metadata, name, version, integrity) && metadata['dist-tags']?.latest === version) return;
+    if (attempt + 1 < attempts) await delay();
+  }
+  throw new Error('npm version or latest is still not visible; retry this original release run');
+}
+
 function output(name, value) {
   if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, name + '=' + value + '\n');
   console.log(name + '=' + value);
@@ -35,7 +46,7 @@ export function npmResult(result, allowMissing = false) {
 }
 
 function npmView(fields, allowMissing = false) {
-  return npmResult(spawnSync('npm', ['view', ...fields, '--json', '--registry=https://registry.npmjs.org', '--fetch-retries=0', '--fetch-timeout=30000'], {
+  return npmResult(spawnSync('npm', ['view', ...fields, '--json', '--registry=https://registry.npmjs.org', '--prefer-online', '--fetch-retries=0', '--fetch-timeout=30000'], {
     encoding: 'utf8', timeout: 45000
   }), allowMissing);
 }
@@ -76,13 +87,10 @@ async function run() {
     assert.equal(files.length, 1, 'Expected one tested npm tarball');
     const tarball = readFileSync(join(directory, files[0]));
     const integrity = 'sha512-' + createHash('sha512').update(tarball).digest('base64');
-    const metadata = await registryPackage(pkg.name, pkg.version);
-    const publish = npmPublication(metadata, pkg.name, pkg.version, integrity);
     if (process.argv[2] === 'verify-npm') {
-      assert.equal(publish, false, 'The tested tarball is not published');
-      assert.equal(metadata['dist-tags']?.latest, pkg.version, 'npm latest does not point to this release');
-    }
-    output('npm_publish', publish);
+      await waitForNpmPublication(() => registryPackage(pkg.name, pkg.version), pkg.name, pkg.version, integrity);
+      output('npm_publish', false);
+    } else output('npm_publish', npmPublication(await registryPackage(pkg.name, pkg.version), pkg.name, pkg.version, integrity));
   } else if (['check-images', 'verify-images'].includes(process.argv[2])) {
     assert.match(process.env.GITHUB_SHA ?? '', /^[a-f0-9]{40}$/, 'Use the tested source commit');
     const repositories = ['ghcr.io/envarai/envarpay', 'ghcr.io/envarai/envarpay-commerce'];
