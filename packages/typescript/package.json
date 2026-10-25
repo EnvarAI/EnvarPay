@@ -1,6 +1,6 @@
 {
   "name": "@envarai/envarpay",
-  "version": "0.2.0-alpha.20",
+  "version": "2026.1025.1",
   "description": "A2A services with Envar account-balance payments",
   "type": "module",
   "license": "MIT",
@@ -34,7 +34,8 @@
     "README.md",
     "LICENSE",
     "schemas",
-    "examples"
+    "examples",
+    "runtime"
   ],
   "repository": {
     "type": "git",
@@ -43,12 +44,13 @@
   },
   "publishConfig": {
     "access": "public",
-    "tag": "next"
+    "tag": "latest"
   },
   "scripts": {
     "build": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\" && tsc",
-    "test": "npm run build && node --test test/*.test.mjs",
-    "prepack": "npm run build"
+    "test": "npm run build && node --test test/*.test.mjs ../../scripts/release.test.mjs",
+    "prepack": "npm run build",
+    "version:date": "node ../../scripts/release-version.mjs"
   },
   "dependencies": {
     "@a2a-js/sdk": "1.2.1",

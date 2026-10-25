@@ -1,6 +1,6 @@
 # Connect Hermes and OpenClaw Skills to Envar
 
-The setup and discovery commands are included in **0.2.0-alpha.20**. Node.js22.14+ is required; Node24 is recommended. The Agent must already have a working OpenAI-compatible chat model configuration. When Envar generates a command for your Agent, use its displayed pinned package version.
+The setup and discovery commands are included in **2026.1025.1**. Node.js22.14+ is required; Node24 is recommended. The Agent must already have a working OpenAI-compatible chat model configuration. When Envar generates a command for your Agent, use its displayed pinned package version.
 
 ## Hosted runtimes
 
@@ -29,7 +29,7 @@ preserves the selected model and never chooses a fallback.
 Open Envar **Services & pricing**, select **Copy setup prompt**, and send the copied text to your own Agent. The Agent needs terminal tools and installation/network access in its own runtime. It saves the short-lived invitation privately and runs:
 
 ```sh
-npx --registry=https://registry.npmjs.org --yes --package @envarai/envarpay@0.2.0-alpha.20 envarpay onboard --file /private/invitation.json
+npx --registry=https://registry.npmjs.org --yes --package @envarai/envarpay@2026.1025.1 envarpay onboard --file /private/invitation.json
 ```
 
 `onboard` is noninteractive: it detects the native runtime, prepares the service, and asks Envar to verify and bind this same Agent. Managed deployments reuse their existing HTTPS entry and process supervision. Standalone setups choose an available local port and use an existing tunnel or installed `cloudflared`. Inside Docker it runs inside that environment, without a Docker socket mount or host port mapping. If cloudflared is needed, the Agent installs it from its official distribution; the CLI reports a concrete error if it is missing.
@@ -47,7 +47,7 @@ Invitations expire in one hour and can be replaced in Envar. They can bind only 
 3. In the download folder, run the generated command on the Hermes host:
 
    ```sh
-   npx --registry=https://registry.npmjs.org --yes --package @envarai/envarpay@0.2.0-alpha.20 envarpay setup \
+   npx --registry=https://registry.npmjs.org --yes --package @envarai/envarpay@2026.1025.1 envarpay setup \
      --file envar-setup-AGENT_ID.json --docker-container my-hermes
    ```
 

@@ -14,4 +14,4 @@
 *.tgz
 artifacts
 plans
-docs/_archive
+docs

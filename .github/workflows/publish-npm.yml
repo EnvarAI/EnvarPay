@@ -1,103 +1,38 @@
-name: TypeScript distribution
-
+name: Stable release
 on:
-  pull_request:
-    paths: [packages/typescript/**, .github/workflows/publish-npm.yml]
   push:
     branches: [main]
-    paths: [packages/typescript/**, .github/workflows/publish-npm.yml]
+    paths:
+      - packages/typescript/**
+      - scripts/**
+      - Dockerfile
+      - .dockerignore
+      - .github/workflows/ci.yml
+      - .github/workflows/container.yml
+      - .github/workflows/publish-npm.yml
   workflow_dispatch:
-    inputs:
-      tag:
-        description: Existing npm release tag (npm-v0.2.0-alpha.1)
-        type: string
-        required: true
-      publish:
-        description: Publish the verified artifact to npm
-        type: boolean
-        default: false
-      bootstrap:
-        description: First release only, using the temporary NPM_BOOTSTRAP_TOKEN
-        type: boolean
-        default: false
-
 permissions:
   contents: read
-
 concurrency:
-  group: npm-distribution-${{ github.event_name }}-${{ inputs.tag || github.ref }}
+  group: envarpay-stable-release
   cancel-in-progress: false
-
 jobs:
-  build:
-    name: Node ${{ matrix.node }} and Bun
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        node: ['22', '24']
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && format('refs/tags/{0}', inputs.tag) || github.sha }}
-          persist-credentials: false
-      - uses: actions/setup-node@v4
-        with:
-          node-version: ${{ matrix.node }}
-          registry-url: https://registry.npmjs.org
-          cache: npm
-          cache-dependency-path: packages/typescript/package-lock.json
-      - run: npm ci --ignore-scripts
-        working-directory: packages/typescript
-      - run: npm test
-        working-directory: packages/typescript
-      - name: Verify release selection
-        env:
-          RELEASE_TAG: ${{ inputs.tag }}
-          MANUAL: ${{ github.event_name == 'workflow_dispatch' }}
-        run: |
-          node --input-type=module <<'JS'
-          import { readFileSync } from 'node:fs';
-          import assert from 'node:assert/strict';
-          const pkg = JSON.parse(readFileSync('packages/typescript/package.json'));
-          assert.equal(pkg.name, '@envarai/envarpay');
-          if (process.env.MANUAL === 'true') {
-            assert.match(process.env.RELEASE_TAG, /^npm-v\d+\.\d+\.\d+(?:-(?:alpha|beta|rc)\.\d+)?$/);
-            assert.equal(process.env.RELEASE_TAG, 'npm-v' + pkg.version);
-          }
-          JS
-      - run: npm pack --pack-destination /tmp
-        working-directory: packages/typescript
-      - name: Install and type-check the packed artifact
-        run: |
-          mkdir /tmp/envarpay-consumer
-          cd /tmp/envarpay-consumer
-          npm init -y
-          npm install --ignore-scripts /tmp/envarai-envarpay-*.tgz typescript@5.9.3
-          printf '%s\n' 'import { loadCommerceConfig, type CommerceConfig } from "@envarai/envarpay";' 'import { CommerceServer, EnvarBalanceGate } from "@envarai/envarpay/server";' 'import { EnvarIntegration } from "@envarai/envarpay/envar";' 'void loadCommerceConfig; void CommerceServer; void EnvarBalanceGate; void EnvarIntegration;' > check.mts
-          npx --no-install tsc --noEmit --strict --skipLibCheck --module NodeNext --target ES2022 check.mts
-          node --input-type=module -e 'import { CommerceServer, EnvarBalanceGate } from "@envarai/envarpay/server"; import { loadCommerceConfig } from "@envarai/envarpay"; if (!CommerceServer || !EnvarBalanceGate || !loadCommerceConfig) throw new Error("Missing seller API");'
-          sha256sum /tmp/envarai-envarpay-*.tgz >> "$GITHUB_STEP_SUMMARY"
-      - uses: actions/upload-artifact@v4
-        with:
-          name: npm-distribution-${{ matrix.node }}
-          path: /tmp/envarai-envarpay-*.tgz
-          if-no-files-found: error
-
+  verify:
+    uses: ./.github/workflows/ci.yml
+  container:
+    uses: ./.github/workflows/container.yml
   publish:
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish && github.ref == 'refs/heads/main' }}
-    needs: build
+    if: github.ref == 'refs/heads/main'
+    needs: [verify, container]
     runs-on: ubuntu-latest
-    environment:
-      name: npm
-      url: https://www.npmjs.com/package/@envarai/envarpay
+    environment: npm
     permissions:
-      contents: read
+      contents: write
+      packages: write
       id-token: write
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: refs/tags/${{ inputs.tag }}
           persist-credentials: false
       - uses: actions/setup-node@v4
         with:
@@ -106,24 +41,68 @@ jobs:
       - run: npm install --global npm@11
       - uses: actions/download-artifact@v4
         with:
-          name: npm-distribution-24
+          name: npm-package-24
           path: package-dist
-      - name: Verify the first-release artifact
-        if: ${{ inputs.bootstrap }}
+      - name: Check stable version and immutable npm artifact
+        id: npm
+        run: node scripts/release.mjs check-npm package-dist
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Check existing image versions
+        id: images
+        run: node scripts/release.mjs check-images
+      - name: Publish one image under both compatible names
+        if: steps.images.outputs.image_state == 'new'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: |
+            ghcr.io/envarai/envarpay:${{ steps.npm.outputs.version }}
+            ghcr.io/envarai/envarpay-commerce:${{ steps.npm.outputs.version }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/EnvarAI/EnvarPay
+            org.opencontainers.image.version=${{ steps.npm.outputs.version }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.licenses=MIT
+          sbom: true
+          provenance: mode=max
+      - name: Recover an incomplete image alias publication
+        if: steps.images.outputs.image_state == 'copy'
         env:
-          RELEASE_TAG: ${{ inputs.tag }}
-        run: |
-          test "$RELEASE_TAG" = npm-v0.1.0-alpha.2
-          echo '2d71090679e15fc8eca7d682851672318417c97156fe945ab88c5bbc5f1b078d  package-dist/envarai-envarpay-0.1.0-alpha.2.tgz' | sha256sum --check
-      - name: Publish using Trusted Publishing
-        if: ${{ !inputs.bootstrap }}
-        run: npm publish "$GITHUB_WORKSPACE"/package-dist/*.tgz --access public --tag next --provenance
+          IMAGE_SOURCE: ${{ steps.images.outputs.image_source }}
+          IMAGE_TARGET: ${{ steps.images.outputs.image_target }}
+        run: docker buildx imagetools create --tag "$IMAGE_TARGET" "$IMAGE_SOURCE"
+      - name: Verify image identity before npm publication
+        run: node scripts/release.mjs verify-images
+      - name: Publish the tested tarball to npm latest using Trusted Publishing
+        if: steps.npm.outputs.npm_publish == 'true'
+        run: npm publish "$GITHUB_WORKSPACE"/package-dist/*.tgz --access public --tag latest --provenance
         working-directory: packages/typescript
-      - name: Publish the first release using the temporary token
-        if: ${{ inputs.bootstrap }}
+      - name: Verify npm latest and tarball integrity
+        run: node scripts/release.mjs verify-npm package-dist
+      - name: Update stable image aliases
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_BOOTSTRAP_TOKEN }}
+          RELEASE_VERSION: ${{ steps.npm.outputs.version }}
         run: |
-          test -n "$NODE_AUTH_TOKEN" || { echo 'NPM_BOOTSTRAP_TOKEN is not configured'; exit 1; }
-          npm publish "$GITHUB_WORKSPACE"/package-dist/*.tgz --access public --tag next --provenance
-        working-directory: packages/typescript
+          for image in envarpay envarpay-commerce; do
+            docker buildx imagetools create --tag "ghcr.io/envarai/$image:latest" "ghcr.io/envarai/$image:$RELEASE_VERSION"
+          done
+      - name: Record the release and source commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ steps.npm.outputs.version }}
+        run: |
+          tag="v$RELEASE_VERSION"
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$tag" --jq '.object.sha')" = "$GITHUB_SHA"
+          else
+            printf 'Stable EnvarPay release %s.\n\nnpm: @envarai/envarpay@%s (latest).\nContainer images: ghcr.io/envarai/envarpay:%s and ghcr.io/envarai/envarpay-commerce:%s.\n\nSource: %s\n' "$RELEASE_VERSION" "$RELEASE_VERSION" "$RELEASE_VERSION" "$RELEASE_VERSION" "$GITHUB_SHA" > "$RUNNER_TEMP/release-notes.md"
+            gh release create "$tag" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "$RELEASE_VERSION" --notes-file "$RUNNER_TEMP/release-notes.md"
+          fi

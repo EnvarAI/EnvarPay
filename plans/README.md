@@ -8,5 +8,3 @@ The current product is a user-run A2A seller gate for free services and Envar ac
 | [Guided Skill onboarding](skill-onboarding.md) | Connect an existing Hermes/OpenClaw runtime without replacing its local state. |
 | [Skill discovery](skill-discovery.md) | Show private inventory and require owner enablement. |
 | [Agent-executed onboarding](agent-onboarding-prompt.md) | Obtain a checked connection receipt from the original Agent. |
-
-Historical payment designs are retained under `_archive/`: [distribution and wallet adapters](_archive/distribution-and-adapters.zh-CN.md) and [testnet task escrow](_archive/task-escrow.md). They are not current setup or release instructions.
