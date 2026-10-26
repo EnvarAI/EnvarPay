@@ -26,7 +26,7 @@ integrity so an existing version cannot silently receive different contents.
 A package or container change pushed to `main` runs `.github/workflows/publish-npm.yml`:
 
 1. Run the seller and release tests on Node 22 and 24; install and exercise the
-   actual packed npm tarball.
+   actual packed npm tarball offline with an empty npm cache. All runtime dependencies are bundled.
 2. Build and check the container on amd64 and arm64 without network access at runtime.
 3. Publish one multi-platform image under both immutable versioned names:
    `ghcr.io/envarai/envarpay:VERSION` and `ghcr.io/envarai/envarpay-commerce:VERSION`.
@@ -58,3 +58,7 @@ same setup implementation for Agent-driven and managed installation; `upgrade`
 remains available for existing profiles. External Agent/Dot commands are loaded
 on demand and remain experimental. Stable package numbering does not enable the
 platform's funding, purchase or seller-settlement feature flags.
+
+## Envar Connector download
+
+The native Connector entry point is `/opt/envarpay/dist/cli.js`; the existing commerce-only entry point remains compatible. After publishing, the Envar website may pin this release's exact npm integrity and serve that archive through its own download route. Always use the CI-tested published tarball's checksum. Publishing the package does not deploy the companion enrollment API, authorize a device, or verify a real task.

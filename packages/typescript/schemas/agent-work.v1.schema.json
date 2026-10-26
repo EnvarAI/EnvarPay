@@ -1,0 +1,345 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://envar.ai/contracts/agent-work/v1/schema.json",
+  "title": "Envar Agent Work v1",
+  "$defs": {
+    "claim": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "fence": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "required": [
+        "id",
+        "fence"
+      ],
+      "additionalProperties": false
+    },
+    "execution_ref": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        }
+      },
+      "required": [
+        "key"
+      ],
+      "additionalProperties": false
+    },
+    "submit": {
+      "type": "object",
+      "properties": {
+        "target_agent_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "connection_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "context_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32000
+        }
+      },
+      "required": [
+        "target_agent_id",
+        "message"
+      ],
+      "additionalProperties": false
+    },
+    "start": {
+      "type": "object",
+      "properties": {
+        "claim": {
+          "$ref": "#/$defs/claim"
+        },
+        "execution_ref": {
+          "$ref": "#/$defs/execution_ref"
+        }
+      },
+      "required": [
+        "claim",
+        "execution_ref"
+      ],
+      "additionalProperties": false
+    },
+    "lease": {
+      "type": "object",
+      "properties": {
+        "claim": {
+          "$ref": "#/$defs/claim"
+        }
+      },
+      "required": [
+        "claim"
+      ],
+      "additionalProperties": false
+    },
+    "report": {
+      "type": "object",
+      "properties": {
+        "claim": {
+          "$ref": "#/$defs/claim"
+        },
+        "event_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "kind": {
+          "enum": [
+            "progress",
+            "input_required",
+            "completed",
+            "failed",
+            "cancel_confirmed",
+            "outcome_unknown"
+          ]
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32000
+        }
+      },
+      "required": [
+        "claim",
+        "event_id",
+        "kind",
+        "text"
+      ],
+      "additionalProperties": false
+    },
+    "input": {
+      "type": "object",
+      "properties": {
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32000
+        }
+      },
+      "required": [
+        "text"
+      ],
+      "additionalProperties": false
+    },
+    "empty": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
+    "recover": {
+      "$ref": "#/$defs/start"
+    },
+    "work": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "context_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "caller_agent_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "uuid"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "target_agent_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "endpoint_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "uuid"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "connection_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "uuid"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "target_name": {
+          "type": "string"
+        },
+        "target_handle": {
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "queued",
+            "dispatching",
+            "working",
+            "input_required",
+            "payment_required",
+            "completed",
+            "failed",
+            "unknown",
+            "canceled"
+          ]
+        },
+        "request": {
+          "type": "object",
+          "properties": {
+            "message": {
+              "type": "string"
+            },
+            "tool": {
+              "type": "string"
+            },
+            "arguments": {
+              "type": "object"
+            }
+          },
+          "required": [
+            "message",
+            "tool",
+            "arguments"
+          ],
+          "additionalProperties": false
+        },
+        "result": {
+          "type": "object"
+        },
+        "error_code": {
+          "type": "string"
+        },
+        "remote_task_id": {
+          "type": "string"
+        },
+        "cancel_requested_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "deadline_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updated_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "context_id",
+        "caller_agent_id",
+        "target_agent_id",
+        "endpoint_id",
+        "connection_id",
+        "target_name",
+        "target_handle",
+        "status",
+        "request",
+        "result",
+        "error_code",
+        "remote_task_id",
+        "cancel_requested_at",
+        "deadline_at",
+        "created_at",
+        "updated_at"
+      ],
+      "additionalProperties": false
+    },
+    "delivery": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "kind": {
+          "enum": [
+            "work",
+            "result",
+            "input",
+            "cancel",
+            "input_required"
+          ]
+        },
+        "work": {
+          "$ref": "#/$defs/work"
+        },
+        "event": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "work",
+        "event"
+      ],
+      "additionalProperties": false
+    },
+    "inbox": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "maxItems": 50,
+          "items": {
+            "$ref": "#/$defs/delivery"
+          }
+        },
+        "next_cursor": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "items",
+        "next_cursor"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

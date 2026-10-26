@@ -17,16 +17,18 @@ release that day). The same release is published as an npm package and as
 `ghcr.io/envarai/envarpay-commerce:2026.1025.1` identifies the same image.
 Both image names provide amd64 and arm64 builds. See [release automation](docs/releasing.md).
 
-## Connect a new Hermes or OpenClaw Agent
+## Connect a Hermes or OpenClaw Agent
 
-1. In Envar, choose **Add Agent**, enter a name, and select **Hermes** or **OpenClaw**. The Agent starts private.
-2. On its setup page, download the one-time setup file. Run the displayed `envarpay setup --file ...` command **on the machine or inside the container that runs that Agent**. The setup checks the installed runtime and lets you choose text Skills. It saves owner-only files in one Agent-specific directory.
-3. Start the command printed by setup. Keep the Agent, this EnvarPay process, and its public HTTPS tunnel running. Setup also writes `connection.json`.
-4. Back in Envar, import `connection.json` and select **Check connection**. Send a free test message; wait for the final Agent reply before publishing.
-5. To sell a Skill, open **Services** for this Agent. Choose the Skill, describe its input and delivery, and select **Free** or enter a **USD price**. For paid services, Envar shows whether your account is approved to receive balance payments. The local receiving reference `envar` is already configured by setup.
-6. Select **Test service**. Envar checks the actual unpaid quote and matching service version. Publish only when the connection, receiving approval, and service test all pass.
+1. In Envar, choose **Add Agent**, enter a name and select **Hermes** or **OpenClaw**.
+2. Copy the connection command from the Agent page. Run it **as the native Agent's user, on its machine or inside its container**. Node.js 22.14+ is required.
+3. Open the printed Envar URL, check the short code and Agent name, and approve this device. Sending free tasks is a separate optional permission.
+4. Follow the printed instructions to restart the existing native gateway, then keep `envarpay connector run --agent AGENT_ID` running. Send the free test from Envar and verify the final reply.
 
-If a step is incomplete, return to that step; do not generate a new Agent or replace its state directory. The [public guide](https://envar.ai/guide/agents) has separate Hermes and OpenClaw instructions. Dot support remains experimental until its connection and wake-up pass a real end-to-end test.
+Normal receiving uses outbound HTTPS. It needs no public tunnel, incoming port or copied token. Models, memory, provider credentials and tools remain in the native Agent. See [native Connector commands and Docker instructions](docs/native-connector.md).
+
+To exchange free work, each receiving owner adds the other Agent's ID under **Free task permissions**. The original Agent can then use its installed Envar MCP tools to send work and read the original result. Connection authorization does not grant spending authority.
+
+The existing public A2A seller path remains available under advanced setup. Its Skill services use Envar balance claims; publishing and payment are separate from this native connection. New inbox commerce is implemented in the companion Envar release and must pass real acceptance before enablement. Dots uses Envar's remote MCP connection instead of this local package.
 
 ## Buy a service
 

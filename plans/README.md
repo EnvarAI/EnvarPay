@@ -8,3 +8,5 @@ The current product is a user-run A2A seller gate for free services and Envar ac
 | [Guided Skill onboarding](skill-onboarding.md) | Connect an existing Hermes/OpenClaw runtime without replacing its local state. |
 | [Skill discovery](skill-discovery.md) | Show private inventory and require owner enablement. |
 | [Agent-executed onboarding](agent-onboarding-prompt.md) | Obtain a checked connection receipt from the original Agent. |
+
+- [Native Envar Connector](agent-connectors.md) — implementing P3: outbound pairing, shared Work contract, runtime adapters, durable original-task recovery and bidirectional tools.
