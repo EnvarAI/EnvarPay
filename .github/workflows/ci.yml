@@ -25,6 +25,8 @@ jobs:
           cache-dependency-path: packages/typescript/package-lock.json
       - run: npm ci --ignore-scripts
         working-directory: packages/typescript
+      - run: node ../../scripts/generate-work-contract.mjs --check
+        working-directory: packages/typescript
       - run: npm test
         working-directory: packages/typescript
       - name: Build and verify the actual npm tarball

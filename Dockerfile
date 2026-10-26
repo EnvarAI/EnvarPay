@@ -23,7 +23,7 @@ COPY --from=build /build/package.json /build/README.md /build/LICENSE ./
 RUN groupadd --gid 10001 envarpay \
     && useradd --uid 10001 --gid 10001 --no-create-home envarpay \
     && mkdir /data && chown 10001:10001 /data && chmod 700 /data \
-    && printf '#!/bin/sh\nexec node /opt/envarpay/dist/commerce/cli.js "$@"\n' > /usr/local/bin/envarpay \
+    && printf '#!/bin/sh\nexec node /opt/envarpay/dist/cli.js "$@"\n' > /usr/local/bin/envarpay \
     && chmod 755 /usr/local/bin/envarpay
 USER 10001:10001
 WORKDIR /data

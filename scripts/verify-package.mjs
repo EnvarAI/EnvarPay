@@ -17,10 +17,11 @@ validateVersion(pkg.version);
 const root = mkdtempSync(join(tmpdir(), 'envarpay-package-'));
 try {
   writeFileSync(join(root, 'package.json'), JSON.stringify({ private: true, type: 'module' }));
-  execFileSync('npm', ['install', '--ignore-scripts', '--no-audit', '--no-fund', tarball], { cwd: root, stdio: 'inherit' });
-  execFileSync(process.execPath, ['--input-type=module', '-e', "import {loadCommerceConfig} from '@envarai/envarpay'; import {CommerceServer,EnvarBalanceGate} from '@envarai/envarpay/server'; import {EnvarIntegration} from '@envarai/envarpay/envar'; if(!loadCommerceConfig||!CommerceServer||!EnvarBalanceGate||!EnvarIntegration)throw Error('Missing public API');"], { cwd: root, stdio: 'inherit' });
-  const cli = join(root, 'node_modules/@envarai/envarpay/dist/commerce/cli.js');
+  execFileSync('npm', ['install', '--offline', '--cache', join(root, 'empty-cache'), '--ignore-scripts', '--no-audit', '--no-fund', tarball], { cwd: root, stdio: 'inherit' });
+  execFileSync(process.execPath, ['--input-type=module', '-e', "import {loadCommerceConfig} from '@envarai/envarpay'; import {CommerceServer,EnvarBalanceGate} from '@envarai/envarpay/server'; import {EnvarIntegration} from '@envarai/envarpay/envar'; import {EnvarWorkClient} from '@envarai/envarpay/connector'; if(!loadCommerceConfig||!CommerceServer||!EnvarBalanceGate||!EnvarIntegration||!EnvarWorkClient)throw Error('Missing public API');"], { cwd: root, stdio: 'inherit' });
+  const cli = join(root, 'node_modules/@envarai/envarpay/dist/cli.js');
   assert.equal(execFileSync(process.execPath, [cli, '--version'], { encoding: 'utf8' }).trim(), pkg.version);
+  assert.match(execFileSync(process.execPath, [cli, 'connector', '--help'], { encoding: 'utf8' }), /Envar Connector/);
   const state = join(root, 'state');
   execFileSync(process.execPath, [cli, 'init', '--directory', state], { stdio: 'inherit' });
   execFileSync(process.execPath, [cli, 'validate', '--config', join(state, 'seller.json')], { stdio: 'inherit' });

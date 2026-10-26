@@ -1,6 +1,6 @@
 {
   "name": "@envarai/envarpay",
-  "version": "2026.1025.1",
+  "version": "2026.1027.1",
   "description": "A2A services with Envar account-balance payments",
   "type": "module",
   "license": "MIT",
@@ -27,6 +27,10 @@
     "./envar": {
       "types": "./dist/commerce/envar.d.ts",
       "import": "./dist/commerce/envar.js"
+    },
+    "./connector": {
+      "types": "./dist/connector/client.d.ts",
+      "import": "./dist/connector/client.js"
     }
   },
   "files": [
@@ -54,10 +58,11 @@
   },
   "dependencies": {
     "@a2a-js/sdk": "1.2.1",
-    "@modelcontextprotocol/sdk": "^1.31.0",
+    "@modelcontextprotocol/sdk": "1.31.0",
     "ajv": "8.20.0",
     "ajv-formats": "3.0.1",
     "canonicalize": "2.1.0",
+    "json5": "2.2.3",
     "yaml": "2.8.2",
     "zod": "4.6.5"
   },
@@ -66,6 +71,16 @@
     "typescript": "~5.9.3"
   },
   "bin": {
-    "envarpay": "dist/commerce/cli.js"
-  }
+    "envarpay": "dist/cli.js"
+  },
+  "bundleDependencies": [
+    "@a2a-js/sdk",
+    "@modelcontextprotocol/sdk",
+    "ajv",
+    "ajv-formats",
+    "canonicalize",
+    "json5",
+    "yaml",
+    "zod"
+  ]
 }

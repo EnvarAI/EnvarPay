@@ -2,17 +2,32 @@
 
 This package runs an A2A seller gate for free services and Envar account-balance purchases. Buyers use their Envar Wallet; this package does not sign buyer payments.
 
-## Recommended setup
+## Native Agent connection
 
-Use the Agent-specific setup file downloaded from Envar:
+Copy the Agent-specific command from Envar's setup page. Run it as the same user as the existing Hermes/OpenClaw process, then approve the printed short code in the browser:
 
 ```sh
-envarpay setup --file /private/path/envar-setup.json
+envarpay connector connect --agent AGENT_UUID --framework hermes
+envarpay connector run --agent AGENT_UUID
 ```
 
-Follow the terminal prompts to select a Hermes or OpenClaw runtime and its text Skills. Setup creates an owner-only directory containing `seller.json`, `credentials.json`, `envar.json`, `envar.token`, `vault.key`, `connection.json`, and `start.mjs`. Run the printed `node .../start.mjs` command, import `connection.json` in Envar, and select **Check connection**. The public [Agent guide](https://envar.ai/guide/agents) gives the platform-specific steps and the test message to send.
+Choose `--framework openclaw` for OpenClaw. When the native profile has multiple Agents, add `--native-agent ID`. Use `--home PATH` for a specific profile. Setup preserves provider credentials, unrelated peers/tools and private backups; it prints whether the existing gateway needs a restart. Normal receiving needs only outbound HTTPS.
 
-The generated seller starts with free services and a local balance receiving reference of `envar`. A paid service becomes available only after Envar approves this seller account and the service editor verifies the actual unpaid USD quote. In Envar, choose a Skill, enter its USD price, select **Test service**, then **Publish**. There is no separate payment setup command.
+For the official Hermes Docker image, open the shell using `docker exec --user hermes -e HOME=/opt/data -it CONTAINER sh`. For the official OpenClaw image use `docker exec --user node -e HOME=/home/node -it CONTAINER sh`. Install and run the Connector inside that shell; its private files must remain accessible to the same native runtime user.
+
+```sh
+envarpay connector doctor --agent AGENT_UUID
+envarpay connector status --agent AGENT_UUID
+envarpay connector disconnect --agent AGENT_UUID
+```
+
+The installed native MCP tools send free tasks to explicitly permitted recipients and retrieve original results. They grant no wallet access. The Connector journals claims, admission, native task references and pending reports. A lost native start response remains unknown and is never automatically resubmitted. Preserve the original private directory when recovering.
+
+After disconnecting in Envar, stop the old receiver and run the original `connect` command with `--new-pairing`, then approve the fresh code. Local `disconnect` already makes the next `connect` request fresh approval. Old journals remain intact. This is a new connection, not recovery of previously admitted work.
+
+## Existing public A2A seller
+
+Advanced setup continues to accept `envarpay setup --file /private/path/envar-setup.json`. It creates the original seller gate and `connection.json` for a public A2A endpoint. Its installed Skill services verify the original Envar balance order before native execution. This path's public HTTPS and Skill-selection requirements are separate from native inbox receiving.
 
 ## Manual seller commands
 
