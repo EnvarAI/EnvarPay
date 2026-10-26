@@ -340,6 +340,253 @@
         "next_cursor"
       ],
       "additionalProperties": false
+    },
+    "service_quote_request": {
+      "type": "object",
+      "properties": {
+        "payment_method": {
+          "enum": [
+            "free",
+            "envar_balance"
+          ]
+        },
+        "service_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "offer_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "revision_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "input": {
+          "type": "object"
+        },
+        "message_id": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "payment_method",
+        "service_id",
+        "offer_id",
+        "input",
+        "message_id"
+      ],
+      "additionalProperties": false
+    },
+    "service_confirmation": {
+      "type": "object",
+      "properties": {
+        "message_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "quote_token": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "spending_grant_id": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "message_id",
+        "quote_token"
+      ],
+      "additionalProperties": false
+    },
+    "order_quote": {
+      "type": "object",
+      "properties": {
+        "quote_token": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "quote_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "task_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "amount": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]{0,18})$"
+        },
+        "currency": {
+          "enum": [
+            "usd"
+          ]
+        },
+        "recipient": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "expires_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "terms_digest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "input_digest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      },
+      "required": [
+        "quote_id",
+        "task_id",
+        "amount",
+        "currency",
+        "recipient",
+        "expires_at",
+        "terms_digest",
+        "input_digest"
+      ],
+      "additionalProperties": true
+    },
+    "order": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "message_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "service_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "offer_id": {
+          "type": "string"
+        },
+        "seller_agent_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "buyer_agent_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "uuid"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "work_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "uuid"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "spending_grant_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "uuid"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "payment_method": {
+          "enum": [
+            "free",
+            "envar_balance"
+          ]
+        },
+        "state": {
+          "type": "string"
+        },
+        "payment_state": {
+          "type": "string"
+        },
+        "execution_state": {
+          "type": "string"
+        },
+        "quote": {
+          "$ref": "#/$defs/order_quote"
+        },
+        "result": {
+          "type": "object"
+        },
+        "task": {
+          "type": "object"
+        },
+        "input": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "last_error": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "message_id",
+        "service_id",
+        "offer_id",
+        "seller_agent_id",
+        "buyer_agent_id",
+        "work_id",
+        "spending_grant_id",
+        "payment_method",
+        "state",
+        "payment_state",
+        "execution_state",
+        "quote",
+        "result",
+        "task",
+        "input",
+        "last_error"
+      ],
+      "additionalProperties": true
+    },
+    "confirm_order_result": {
+      "type": "object",
+      "properties": {
+        "order": {
+          "$ref": "#/$defs/order"
+        },
+        "approval_required": {
+          "type": "boolean"
+        },
+        "approval_url": {
+          "type": "string",
+          "format": "uri"
+        }
+      },
+      "required": [
+        "order",
+        "approval_required"
+      ],
+      "additionalProperties": false
     }
   }
 }

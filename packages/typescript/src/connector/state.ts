@@ -45,6 +45,7 @@ export class ConnectorJournal {
       CREATE TABLE IF NOT EXISTS connector_delivery (id INTEGER PRIMARY KEY,kind TEXT NOT NULL,value TEXT NOT NULL,acked INTEGER NOT NULL DEFAULT 0);
       CREATE TABLE IF NOT EXISTS connector_outgoing (id TEXT PRIMARY KEY,request TEXT NOT NULL,work TEXT);
       CREATE TABLE IF NOT EXISTS connector_control (id INTEGER PRIMARY KEY,value TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS connector_order_request (id TEXT PRIMARY KEY,request TEXT NOT NULL,order_id TEXT);
       CREATE INDEX IF NOT EXISTS connector_work_phase ON connector_work(phase,created);`);
     const existing = this.db.prepare("SELECT value FROM connector_meta WHERE key='binding'").get();
     if (existing && existing.value !== JSON.stringify(binding)) { this.db.close(); throw new Error('This journal belongs to another Agent or runtime binding'); }
@@ -119,6 +120,21 @@ export class ConnectorJournal {
   }
   saveOutgoing(requestId: string, work: Work): void {
     this.db.prepare('UPDATE connector_outgoing SET work=? WHERE id=?').run(JSON.stringify(work), requestId);
+  }
+  orderRequest(requestId: string, request: unknown): string | undefined {
+    const encoded = JSON.stringify(request);
+    const row = this.db.prepare('SELECT request,order_id FROM connector_order_request WHERE id=?').get(requestId);
+    if (row) {
+      if (row.request !== encoded) throw new Error('Request ID already belongs to another original service quote');
+      return row.order_id ? String(row.order_id) : undefined;
+    }
+    this.db.prepare('INSERT INTO connector_order_request(id,request) VALUES (?,?)').run(requestId, encoded);
+    return undefined;
+  }
+  saveOrderRequest(requestId: string, orderId: string): void {
+    const row = this.db.prepare('SELECT order_id FROM connector_order_request WHERE id=?').get(requestId);
+    if (!row || (row.order_id && row.order_id !== orderId)) throw new Error('Preserve the original service quote request');
+    this.db.prepare('UPDATE connector_order_request SET order_id=? WHERE id=?').run(orderId, requestId);
   }
   control(deliveryId: number): LocalControl {
     const row = this.db.prepare('SELECT value FROM connector_control WHERE id=?').get(deliveryId);

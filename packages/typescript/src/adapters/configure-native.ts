@@ -12,6 +12,7 @@ import { privateJson, privateText, writePrivate, writePrivateJson } from '../con
 import type { ConnectorConfig } from '../connector/config.js';
 
 type RecordValue = Record<string, any>;
+const connectorVersion = JSON.parse(readFileSync(new URL('../../package.json', import.meta.url), 'utf8')).version as string;
 function object(value: unknown): RecordValue {
   if (value === undefined || value === null) return {};
   if (typeof value !== 'object' || Array.isArray(value)) throw new Error('Native configuration has an unexpected shape');
@@ -116,7 +117,7 @@ export function configureNative(directory: string, config: ConnectorConfig): boo
   if (!/^[A-Za-z0-9_-]{32,128}$/.test(token)) throw new Error('Restore the original private native peer credential');
   if (!existsSync(nativeTokenFile)) writePrivate(nativeTokenFile, token + '\n');
   const markerFile = join(directory, 'native-binding.json');
-  const previous = existsSync(markerFile) ? privateJson<{ agentId: string; home: string; mcpDigest: string }>(markerFile) : undefined;
+  const previous = existsSync(markerFile) ? privateJson<{ agentId: string; home: string; mcpDigest: string; connectorVersion?: string }>(markerFile) : undefined;
   if (previous && (previous.agentId !== config.agentId || previous.home !== home)) throw new Error('Native binding belongs to another Agent or profile');
   const cli = fileURLToPath(new URL('../cli.js', import.meta.url));
   const mcp = { command: process.execPath, args: [cli, 'connector', 'mcp', '--directory', directory, '--connection', config.connectionId],
@@ -168,6 +169,6 @@ export function configureNative(directory: string, config: ConnectorConfig): boo
   const backupRoot = join(directory, 'native-backups');
   const envChanged = writeProfile(envPath, changeEnv(envText, changes), backupRoot);
   const configChanged = writeProfile(path, yaml ? stringifyYaml(value) : JSON.stringify(value, null, 2) + '\n', backupRoot);
-  writePrivateJson(markerFile, { agentId: config.agentId, home, mcpDigest: digest(mcp) });
-  return envChanged || configChanged;
+  writePrivateJson(markerFile, { agentId: config.agentId, home, mcpDigest: digest(mcp), connectorVersion });
+  return envChanged || configChanged || previous?.connectorVersion !== connectorVersion;
 }

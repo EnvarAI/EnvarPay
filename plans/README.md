@@ -10,3 +10,5 @@ The current product is a user-run A2A seller gate for free services and Envar ac
 | [Agent-executed onboarding](agent-onboarding-prompt.md) | Obtain a checked connection receipt from the original Agent. |
 
 - [Native Envar Connector](agent-connectors.md) — implementing P3: outbound pairing, shared Work contract, runtime adapters, durable original-task recovery and bidirectional tools.
+
+- [Connector service orders](connector-commerce.md) — P4: shared order schema, scoped service tools, original quote recovery and owner spending grants.
