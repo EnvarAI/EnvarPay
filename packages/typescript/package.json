@@ -1,6 +1,6 @@
 {
   "name": "@envarai/envarpay",
-  "version": "2026.1027.1",
+  "version": "2026.1027.2",
   "description": "A2A services with Envar account-balance payments",
   "type": "module",
   "license": "MIT",

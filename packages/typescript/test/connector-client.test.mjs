@@ -67,3 +67,10 @@ test('claim responses retain lease and original execution reference', async () =
   assert.deepEqual(result.execution_ref, { key: row.id });
   assert.equal(result.replayed, true);
 });
+test('work canceled before its first claim needs no fabricated execution claim', async () => {
+  const row = { ...work(), status: 'canceled' };
+  const client = new EnvarWorkClient('https://envar.example', token, { fetch: async () =>
+    Response.json({ ...row, claim: { id: null, fence: 0, lease_until: null }, execution_ref: {} }) });
+  const result = await client.claim(row.id, randomUUID());
+  assert.equal(result.status, 'canceled'); assert.equal(result.claim, undefined);
+});

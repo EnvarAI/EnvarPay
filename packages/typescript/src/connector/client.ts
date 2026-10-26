@@ -2,7 +2,8 @@
 import { readFileSync } from 'node:fs';
 import { Ajv2020 } from 'ajv/dist/2020.js';
 import addFormatsImport from 'ajv-formats';
-import type { Claim, ExecutionRef, Inbox, Report, Submit, Work } from './contracts.generated.js';
+import type { Claim, ConfirmOrderResult, ExecutionRef, Inbox, Order, Report, ServiceConfirmation, ServiceQuoteRequest, Submit, Work } from './contracts.generated.js';
+import { digest } from '../commerce/config.js';
 
 const ajv = new Ajv2020({ allErrors: false, strict: true });
 (addFormatsImport as unknown as (value: Ajv2020) => void)(ajv);
@@ -24,7 +25,7 @@ export class WorkApiError extends Error {
   }
 }
 export interface ClaimedWork extends Work {
-  claim: Claim & { lease_until: string | null };
+  claim?: Claim & { lease_until: string | null };
   execution_ref: Partial<ExecutionRef>;
   replayed?: boolean;
 }
@@ -109,7 +110,11 @@ export class EnvarWorkClient {
   private async claimed(path: string, body: unknown, requestId?: string): Promise<ClaimedWork> {
     const result = await this.request(path, body, requestId) as ClaimedWork;
     const { claim, execution_ref, replayed, ...work } = result;
-    validate('work', work); validate('claim', { id: claim.id, fence: claim.fence });
+    validate('work', work);
+    if (path.endsWith('/claim') && ['completed', 'failed', 'canceled'].includes(work.status) && !uuid.test(claim?.id ?? ''))
+      return { ...work, execution_ref, ...(replayed === undefined ? {} : { replayed }) };
+    if (!claim) throw new Error('The active original work has no claim');
+    validate('claim', { id: claim.id, fence: claim.fence });
     return { ...work, claim, execution_ref, ...(replayed === undefined ? {} : { replayed }) };
   }
   claim(workId: string, requestId: string): Promise<ClaimedWork> {
@@ -130,5 +135,55 @@ export class EnvarWorkClient {
   async acknowledge(deliveryId: number): Promise<void> {
     if (!Number.isSafeInteger(deliveryId) || deliveryId < 1) throw new Error('Invalid delivery ID');
     await this.request(`/api/v1/inbox/${deliveryId}/ack`, {});
+  }
+  async services(query = '', serviceId?: string): Promise<{ results: Record<string, unknown>[] }> {
+    if (query.length > 120) throw new Error('Use a bounded service query');
+    const params = new URLSearchParams({ q: query });
+    if (serviceId) params.set('service', id(serviceId));
+    const value = await this.request('/api/v1/agent-commerce/services?' + params) as { results: Record<string, unknown>[] };
+    if (!Array.isArray(value?.results) || value.results.length > 100) throw new Error('Invalid service directory');
+    return value;
+  }
+  async spendingGrants(): Promise<{ items: Record<string, unknown>[] }> {
+    const value = await this.request('/api/v1/agent-commerce/spending-grants') as { items: Record<string, unknown>[] };
+    if (!Array.isArray(value?.items) || value.items.length > 100) throw new Error('Invalid Agent budget response');
+    return value;
+  }
+  async quoteService(request: ServiceQuoteRequest): Promise<Order> {
+    validate('service_quote_request', request);
+    const order = validate<Order>('order', await this.request('/api/v1/agent-commerce/quotes', request, request.message_id));
+    if (order.service_id !== request.service_id || order.message_id !== request.message_id || order.offer_id !== request.offer_id ||
+      order.payment_method !== request.payment_method || order.quote.input_digest !== digest(request.input))
+      throw new Error('The service quote differs from the original request');
+    return order;
+  }
+  async order(orderId: string): Promise<Order> {
+    const order = validate<Order>('order', await this.request(`/api/v1/agent-commerce/orders/${id(orderId)}`));
+    if (order.id !== orderId) throw new Error('Envar returned a different original order');
+    return order;
+  }
+  async orders(): Promise<{ items: Order[] }> {
+    const value = await this.request('/api/v1/agent-commerce/orders') as { items: unknown[] };
+    if (!Array.isArray(value?.items) || value.items.length > 100) throw new Error('Invalid original-order list');
+    return { items: value.items.map(item => validate<Order>('order', item)) };
+  }
+  async confirmOrder(orderId: string, confirmation: ServiceConfirmation): Promise<ConfirmOrderResult> {
+    validate('service_confirmation', confirmation);
+    const receipt = validate<ConfirmOrderResult>('confirm_order_result', await this.request(
+      `/api/v1/agent-commerce/orders/${id(orderId)}/confirm`, confirmation, orderId));
+    if (receipt.order.id !== orderId || receipt.order.message_id !== confirmation.message_id)
+      throw new Error('Confirmation returned another order');
+    if (receipt.approval_required) {
+      const approval = new URL(receipt.approval_url ?? '');
+      if (approval.origin !== this.origin || approval.pathname !== `/console/orders/${orderId}` ||
+          approval.username || approval.password || approval.search || approval.hash)
+        throw new Error('Owner approval must remain on the original Envar order');
+    }
+    return receipt;
+  }
+  async recoverOrder(orderId: string): Promise<Order> {
+    const order = validate<Order>('order', await this.request(`/api/v1/agent-commerce/orders/${id(orderId)}/recover`, {}, orderId));
+    if (order.id !== orderId) throw new Error('Recovery returned another order');
+    return order;
   }
 }

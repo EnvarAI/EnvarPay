@@ -37,7 +37,10 @@ test('Hermes setup preserves native model and unrelated peers/tools with private
   assert.ok(readFileSync(join(home, '.env'), 'utf8').includes('existing:original-peer-token'));
   assert.ok(after.mcp_servers[c.runtime.mcpName].args.includes(c.connectionId));
   const token = readFileSync(join(directory, 'native.token'), 'utf8');
-  configureNative(directory, c); assert.equal(readFileSync(join(directory, 'native.token'), 'utf8'), token);
+  assert.equal(configureNative(directory, c), false); assert.equal(readFileSync(join(directory, 'native.token'), 'utf8'), token);
+  const marker = privateJson(join(directory, 'native-binding.json')); delete marker.connectorVersion;
+  writeFileSync(join(directory, 'native-binding.json'), JSON.stringify(marker), { mode: 0o600 });
+  assert.equal(configureNative(directory, c), true, 'An upgraded native MCP process must be reloaded');
   for (const entry of readdirSync(join(directory, 'native-backups')))
     assert.equal(statSync(join(directory, 'native-backups', entry)).mode & 0o077, 0);
 });

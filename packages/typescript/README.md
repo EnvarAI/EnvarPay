@@ -21,7 +21,7 @@ envarpay connector status --agent AGENT_UUID
 envarpay connector disconnect --agent AGENT_UUID
 ```
 
-The installed native MCP tools send free tasks to explicitly permitted recipients and retrieve original results. They grant no wallet access. The Connector journals claims, admission, native task references and pending reports. A lost native start response remains unknown and is never automatically resubmitted. Preserve the original private directory when recovering.
+The installed native MCP tools send free tasks to explicitly permitted recipients and retrieve original results. They also discover text workflow services, create original quotes and confirm purchases only under a separate owner-approved service budget. They grant no account-wide wallet access. The Connector journals claims, admission, native task references and pending reports. A lost native start response remains unknown and is never automatically resubmitted. Preserve the original private directory when recovering.
 
 After disconnecting in Envar, stop the old receiver and run the original `connect` command with `--new-pairing`, then approve the fresh code. Local `disconnect` already makes the next `connect` request fresh approval. Old journals remain intact. This is a new connection, not recovery of previously admitted work.
 
@@ -44,3 +44,11 @@ envarpay inspect --state /private/envarpay/seller.sqlite3
 The seller configuration schema is [`schemas/envarpay.config.schema.json`](schemas/envarpay.config.schema.json). Paid amounts are integer **micro-USD** (`100000` = USD 0.10); free offers have no payment profile. An `envar_balance` profile contains only `{ "adapter": "envar_balance", "currency": "usd", "accountRef": "envar" }`. The private Envar policy must allow that exact account reference.
 
 For development, run `npm ci --ignore-scripts`, `npm run build`, and `npm test` from this directory. Node.js 22.14+ is required; Node 24 is recommended.
+
+## Agent service orders
+
+Requires the companion Envar commerce deployment. `list_services` returns the exact published revision and price. `quote_service` creates one original quote without executing or paying. Keep its request UUID; a lost response is recovered with that same UUID and input. `list_orders` recovers the Agent's persisted quotes/orders after a restart.
+
+The owner creates an Envar spending grant for this Agent, exact service revision, per-order and total amount, and expiry. `list_spending_grants` reads only this Agent's grants. `confirm_order` reserves the original amount under that grant; without a grant it returns the first-party link for owner confirmation of the same quote. Seller admission captures once. Use `wait_order`/`get_order` and the original work ID until the actual result arrives. `recover_order` cannot create a replacement purchase. There is no top-up, withdrawal, merchant or account-management tool.
+
+Updating the package changes the native MCP tool set. Rerun the original connection command and follow its gateway restart guidance; setup detects a package-version change even when the MCP executable path stayed the same.

@@ -18,7 +18,7 @@ Replace `CONTAINER` with your container name. Run `node --version` there. On a l
 Create a private Envar Agent and copy its connection command. The command installs a fixed, bundled package through Envar and selects that exact Agent ID. The official npm package is also available:
 
 ```sh
-npm install --prefix "$HOME/.envarpay/cli" --ignore-scripts --no-audit --no-fund @envarai/envarpay@2026.1027.1
+npm install --prefix "$HOME/.envarpay/cli" --ignore-scripts --no-audit --no-fund @envarai/envarpay@2026.1027.2
 "$HOME/.envarpay/cli/node_modules/.bin/envarpay" connector connect --agent AGENT_UUID --framework hermes
 ```
 
@@ -56,3 +56,9 @@ After enabling free outgoing tasks and the recipient's permission, ask the nativ
 ## Verified versions and remaining acceptance
 
 Fresh-container preflight uses OpenClaw `2026.10.4` and the Hermes `2026.9.24` CLI. It verifies installation, dedicated native A2A authorization and native MCP tool discovery. Real inference, six directed Agent exchanges and balance orders are separate release acceptance gates. Unsupported native versions should fail with a concrete setup/protocol error rather than trigger a different runtime.
+
+## Service discovery and budgeted purchases
+
+With the companion Envar commerce release, the native Agent can use `list_services`, `quote_service`, `confirm_order`, `get_order`, `wait_order`, `list_orders` and `recover_order`. The owner separately creates a spending grant for one Agent and one immutable service revision, with per-order/total limits and expiry. The connection's optional sending permission is not a spending grant. Without an eligible grant, the confirmation response points to the same original Envar order for owner approval.
+
+The Connector persists quote request identities before its network call. Retries preserve the request and original quote; financial POSTs are never retried invisibly. A package upgrade prompts a reload of the native MCP process, preserving the existing journals and runtime credentials.

@@ -22,7 +22,33 @@ test('native MCP only advertises explicitly granted outgoing permissions', async
   const names = (await client.listTools()).tools.map(tool => tool.name);
   assert.ok(names.includes('get_work')); assert.ok(names.includes('wait_work'));
   assert.ok(!names.includes('send_message')); assert.ok(!names.includes('complete_work'));
+  assert.ok(!names.includes('confirm_order')); assert.ok(names.includes('list_spending_grants'));
   assert.ok(!names.some(name => /wallet|purchase|claim/.test(name)));
+});
+test('native service quote survives a lost response and keeps one original request', async t => {
+  let lost = true, quotes = 0, reads = 0;
+  const original = { id: randomUUID(), state: 'previewed' }, requests = [];
+  const { client } = await connect(t, ['work:read', 'work:send'], {
+    quoteService: async body => { quotes++; requests.push(body.message_id); if (lost) { lost = false; throw new Error('lost quote response'); } return original; },
+    order: async id => { reads++; assert.equal(id, original.id); return original; },
+  });
+  const args = { request_id: randomUUID(), service_id: randomUUID(), offer_id: 'once', payment_method: 'envar_balance', input: { text: 'Original input' } };
+  assert.equal((await client.callTool({ name: 'quote_service', arguments: args })).isError, true);
+  assert.equal((await client.callTool({ name: 'quote_service', arguments: args })).structuredContent.id, original.id);
+  assert.equal((await client.callTool({ name: 'quote_service', arguments: args })).structuredContent.id, original.id);
+  assert.deepEqual(requests, [args.request_id, args.request_id]); assert.equal(quotes, 2); assert.equal(reads, 1);
+  assert.equal((await client.callTool({ name: 'quote_service', arguments: { ...args, input: { text: 'Changed' } } })).isError, true);
+  assert.equal(quotes, 2);
+});
+test('native confirmation returns owner approval and never retries a financial POST itself', async t => {
+  let confirms = 0;
+  const { client } = await connect(t, ['work:send'], { confirmOrder: async () => {
+    confirms++; return { approval_required: true, approval_url: 'https://envar.example/console/orders/original', order: { state: 'previewed' } };
+  } });
+  const tools = (await client.listTools()).tools;
+  assert.equal(tools.find(tool => tool.name === 'confirm_order').annotations.destructiveHint, true);
+  const response = await client.callTool({ name: 'confirm_order', arguments: { order_id: randomUUID(), message_id: randomUUID(), quote_token: 'original-quote' } });
+  assert.equal(response.structuredContent.approval_required, true); assert.equal(confirms, 1);
 });
 test('send replay reads the original work and changed content is rejected', async t => {
   const row = { id: randomUUID(), status: 'completed', result: { text: 'Original peer result' } };
