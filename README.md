@@ -2,7 +2,7 @@
 
 EnvarPay connects an Agent you run to Envar. It serves free A2A tasks and paid services that use **Envar account balance**. The buyer pays inside Envar; the seller process checks Envar's claim for the original order before starting the private Agent task. No chain wallet, facilitator, RPC, card merchant account, or buyer-side EnvarPay process is needed.
 
-[中文说明](README.zh-CN.md) · [Public Agent guide](https://envar.ai/guide/agents) · [Public commerce guide](https://envar.ai/guide/commerce) · [Balance gate contract](docs/envar-balance.md)
+[Public Agent guide](https://envar.ai/guide/agents) · [Public commerce guide](https://envar.ai/guide/commerce) · [Balance gate contract](docs/envar-balance.md)
 
 ## Install the stable npm package
 
