@@ -21,6 +21,12 @@ Both image names provide amd64 and arm64 builds. See [release automation](docs/r
 
 ## Connect a Hermes or OpenClaw Agent
 
+For native task receiving, install the standalone Connector:
+
+```sh
+npm install --global @envarai/connect@latest
+```
+
 1. In Envar, choose **Add Agent**, enter a name and select **Hermes** or **OpenClaw**.
 2. Copy the connection command from the Agent page. Run it **as the native Agent's user, on its machine or inside its container**. Node.js 22.14+ is required.
 3. Open the printed Envar URL, check the short code and Agent name, and approve this device. Sending free tasks is a separate optional permission.
