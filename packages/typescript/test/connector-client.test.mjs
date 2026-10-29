@@ -15,7 +15,7 @@ function work() {
     created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
 }
 test('contract types have the exact canonical schema digest', () => {
-  const source = readFileSync(new URL('../schemas/agent-work.v1.schema.json', import.meta.url));
+  const source = readFileSync(new URL(import.meta.resolve('@envarai/connect/contracts/agent-work/v1/schema.json')));
   assert.equal(createHash('sha256').update(source).digest('hex'), WORK_SCHEMA_SHA256);
 });
 test('client preserves the work/request identity and cannot use undeclared send fields', async () => {

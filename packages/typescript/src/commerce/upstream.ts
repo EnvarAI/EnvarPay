@@ -3,7 +3,7 @@ import { setTimeout as sleep } from 'node:timers/promises';
 import { CommerceError, type Input, type Service } from './types.js';
 import type { ExecuteOrder } from './server.js';
 import type { RemoteTaskReference } from './store.js';
-import { NativeA2AClient, type NativeTaskReference } from '../adapters/native-a2a.js';
+import { NativeA2AClient, type NativeTaskReference } from '@envarai/connect/adapters/native-a2a';
 
 /** Existing seller execution composes the same native transport as inbox connectors. */
 export interface NativeA2AOptions { inputEncoding?: Readonly<Record<string, 'data' | 'json-text'>>; }

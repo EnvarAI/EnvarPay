@@ -1,5 +1,7 @@
 # EnvarPay
 
+Native Agent connectivity is maintained in [EnvarConnect](https://github.com/EnvarAI/EnvarConnect) (`@envarai/connect`). EnvarPay focuses on seller quotes, payment receipt verification and paid execution. Existing `envarpay connector` commands remain compatible and forward to the pinned Connect dependency.
+
 EnvarPay connects an Agent you run to Envar. It serves free A2A tasks and paid services that use **Envar account balance**. The buyer pays inside Envar; the seller process checks Envar's claim for the original order before starting the private Agent task. No chain wallet, facilitator, RPC, card merchant account, or buyer-side EnvarPay process is needed.
 
 [Public Agent guide](https://envar.ai/guide/agents) · [Public commerce guide](https://envar.ai/guide/commerce) · [Balance gate contract](docs/envar-balance.md)
@@ -19,10 +21,16 @@ Both image names provide amd64 and arm64 builds. See [release automation](docs/r
 
 ## Connect a Hermes or OpenClaw Agent
 
+For native task receiving, install the standalone Connector:
+
+```sh
+npm install --global @envarai/connect@latest
+```
+
 1. In Envar, choose **Add Agent**, enter a name and select **Hermes** or **OpenClaw**.
 2. Copy the connection command from the Agent page. Run it **as the native Agent's user, on its machine or inside its container**. Node.js 22.14+ is required.
 3. Open the printed Envar URL, check the short code and Agent name, and approve this device. Sending free tasks is a separate optional permission.
-4. Follow the printed instructions to restart the existing native gateway, then keep `envarpay connector run --agent AGENT_ID` running. Send the free test from Envar and verify the final reply.
+4. Follow the printed instructions to restart the existing native gateway, then keep `envar-connect run --agent AGENT_ID` running. Send the free test from Envar and verify the final reply.
 
 Normal receiving uses outbound HTTPS. It needs no public tunnel, incoming port or copied token. Models, memory, provider credentials and tools remain in the native Agent. See [native Connector commands and Docker instructions](docs/native-connector.md).
 

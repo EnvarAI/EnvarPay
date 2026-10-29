@@ -1,0 +1,44 @@
+[
+  {
+    "value": {},
+    "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+  },
+  {
+    "value": {
+      "text": "你好",
+      "nested": {
+        "z": 1,
+        "a": "2"
+      },
+      "list": [
+        true,
+        null,
+        1.5
+      ]
+    },
+    "sha256": "f98df069d96cbb575aace048c0e1c3edcbb63bb154ce3089f5ca46d5cb392bdc"
+  },
+  {
+    "value": {
+      "amount": "9223372036854775807",
+      "currency": "usd",
+      "service_revision": 3
+    },
+    "sha256": "e055de2ffff6bbbef3c70d0cb2c980b2f7232d99f0d22c2035a351e996e736e4"
+  },
+  {
+    "value": {
+      "negativeZero": 0,
+      "decimal": 0.000001,
+      "small": 1e-7
+    },
+    "sha256": "1b561db2824746b76d9b8cf97eb94d7ebdb28a6d1d27cc0c92d752396e1dc0c6"
+  },
+  {
+    "value": {
+      "unicode": "é😀",
+      "escapes": "line\nquote\""
+    },
+    "sha256": "379abcab937f4b885fae358d1184232c2c30fca7ba2d3244a2b9d5a6f816604a"
+  }
+]

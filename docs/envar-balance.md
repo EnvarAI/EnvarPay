@@ -19,3 +19,11 @@ For a new paid `SendMessage`, the seller gate returns HTTP 402 with the exact qu
 If the claim response is lost, the gate retains the original claim in its encrypted vault and retries that claim. A mismatched receipt, expired quote, or unavailable platform blocks execution. It never asks the buyer to create a replacement payment. Completed payment and Agent execution have separate states; an execution failure does not silently undo the payment.
 
 Amounts in the seller config and claim are **micro-USD**: `100` is USD 0.0001 and `100000` is USD 0.10. Seller earnings begin as pending in Envar; Envar, not this package, controls refund decisions and later settlement. The production Wallet remains gated until real top-up, refund, and seller-settlement checks pass.
+
+## Public claim contract
+
+The seller calls `POST /api/v1/commerce/payment-claims/{order_id}/claim` with its dedicated seller credential and `Idempotency-Key: {order_id}`. Native inbox connection credentials cannot call this legacy seller claim endpoint. The JSON body is defined by `packages/typescript/schemas/balance-claim.v1.schema.json`; the captured response uses `balance-receipt.v1.schema.json`.
+
+The body sends the original claim token plus task, quote, message, service revision, offer, input/terms digests, amount, currency and recipient. The response repeats those terms and adds the platform order ID and `economic_id: ledger:UUID`. Validate both shape and exact identity against the frozen quote; HTTP 200 or `state: captured` alone is insufficient. A lost response retries only the original claim. `digest-vectors.json` defines canonical JSON/SHA-256 examples shared with the platform; amounts remain integer strings.
+
+These schemas describe the existing seller API; they do not change wallet authority or introduce new payment methods.

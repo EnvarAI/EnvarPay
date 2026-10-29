@@ -1,6 +1,6 @@
 {
   "name": "@envarai/envarpay",
-  "version": "2026.1027.2",
+  "version": "2026.1029.1",
   "description": "A2A services with Envar account-balance payments",
   "type": "module",
   "license": "MIT",
@@ -58,6 +58,7 @@
   },
   "dependencies": {
     "@a2a-js/sdk": "1.2.1",
+    "@envarai/connect": "2026.1029.1",
     "@modelcontextprotocol/sdk": "1.31.0",
     "ajv": "8.20.0",
     "ajv-formats": "3.0.1",
@@ -81,6 +82,7 @@
     "canonicalize",
     "json5",
     "yaml",
-    "zod"
+    "zod",
+    "@envarai/connect"
   ]
 }

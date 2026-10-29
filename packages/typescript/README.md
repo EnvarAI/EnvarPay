@@ -4,6 +4,8 @@ This package runs an A2A seller gate for free services and Envar account-balance
 
 ## Native Agent connection
 
+New installations use [`@envarai/connect`](https://github.com/EnvarAI/EnvarConnect) and the `envar-connect` command. This package keeps the commands below and the `@envarai/envarpay/connector` export as compatibility entries through its pinned, bundled Connect dependency. Both use the existing `~/.envarpay/connectors/AGENT_UUID` journal; stop the current receiver before switching commands.
+
 Copy the Agent-specific command from Envar's setup page. Run it as the same user as the existing Hermes/OpenClaw process, then approve the printed short code in the browser:
 
 ```sh
