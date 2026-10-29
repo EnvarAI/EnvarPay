@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://envar.ai/contracts/balance-claim/v1/request.schema.json",
+  "title": "Envar seller balance claim request",
+  "type": "object",
+  "properties": {
+    "claim_token": {
+      "type": "string",
+      "minLength": 32,
+      "maxLength": 4096,
+      "pattern": "^\\S+$"
+    },
+    "task_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "quote_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "message_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "service_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "service_revision": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "offer_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "input_digest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "terms_digest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "amount": {
+      "type": "string",
+      "pattern": "^[1-9][0-9]*$"
+    },
+    "currency": {
+      "const": "usd"
+    },
+    "recipient": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "claim_token",
+    "task_id",
+    "quote_id",
+    "message_id",
+    "service_id",
+    "service_revision",
+    "offer_id",
+    "input_digest",
+    "terms_digest",
+    "amount",
+    "currency",
+    "recipient"
+  ]
+}

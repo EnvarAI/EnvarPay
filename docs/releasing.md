@@ -61,4 +61,4 @@ platform's funding, purchase or seller-settlement feature flags.
 
 ## Envar Connector download
 
-The native Connector entry point is `/opt/envarpay/dist/cli.js`; the existing commerce-only entry point remains compatible. After publishing, the Envar website may pin this release's exact npm integrity and serve that archive through its own download route. Always use the CI-tested published tarball's checksum. Publishing the package does not deploy the companion enrollment API, authorize a device, or verify a real task.
+The native Connector is maintained in EnvarConnect and bundled as a pinned dependency. The compatibility entry point is `/opt/envarpay/dist/cli.js`; the existing commerce-only entry point remains compatible. After publishing, the Envar website may pin this release's exact npm integrity and serve that archive through its own download route. Always use the CI-tested published tarball's checksum. Publishing the package does not deploy the companion enrollment API, authorize a device, or verify a real task.

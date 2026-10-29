@@ -50,9 +50,4 @@ export interface PriceQuote {
   paymentProfile: PaymentProfile | null;
 }
 
-export class CommerceError extends Error {
-  constructor(readonly code: string, message: string) {
-    super(message);
-    this.name = 'CommerceError';
-  }
-}
+export { CommerceError } from '@envarai/connect/shared';

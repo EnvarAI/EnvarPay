@@ -1,3 +1,8 @@
+# 2026.1029.1
+
+- Move native Connector implementation and adapters to `@envarai/connect`. Preserve the legacy CLI and exported modules, original state directories, journals, IDs and recovery behavior.
+- Publish seller claim request/receipt schemas and shared digest vectors.
+
 # Changelog
 
 ## 2026.1025.1

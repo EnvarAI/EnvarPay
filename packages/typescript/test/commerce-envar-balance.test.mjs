@@ -8,6 +8,8 @@ import {loadCommerceConfig} from '../dist/commerce/config.js';
 import {buildQuote} from '../dist/commerce/pricing.js';
 import {CommerceStore} from '../dist/commerce/store.js';
 import {CredentialVault} from '../dist/commerce/vault.js';
+import { Ajv2020 } from 'ajv/dist/2020.js';
+import addFormats from 'ajv-formats';
 import {EnvarBalanceGate} from '../dist/commerce/envar-balance.js';
 
 function fixture(){
@@ -17,12 +19,14 @@ function fixture(){
   config.services[0].offers=[{id:'balance',pricing:{kind:'fixed',amount:'100'},collection:{kind:'upfront'},paymentProfile:'balance'}];
   return loadCommerceConfig(config);
 }
-function receipt(order,platformOrderId){const q=order.quote;return {
+const ajv=new Ajv2020({strict:true}); addFormats(ajv);
+const receiptSchema=ajv.compile(JSON.parse(readFileSync(new URL('../schemas/balance-receipt.v1.schema.json',import.meta.url),'utf8')));
+function receipt(order,platformOrderId){const q=order.quote;const value = {
   state:'captured',order_id:platformOrderId,economic_id:`ledger:${randomUUID()}`,
   amount:q.amount,currency:q.currency,recipient:q.recipient,quote_id:q.quoteId,
   message_id:q.messageId,task_id:order.taskId,service_id:q.serviceId,service_revision:q.serviceRevision,
   offer_id:q.offerId,input_digest:q.inputDigest,terms_digest:q.termsDigest,
-};}
+}; assert.ok(receiptSchema(value),JSON.stringify(receiptSchema.errors)); return value;}
 
 test('Envar balance requires a platform claim and dispatches once after exact captured receipt',async()=>{
   const directory=mkdtempSync(join(tmpdir(),'envar-balance-gate-'));
