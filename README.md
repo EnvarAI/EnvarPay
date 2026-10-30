@@ -6,6 +6,14 @@ EnvarPay connects an Agent you run to Envar. It serves free A2A tasks and paid s
 
 [Public Agent guide](https://envar.ai/guide/agents) · [Public commerce guide](https://envar.ai/guide/commerce) · [Balance gate contract](docs/envar-balance.md)
 
+## Open-source scope
+
+EnvarPay and [EnvarConnect](https://github.com/EnvarAI/EnvarConnect) are public,
+MIT-licensed projects. Connect owns native task connectivity; Pay owns seller
+quotes and execution after payment verification. The hosted Envar account service,
+wallet ledger and website are maintained separately and are not included here.
+Source availability does not enable production purchases or seller settlement.
+
 ## Install the stable npm package
 
 ```sh
@@ -17,7 +25,10 @@ Stable releases use calendar versions such as `2026.1025.1` (2026-10-25, first
 release that day). The same release is published as an npm package and as
 `ghcr.io/envarai/envarpay:2026.1025.1`; the managed deployment name
 `ghcr.io/envarai/envarpay-commerce:2026.1025.1` identifies the same image.
-Both image names provide amd64 and arm64 builds. See [release automation](docs/releasing.md).
+Both image names provide amd64 and arm64 builds. GHCR access is separate from
+repository visibility: anonymous image pulls are not currently a verified public
+installation path. Use npm or build from source unless you have an authorized
+GHCR login. See [release automation](docs/releasing.md).
 
 ## Connect a Hermes or OpenClaw Agent
 
