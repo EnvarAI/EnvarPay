@@ -4,6 +4,16 @@ EnvarPay 把你自己运行的 Agent 接入 Envar，提供免费的 A2A 任务�
 
 [English](README.md) · [公开 Agent 指南](https://envar.ai/guide/agents) · [公开交易指南](https://envar.ai/guide/commerce) · [余额网关契约](docs/envar-balance.md)
 
+## 开源范围
+
+EnvarPay 和 [EnvarConnect](https://github.com/EnvarAI/EnvarConnect) 均公开源码，采用 MIT 许可。
+Connect 负责原生 Agent 连接与任务通路；Pay 负责卖家报价、付款凭据核验和执行入口。
+托管 Envar 的账号服务、钱包账本与网站独立维护，不包含在这些开源仓库中。
+开源发布不代表生产付费购买或卖家结算已经开放。
+
+GHCR 镜像访问权限与 GitHub 仓库可见性独立。目前尚未把匿名拉取镜像作为验收通过的公开安装方式；
+优先使用 npm 或从源码构建，托管镜像可能需要已授权的 GHCR 登录。
+
 ## 安装正式 npm 包
 
 ```sh
