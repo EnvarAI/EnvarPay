@@ -1,6 +1,6 @@
 {
   "name": "@envarai/envarpay",
-  "version": "2026.1108.1",
+  "version": "2026.1108.2",
   "description": "Free A2A services and Envar account-balance seller gates",
   "type": "module",
   "license": "MIT",
@@ -58,7 +58,7 @@
   },
   "dependencies": {
     "@a2a-js/sdk": "1.2.1",
-    "@envarai/connect": "2026.1107.2",
+    "@envarai/connect": "2026.1108.1",
     "@modelcontextprotocol/sdk": "1.31.0",
     "ajv": "8.20.0",
     "ajv-formats": "3.0.1",
