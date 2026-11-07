@@ -4,6 +4,11 @@ Useful contributions include clearer Hermes/OpenClaw setup, A2A interoperability
 
 ## Local development
 
+Start with the [free local A2A example](docs/local-free-service.md). It exercises
+real HTTP, SQLite orders and completed-result replay across a process restart
+without an Envar account, a model key or payments. For a first contribution,
+choose a bounded task from [contribution tasks](docs/contribution-tasks.md).
+
 ```sh
 cd packages/typescript
 npm ci --ignore-scripts
@@ -11,6 +16,11 @@ npm test
 ```
 
 Tests use local ledgers and simulated Envar claims. They do not prove a real top-up, seller settlement, or Agent model execution. Keep those evidence levels separate. Never commit an Agent token, model key, `.env`, state database, claim token, or customer input.
+
+The normal suite also packs and installs the local example offline, so it checks
+the public package path as well as a source checkout. Native connectivity
+adapters belong to [EnvarConnect](https://github.com/EnvarAI/EnvarConnect);
+contributions here cover the seller service, contracts and paid execution gate.
 
 ## Stable releases
 
