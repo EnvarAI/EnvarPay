@@ -59,3 +59,17 @@ Code, test and example paths below are relative to `packages/typescript/`; `docs
 Give the observed behavior, minimal reproduction, affected versions, changed files and exact checks. Link the existing issue if there is one. Separate local protocol/fixture evidence, real runtime execution and any money evidence. If a change requires private platform integration, say which public contract it affects so a maintainer can run that acceptance.
 
 Use the [security policy](../SECURITY.md) for private vulnerability reporting. Do not attach private credentials, claims, ledgers or customer inputs to public reports.
+
+## Maintenance expectations
+
+For a reproducible report or a scoped contribution, maintainers aim to give an
+initial response within two business days and a review or explicit next step
+within five business days. This is a best-effort target, not a support SLA; an
+owner should post a status update when a response takes longer.
+
+Triage reports as reproducible bug, documentation, compatible enhancement,
+needs reproduction, or outside current scope. Record the reproduction, owner
+and next step in the existing issue rather than creating duplicate work.
+Changes to payment behavior, pricing, service modes or private platform
+integration need the corresponding owner review before implementation. An open
+contribution brief is not approval to add a new payment rail.
