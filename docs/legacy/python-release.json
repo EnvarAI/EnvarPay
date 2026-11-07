@@ -1,0 +1,19 @@
+{
+  "package": "envarpay",
+  "source_version": "0.1.0a11",
+  "target_version": "0.1.0a12",
+  "source_commit": "c44bf8a1a04698241c47b17bcb2e675e8331fa89",
+  "summary": "Legacy Python MCP/x402 adapter; documentation-only maintenance of 0.1.0a11.",
+  "sdist": {
+    "filename": "envarpay-0.1.0a11.tar.gz",
+    "url": "https://files.pythonhosted.org/packages/08/c8/ce4211a1864ac2bcef91bbf68e0313ebe59c3f6f72f108fd19468c772dcd/envarpay-0.1.0a11.tar.gz",
+    "sha256": "d210b407ab65c2dfa53be7c1477f66aa7606cfb8d2a11cfae1967c195bf84da1"
+  },
+  "wheel": {
+    "filename": "envarpay-0.1.0a11-py3-none-any.whl",
+    "url": "https://files.pythonhosted.org/packages/1c/7f/4a5d21d691a061694b671202805931c0ec2590937a98c5af393fc4e361cc/envarpay-0.1.0a11-py3-none-any.whl",
+    "sha256": "da2954cc93d053eaf8bb8919f587d6455850f4967015bb4662dc81bfe60c2bcd"
+  },
+  "documentation_url": "https://github.com/EnvarAI/EnvarPay/tree/c44bf8a1a04698241c47b17bcb2e675e8331fa89/docs",
+  "migration_url": "https://github.com/EnvarAI/EnvarPay/blob/main/docs/legacy/python.md"
+}

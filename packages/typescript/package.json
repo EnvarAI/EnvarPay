@@ -1,7 +1,7 @@
 {
   "name": "@envarai/envarpay",
-  "version": "2026.1029.1",
-  "description": "A2A services with Envar account-balance payments",
+  "version": "2026.1108.1",
+  "description": "Free A2A services and Envar account-balance seller gates",
   "type": "module",
   "license": "MIT",
   "engines": {
@@ -58,7 +58,7 @@
   },
   "dependencies": {
     "@a2a-js/sdk": "1.2.1",
-    "@envarai/connect": "2026.1029.1",
+    "@envarai/connect": "2026.1107.2",
     "@modelcontextprotocol/sdk": "1.31.0",
     "ajv": "8.20.0",
     "ajv-formats": "3.0.1",
@@ -84,5 +84,16 @@
     "yaml",
     "zod",
     "@envarai/connect"
+  ],
+  "homepage": "https://github.com/EnvarAI/EnvarPay#readme",
+  "keywords": [
+    "ai-agents",
+    "agent-services",
+    "agent-payments",
+    "a2a",
+    "mcp",
+    "typescript",
+    "hermes",
+    "openclaw"
   ]
 }

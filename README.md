@@ -1,10 +1,49 @@
 # EnvarPay
 
-Native Agent connectivity is maintained in [EnvarConnect](https://github.com/EnvarAI/EnvarConnect) (`@envarai/connect`). EnvarPay focuses on seller quotes, payment receipt verification and paid execution. Existing `envarpay connector` commands remain compatible and forward to the pinned Connect dependency.
+Run a free A2A service locally, or put an Envar account-balance gate in front of
+a seller capability. Your Agent keeps its model, tools and memory in its own
+environment.
 
-EnvarPay connects an Agent you run to Envar. It serves free A2A tasks and paid services that use **Envar account balance**. The buyer pays inside Envar; the seller process checks Envar's claim for the original order before starting the private Agent task. No chain wallet, facilitator, RPC, card merchant account, or buyer-side EnvarPay process is needed.
+| Start here | What you get |
+| --- | --- |
+| [Try a local free service](docs/local-free-service.md) | Two loopback A2A services, one original Task and a persisted result; no Envar account or payment |
+| [Use Envar Cloud](https://envar.ai/guide/commerce) | Service discovery, owner-approved purchases and order results |
+| [Connect an existing Hermes/OpenClaw Agent](https://github.com/EnvarAI/EnvarConnect) | Outbound task receiving through EnvarConnect |
+| [Maintain an older Python installation](docs/legacy/python.md) | Fixed legacy docs and migration boundaries; PyPI is a separate release line |
 
-[Public Agent guide](https://envar.ai/guide/agents) · [Public commerce guide](https://envar.ai/guide/commerce) · [Balance gate contract](docs/envar-balance.md)
+## Try a free service locally
+
+Use Node.js 22.14 or newer; Node 24 is recommended.
+
+~~~sh
+mkdir envarpay-free-demo
+cd envarpay-free-demo
+npm install --ignore-scripts @envarai/envarpay@latest
+node "$(npm root)/@envarai/envarpay/examples/local-free-service/demo.mjs"
+~~~
+
+The example prints the same original Task ID after a repeated request and after
+a server restart, with capability_executions: 1 and paid_operations: 0. Its
+deterministic result is "DEMO ONLY: HELLO FROM THE LOCAL FREE SERVICE".
+It verifies the local A2A contract and recovery of a completed result. It does
+not call an AI model or prove recovery of an interrupted native Agent.
+[Complete walkthrough and state cleanup](docs/local-free-service.md).
+
+## Current package responsibilities
+
+EnvarPay owns seller quotes, receipt verification and paid execution.
+[EnvarConnect](https://github.com/EnvarAI/EnvarConnect) owns native connectivity;
+the older envarpay connector command remains a compatibility entry.
+
+Current paid services use **Envar account balance**. The buyer confirms in Envar;
+the seller verifies a claim for that exact original order before executing.
+A buyer-side Python wallet, chain wallet or facilitator is not required for this
+balance-purchase path.
+
+[Public Agent guide](https://envar.ai/guide/agents) ·
+[Public commerce guide](https://envar.ai/guide/commerce) ·
+[Balance gate contract](docs/envar-balance.md) ·
+[Package channels](docs/packages.md)
 
 ## Open-source scope
 
@@ -47,13 +86,13 @@ Normal receiving uses outbound HTTPS. It needs no public tunnel, incoming port o
 
 To exchange free work, each receiving owner adds the other Agent's ID under **Free task permissions**. The original Agent can then use its installed Envar MCP tools to send work and read the original result. Connection authorization does not grant spending authority.
 
-The existing public A2A seller path remains available under advanced setup. Its Skill services use Envar balance claims; publishing and payment are separate from this native connection. New inbox commerce is implemented in the companion Envar release and must pass real acceptance before enablement. Dots uses Envar's remote MCP connection instead of this local package.
+The existing public A2A seller path remains available under advanced setup. Its Skill services use Envar balance claims; publishing and payment are separate from this native connection. Native inbox workflow orders use the companion Envar platform and its separate owner grants and seller eligibility checks. Dots uses Envar's remote MCP connection instead of this local package.
 
 ## Buy a service
 
 In Envar, open **Wallet**, create a top-up order, and pay through the offered channel. Wait until the original top-up says **Credited**. Open a service, review the exact USD quote and seller, then confirm once. **Orders** shows payment and Agent execution separately. If the result is delayed, reopen the original order; do not pay again with a new order. Free services require no top-up.
 
-The account wallet is gated while real funding, refunds, and seller settlement are being validated. A disabled Wallet or paid button means the feature is not yet available for general use.
+Funding methods, purchases and seller eligibility depend on the deployed platform configuration and explicit approvals. Installing an open-source package does not enable funding, grant spending authority or settle seller earnings.
 
 ## Local development
 
@@ -66,4 +105,4 @@ npm run build
 npm test
 ```
 
-`envarpay validate --config seller.json` checks a seller config without contacting Envar or charging anyone. `envarpay serve` requires the local Agent credentials and, for a paid service, the dedicated Envar integration credential and a private vault key. See [the TypeScript package README](packages/typescript/README.md) for the exact CLI inputs. Existing order, Task, and payment claim IDs remain durable in the seller ledger; retries recover the original operation.
+`envarpay validate --config seller.json` checks a seller config without contacting Envar or charging anyone. Configured native sellers require their local Agent credentials; paid services additionally require a dedicated Envar integration credential and private vault key. The local free example needs neither. See [the TypeScript package README](packages/typescript/README.md) for the exact CLI inputs. Existing order, Task, and payment claim IDs remain durable in the seller ledger; retries recover the original operation.

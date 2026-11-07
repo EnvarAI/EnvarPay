@@ -1,0 +1,98 @@
+name: Legacy Python metadata maintenance
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/publish-python.yml
+      - docs/legacy/**
+      - scripts/legacy_python/**
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish verified legacy metadata-maintenance artifacts to PyPI
+        type: boolean
+        default: false
+      expected_revision:
+        description: Reviewed main commit SHA (required when publish is true)
+        type: string
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: legacy-python-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Require the reviewed main revision for publication
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish }}
+        env:
+          EXPECTED_REVISION: ${{ inputs.expected_revision }}
+        run: |
+          test "$GITHUB_REPOSITORY" = "EnvarAI/EnvarPay"
+          test "$GITHUB_REF" = "refs/heads/main"
+          test -n "$EXPECTED_REVISION"
+          test "$EXPECTED_REVISION" = "$GITHUB_SHA"
+      - name: Install only packaging tools
+        run: python -m pip install --index-url https://pypi.org/simple -r scripts/legacy_python/requirements-build.txt
+      - name: Verify the maintenance safety checks
+        run: python -m unittest discover -s scripts/legacy_python/tests
+      - name: Build and compare with immutable original artifacts
+        run: python scripts/legacy_python/release.py --output-dir "$RUNNER_TEMP/legacy-python"
+      - name: Inspect the built distribution in an isolated environment
+        run: |
+          python -m venv "$RUNNER_TEMP/legacy-python-smoke"
+          "$RUNNER_TEMP/legacy-python-smoke/bin/python" -m pip install --index-url https://pypi.org/simple "$RUNNER_TEMP"/legacy-python/dist/*.whl
+          "$RUNNER_TEMP/legacy-python-smoke/bin/python" -m pip check
+          "$RUNNER_TEMP/legacy-python-smoke/bin/envarpay" --version
+          "$RUNNER_TEMP/legacy-python-smoke/bin/python" - <<'PY'
+          import importlib.metadata
+          import json
+          import pathlib
+          import subprocess
+          import sys
+          import envarpay
+          expected = json.loads(pathlib.Path("docs/legacy/python-release.json").read_text())["target_version"]
+          assert importlib.metadata.version("envarpay") == expected
+          assert envarpay.__version__ == expected
+          assert subprocess.check_output([sys.executable, "-m", "envarpay", "--version"], text=True).strip() == expected
+          PY
+      - name: Record verified artifact hashes
+        run: cat "$RUNNER_TEMP/legacy-python/verification.json" >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: legacy-python-distribution
+          path: ${{ runner.temp }}/legacy-python/
+          if-no-files-found: error
+
+  publish:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish && github.ref == 'refs/heads/main' && github.repository == 'EnvarAI/EnvarPay' }}
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/envarpay/
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: legacy-python-distribution
+          path: artifact/
+      - uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086 # release/v1
+        with:
+          packages-dir: artifact/dist/
+
+# Keep this filename and the pypi environment: the original project publisher
+# used that exact OIDC identity. PRs and ordinary merges never publish Python.

@@ -7,7 +7,8 @@ body:
   - type: input
     id: version
     attributes:
-      label: EnvarPay version and Python version
+      label: EnvarPay version, Node.js version and operating system
+      description: Include the package version and whether you used npm, source or a container. For native integration, include the Agent runtime version.
     validations:
       required: true
   - type: textarea

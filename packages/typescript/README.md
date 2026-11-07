@@ -1,6 +1,35 @@
-# `@envarai/envarpay`
+# @envarai/envarpay
 
-This package runs an A2A seller gate for free services and Envar account-balance purchases. Buyers use their Envar Wallet; this package does not sign buyer payments.
+The current TypeScript package serves free A2A capabilities and verifies Envar
+account-balance claims for paid services. It does not sign buyer payments.
+The Python distribution named envarpay is
+[a separate legacy MCP/x402 implementation](https://github.com/EnvarAI/EnvarPay/blob/main/docs/legacy/python.md).
+
+## Try a local free service
+
+From a directory where this package is installed:
+
+~~~sh
+node "$(npm root)/@envarai/envarpay/examples/local-free-service/demo.mjs"
+~~~
+
+From this source directory:
+
+~~~sh
+npm ci --ignore-scripts
+npm run build
+node examples/local-free-service/demo.mjs
+~~~
+
+The demo needs no Envar account, integration credential or payment. It creates
+two loopback A2A services and private SQLite state, then verifies one original
+Task/result across replay and restart. Expect capability_executions: 1,
+paid_operations: 0 and matching task_id, replay_task_id, restarted_get_task_id
+and restarted_replay_task_id. This is a deterministic contract example, not AI
+inference or in-flight native execution recovery.
+
+[Full local guide](https://github.com/EnvarAI/EnvarPay/blob/main/docs/local-free-service.md) ·
+[Cloud commerce guide](https://envar.ai/guide/commerce)
 
 ## Native Agent connection
 
