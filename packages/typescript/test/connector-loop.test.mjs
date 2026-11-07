@@ -23,6 +23,7 @@ function fixture(t) {
   const faults = { startResponseLost: false, reportResponseLost: false, nativeResponseLost: false, ackLost: false, cancelBeforeStart: false };
   const reports = new Map(); const state = { native: 'working', deliveries: [delivery] };
   const client = {
+    reportRuntime: async () => 'accepted',
     status: async () => ({ id: binding.connectionId, agent_id: binding.agentId, mode: 'inbox', status: 'active' }),
     inbox: async () => ({ items: state.deliveries.filter(d => !calls.ack.includes(d.id)), next_cursor: null }),
     get: async () => structuredClone(work),
