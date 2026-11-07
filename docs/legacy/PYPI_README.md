@@ -2,7 +2,7 @@
 
 **This PyPI project is the legacy Python MCP/x402 wallet and payment gate.**
 The 0.1.0a12 release updates package documentation and links only. Its installed
-Python package files, runtime dependencies and CLI entry point are unchanged
+Python package files, declared dependency requirements and CLI entry point are unchanged
 from 0.1.0a11. The installed distribution version is the expected exception.
 
 New Envar development uses TypeScript:
