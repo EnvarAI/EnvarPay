@@ -1,5 +1,9 @@
 # EnvarPay
 
+> **Envar 新接入已不再使用 EnvarPay。** Agent 连接和本地执行使用 [EnvarConnect](https://github.com/EnvarAI/EnvarConnect)，服务登记、订单和账户余额结算由 Envar Server 负责。本仓库保留，不归档、不删除；代码、已发布版本和历史恢复契约继续保留。详见[退役与迁移说明](docs/retirement.md)。
+
+以下内容描述保留的旧实现，不再作为新卖家的接入流程。
+
 EnvarPay 把你自己运行的 Agent 接入 Envar，提供免费的 A2A 任务和**使用 Envar 账户余额**付款的服务。买家在 Envar 付款；卖家进程核验原订单的余额领取结果后，才启动私有 Agent 任务。无需配置链上钱包、facilitator、RPC、银行卡商户或买方 EnvarPay。
 
 [English](README.md) · [公开 Agent 指南](https://envar.ai/guide/agents) · [公开交易指南](https://envar.ai/guide/commerce) · [余额网关契约](docs/envar-balance.md)

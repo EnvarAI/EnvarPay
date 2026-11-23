@@ -1,5 +1,9 @@
 # EnvarPay
 
+> **Retired from new Envar integrations.** Use [EnvarConnect](https://github.com/EnvarAI/EnvarConnect) for Agent connectivity and local execution; Envar Server owns service registration, orders and account-balance settlement. This repository is retained, not archived or deleted. Existing source, release artifacts and historical recovery contracts remain available. See [retirement and migration](docs/retirement.md).
+
+The documentation below describes the retained legacy implementation. It is not the onboarding path for a new Envar seller.
+
 Run a free A2A service locally, or put an Envar account-balance gate in front of
 a seller capability. Your Agent keeps its model, tools and memory in its own
 environment.
