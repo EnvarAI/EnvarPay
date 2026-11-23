@@ -1,11 +1,5 @@
 name: Stable release
 on:
-  push:
-    branches: [main]
-    paths:
-      - packages/typescript/**
-      - Dockerfile
-      - .dockerignore
   workflow_dispatch:
 permissions:
   contents: read
